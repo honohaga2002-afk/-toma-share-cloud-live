@@ -71,7 +71,7 @@ function driveR(){
   $('refreshD').onclick=async()=>{await load();go('drive')};
   $('newF').onclick=async()=>{const n=prompt('フォルダ名');if(n){await api('POST',{action:'folder',name:n,by:N});await load();go('drive')}};
   $('up').onclick=()=>pickFile();
-  $('openSheet').onclick=()=>window.open(SHEET_URL,'_blank');
+  $('openSheet').onclick=()=>location.href=SHEET_URL;
   document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openFile(files.find(x=>x.id===b.dataset.open)));
   document.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>pickFile(b.dataset.ver));
   document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{if(confirm('削除しますか？')){await api('POST',{action:'item_delete',id:b.dataset.del,by:N});await load();go('drive')}});
