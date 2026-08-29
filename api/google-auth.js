@@ -5,7 +5,7 @@ module.exports = async (req, res) => {
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      'https://toma-share-cloud-live.vercel.app/api/google/callback'
+      'https://toma-share-cloud-live.vercel.app/api/google-callback'
     );
 
     const url = oauth2Client.generateAuthUrl({
