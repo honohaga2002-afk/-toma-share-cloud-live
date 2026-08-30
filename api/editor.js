@@ -2,132 +2,108 @@
 'use strict';
 
 /* =========================================================
-   TOMA SHARE Spreadsheet Editor
-   Excel / XLS / CSV
+   TOMA SHARE
+   Excel / CSV Editor
 ========================================================= */
 
-const FIXED_CODE = 'TOMA-2026';
-
-const XLSX_URL =
+const XLSX_URL=
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 
-let xlsxPromise = null;
-let current = null;
-let filesById = new Map();
-let scanTimer = null;
+let xlsxPromise=null;
+
+let current=null;
 
 
-/* =========================================================
+/* ==============================
    基本情報
-========================================================= */
+============================== */
 
 function getCode(){
 
-  try{
-    localStorage.setItem(
-      'tomaCode',
-      FIXED_CODE
-    );
-  }catch(e){}
-
-  return FIXED_CODE;
+  return 'TOMA-2026';
 }
 
 
 function getName(){
 
-  let name = '';
-
   try{
-    name =
+
+    return String(
       localStorage.getItem(
         'tomaName'
-      ) || '';
-  }catch(e){}
+      )||
+      'メンバー'
+    ).trim()||
+    'メンバー';
 
-  if(!name){
+  }catch(e){
 
-    name =
-      document.getElementById(
-        'memberName'
-      )?.value || '';
+    return 'メンバー';
   }
-
-  return String(
-    name || 'メンバー'
-  ).trim() || 'メンバー';
 }
 
 
-/* =========================================================
+/* ==============================
    API
-========================================================= */
+============================== */
 
 async function api(
   method='GET',
   body=null
 ){
 
-  const headers = {
+  const headers={
     'Content-Type':
       'application/json',
 
     'x-workspace-code':
-      getCode()
+      getCode(),
+
+    'x-member-name':
+      encodeURIComponent(
+        getName()
+      )
   };
 
-  const name =
-    getName();
-
-  if(name){
-
-    headers[
-      'x-member-name'
-    ] =
-      encodeURIComponent(
-        name
-      );
-  }
-
-  const options = {
+  const options={
     method,
     headers,
     cache:'no-store',
     credentials:'same-origin'
   };
 
-  if(body !== null){
+  if(body){
 
-    options.body =
+    options.body=
       JSON.stringify(
         body
       );
   }
 
-  const response =
+  const response=
     await fetch(
       '/api/data',
       options
     );
 
-  const text =
+  const text=
     await response.text();
 
-  let json = {};
+  let json={};
 
   try{
 
-    json =
+    json=
       text
-        ? JSON.parse(text)
-        : {};
+        ?JSON.parse(text)
+        :{};
 
   }catch(e){}
 
   if(!response.ok){
 
     throw new Error(
-      json.error ||
+      json.error||
       `通信エラー (${response.status})`
     );
   }
@@ -136,125 +112,41 @@ async function api(
 }
 
 
-/* =========================================================
-   ファイル判定
-========================================================= */
-
-function isSpreadsheet(
-  file
-){
-
-  if(!file){
-    return false;
-  }
-
-  const name =
-    String(
-      file.name || ''
-    )
-    .trim()
-    .toLowerCase();
-
-  return (
-    name.endsWith('.xlsx') ||
-    name.endsWith('.xls') ||
-    name.endsWith('.csv')
-  );
-}
-
-
-/* =========================================================
-   ファイル一覧取得
-========================================================= */
-
-async function refreshFileMap(){
-
-  try{
-
-    const data =
-      await api(
-        'GET'
-      );
-
-    const items =
-      Array.isArray(
-        data.items
-      )
-        ? data.items
-        : [];
-
-    const next =
-      new Map();
-
-    items.forEach(
-      item=>{
-
-        if(
-          item &&
-          item.id !== undefined &&
-          item.id !== null
-        ){
-
-          next.set(
-            String(
-              item.id
-            ),
-            item
-          );
-        }
-      }
-    );
-
-    filesById =
-      next;
-
-    return true;
-
-  }catch(error){
-
-    console.error(
-      'TOMA editor file list error:',
-      error
-    );
-
-    return false;
-  }
-}
-
-
-/* =========================================================
+/* ==============================
    SheetJS
-========================================================= */
+============================== */
 
 async function loadXLSX(){
 
   if(window.XLSX){
+
     return window.XLSX;
   }
 
   if(xlsxPromise){
+
     return xlsxPromise;
   }
 
-  xlsxPromise =
+  xlsxPromise=
     new Promise(
       (
         resolve,
         reject
       )=>{
 
-        const script =
+        const script=
           document.createElement(
             'script'
           );
 
-        script.src =
+        script.src=
           XLSX_URL;
 
-        script.async =
+        script.async=
           true;
 
-        script.onload =
+        script.onload=
           ()=>{
 
             if(window.XLSX){
@@ -273,7 +165,7 @@ async function loadXLSX(){
             }
           };
 
-        script.onerror =
+        script.onerror=
           ()=>{
 
             reject(
@@ -294,35 +186,30 @@ async function loadXLSX(){
 }
 
 
-/* =========================================================
+/* ==============================
    CSS
-========================================================= */
+============================== */
 
-function ensureStyles(){
+function ensureStyle(){
 
   if(
     document.getElementById(
-      'toma-editor-style'
+      'tomaEditorStyle'
     )
   ){
+
     return;
   }
 
-  const style =
+  const style=
     document.createElement(
       'style'
     );
 
-  style.id =
-    'toma-editor-style';
+  style.id=
+    'tomaEditorStyle';
 
-  style.textContent = `
-
-.tomaEditBtn{
-  background:#16864f !important;
-  color:#fff !important;
-  border:none !important;
-}
+  style.textContent=`
 
 #tomaEditor{
   position:fixed;
@@ -331,27 +218,27 @@ function ensureStyles(){
   background:#f5f7fa;
   display:flex;
   flex-direction:column;
+  color:#111;
   font-family:
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color:#111;
 }
 
-#tomaEditor .editorTop{
+#tomaEditor .topbar{
   display:flex;
   align-items:center;
   gap:8px;
   padding:
-    max(10px, env(safe-area-inset-top))
+    max(10px,env(safe-area-inset-top))
     10px
     10px;
   background:#fff;
-  border-bottom:1px solid #d9dfe5;
+  border-bottom:1px solid #ddd;
 }
 
-#tomaEditor .editorTitle{
+#tomaEditor .title{
   flex:1;
   min-width:0;
   font-size:14px;
@@ -369,37 +256,37 @@ function ensureStyles(){
   font-weight:700;
 }
 
-#tomaEditor .backBtn{
+#tomaEditor .back{
   background:#e9eef3;
   color:#111;
 }
 
-#tomaEditor .saveBtn{
+#tomaEditor .save{
   background:#0879d1;
   color:#fff;
 }
 
-#tomaEditor .sheetTabs{
+#tomaEditor .tabs{
   display:flex;
   gap:6px;
   padding:8px;
+  overflow-x:auto;
   background:#fff;
   border-bottom:1px solid #ddd;
-  overflow-x:auto;
 }
 
-#tomaEditor .sheetTab{
+#tomaEditor .tabs button{
+  white-space:nowrap;
   background:#edf2f7;
   color:#222;
-  white-space:nowrap;
 }
 
-#tomaEditor .sheetTab.active{
+#tomaEditor .tabs button.on{
   background:#0879d1;
   color:#fff;
 }
 
-#tomaEditor .gridWrap{
+#tomaEditor .grid{
   flex:1;
   overflow:auto;
   background:#fff;
@@ -413,70 +300,65 @@ function ensureStyles(){
 }
 
 #tomaEditor th{
-  background:#f0f3f6;
   border:1px solid #ccd3da;
-  height:30px;
-  min-width:90px;
-  font-size:12px;
+  background:#f0f3f6;
+  min-width:100px;
+  height:32px;
   text-align:center;
-}
-
-#tomaEditor .colHead{
+  font-size:12px;
   position:sticky;
   top:0;
-  z-index:5;
+  z-index:3;
 }
 
-#tomaEditor .rowHead{
-  position:sticky;
+#tomaEditor th.rowHead{
+  width:44px;
+  min-width:44px;
   left:0;
   z-index:4;
-  width:42px;
-  min-width:42px;
 }
 
-#tomaEditor .corner{
-  position:sticky;
-  left:0;
-  top:0;
-  z-index:6;
-  width:42px;
-  min-width:42px;
+#tomaEditor tbody th.rowHead{
+  top:auto;
 }
 
 #tomaEditor td{
+  border:1px solid #d6dce2;
   width:100px;
   min-width:100px;
   height:36px;
   padding:0;
-  border:1px solid #d6dce2;
 }
 
-#tomaEditor .cellInput{
+#tomaEditor input{
   box-sizing:border-box;
   width:100%;
   height:36px;
-  padding:5px 7px;
   border:0;
   border-radius:0;
   outline:none;
+  padding:5px 7px;
   background:#fff;
   color:#111;
   font-size:16px;
 }
 
-#tomaEditor .cellInput:focus{
+#tomaEditor input:focus{
   box-shadow:
-    inset 0 0 0 2px #0879d1;
+    inset 0 0 0 2px
+    #0879d1;
 }
 
-#tomaEditor .editorStatus{
+#tomaEditor .status{
   padding:
     8px
     10px
-    max(8px, env(safe-area-inset-bottom));
-  background:#fff;
+    max(
+      8px,
+      env(safe-area-inset-bottom)
+    );
   border-top:1px solid #ddd;
+  background:#fff;
   color:#555;
   font-size:12px;
 }
@@ -490,36 +372,29 @@ function ensureStyles(){
 }
 
 
-/* =========================================================
-   列番号 → A B C
-========================================================= */
+/* ==============================
+   セル関連
+============================== */
 
-function columnName(
-  index
-){
+function colName(index){
 
-  let result = '';
-  let number =
-    index + 1;
+  let result='';
+  let num=index+1;
 
-  while(number > 0){
+  while(num>0){
 
-    const remainder =
-      (
-        number - 1
-      ) % 26;
+    const r=
+      (num-1)%26;
 
-    result =
+    result=
       String.fromCharCode(
-        65 + remainder
-      ) +
+        65+r
+      )+
       result;
 
-    number =
+    num=
       Math.floor(
-        (
-          number - 1
-        ) / 26
+        (num-1)/26
       );
   }
 
@@ -527,26 +402,23 @@ function columnName(
 }
 
 
-/* =========================================================
-   セル表示
-========================================================= */
-
-function cellValue(
-  cell
-){
+function getCellText(cell){
 
   if(!cell){
+
     return '';
   }
 
   if(cell.f){
-    return '=' + cell.f;
+
+    return '='+cell.f;
   }
 
   if(
-    cell.v === null ||
-    cell.v === undefined
+    cell.v===null||
+    cell.v===undefined
   ){
+
     return '';
   }
 
@@ -556,25 +428,21 @@ function cellValue(
 }
 
 
-/* =========================================================
-   セル保存
-========================================================= */
-
-function writeCell(
+function setCell(
   sheet,
   address,
   value
 ){
 
-  const XLSX =
+  const XLSX=
     window.XLSX;
 
-  const text =
+  const text=
     String(
-      value ?? ''
+      value??''
     );
 
-  if(text === ''){
+  if(text===''){
 
     delete sheet[
       address
@@ -584,9 +452,9 @@ function writeCell(
     text.startsWith('=')
   ){
 
-    sheet[address] = {
+    sheet[address]={
       t:'n',
-      f:text.substring(1)
+      f:text.slice(1)
     };
 
   }else if(
@@ -596,7 +464,7 @@ function writeCell(
       )
   ){
 
-    sheet[address] = {
+    sheet[address]={
       t:'n',
       v:Number(
         text.trim()
@@ -605,13 +473,13 @@ function writeCell(
 
   }else{
 
-    sheet[address] = {
+    sheet[address]={
       t:'s',
       v:text
     };
   }
 
-  const decoded =
+  const point=
     XLSX.utils
       .decode_cell(
         address
@@ -619,9 +487,11 @@ function writeCell(
 
   let range;
 
-  if(sheet['!ref']){
+  if(
+    sheet['!ref']
+  ){
 
-    range =
+    range=
       XLSX.utils
         .decode_range(
           sheet['!ref']
@@ -629,7 +499,7 @@ function writeCell(
 
   }else{
 
-    range = {
+    range={
       s:{
         r:0,
         c:0
@@ -641,19 +511,19 @@ function writeCell(
     };
   }
 
-  range.e.r =
+  range.e.r=
     Math.max(
       range.e.r,
-      decoded.r
+      point.r
     );
 
-  range.e.c =
+  range.e.c=
     Math.max(
       range.e.c,
-      decoded.c
+      point.c
     );
 
-  sheet['!ref'] =
+  sheet['!ref']=
     XLSX.utils
       .encode_range(
         range
@@ -661,67 +531,54 @@ function writeCell(
 }
 
 
-/* =========================================================
+/* ==============================
    状態
-========================================================= */
+============================== */
 
 function setStatus(
   text=''
 ){
 
-  const el =
+  const el=
     document.querySelector(
-      '#tomaEditor .editorStatus'
+      '#tomaEditor .status'
     );
 
-  if(!el){
-    return;
-  }
+  if(!el)return;
 
   if(text){
 
-    el.textContent =
+    el.textContent=
       text;
 
     return;
   }
 
-  el.textContent =
+  el.textContent=
     current?.dirty
-      ? '未保存の変更があります'
-      : '保存済み';
+      ?'未保存の変更があります'
+      :'保存済み';
 }
 
 
-/* =========================================================
-   シート表示
-========================================================= */
+/* ==============================
+   表
+============================== */
 
 function renderGrid(){
 
-  if(!current){
-    return;
-  }
+  if(!current)return;
 
-  const XLSX =
+  const XLSX=
     window.XLSX;
 
-  const wrap =
-    document.querySelector(
-      '#tomaEditor .gridWrap'
-    );
-
-  if(!wrap){
-    return;
-  }
-
-  const sheet =
+  const sheet=
     current.workbook
       .Sheets[
         current.sheetName
       ];
 
-  let range = {
+  let range={
     s:{
       r:0,
       c:0
@@ -732,57 +589,66 @@ function renderGrid(){
     }
   };
 
-  if(sheet['!ref']){
+  if(
+    sheet['!ref']
+  ){
 
-    range =
+    range=
       XLSX.utils
         .decode_range(
           sheet['!ref']
         );
   }
 
-  const rows =
+  const rows=
     Math.min(
       Math.max(
-        range.e.r + 1,
+        range.e.r+1,
         30
       ),
       200
     );
 
-  const cols =
+  const cols=
     Math.min(
       Math.max(
-        range.e.c + 1,
+        range.e.c+1,
         10
       ),
       50
     );
 
-  const table =
+  const wrap=
+    document.querySelector(
+      '#tomaEditor .grid'
+    );
+
+  wrap.innerHTML='';
+
+  const table=
     document.createElement(
       'table'
     );
 
-  const thead =
+  const thead=
     document.createElement(
       'thead'
     );
 
-  const trHead =
+  const head=
     document.createElement(
       'tr'
     );
 
-  const corner =
+  const corner=
     document.createElement(
       'th'
     );
 
-  corner.className =
-    'corner';
+  corner.className=
+    'rowHead';
 
-  trHead.appendChild(
+  head.appendChild(
     corner
   );
 
@@ -792,33 +658,28 @@ function renderGrid(){
     c++
   ){
 
-    const th =
+    const th=
       document.createElement(
         'th'
       );
 
-    th.className =
-      'colHead';
+    th.textContent=
+      colName(c);
 
-    th.textContent =
-      columnName(
-        c
-      );
-
-    trHead.appendChild(
+    head.appendChild(
       th
     );
   }
 
   thead.appendChild(
-    trHead
+    head
   );
 
   table.appendChild(
     thead
   );
 
-  const tbody =
+  const tbody=
     document.createElement(
       'tbody'
     );
@@ -829,23 +690,21 @@ function renderGrid(){
     r++
   ){
 
-    const tr =
+    const tr=
       document.createElement(
         'tr'
       );
 
-    const rowHead =
+    const rowHead=
       document.createElement(
         'th'
       );
 
-    rowHead.className =
+    rowHead.className=
       'rowHead';
 
-    rowHead.textContent =
-      String(
-        r + 1
-      );
+    rowHead.textContent=
+      String(r+1);
 
     tr.appendChild(
       rowHead
@@ -857,58 +716,51 @@ function renderGrid(){
       c++
     ){
 
-      const td =
+      const td=
         document.createElement(
           'td'
         );
 
-      const input =
+      const input=
         document.createElement(
           'input'
         );
 
-      input.type =
-        'text';
-
-      input.className =
-        'cellInput';
-
-      input.autocomplete =
-        'off';
-
-      input.spellcheck =
-        false;
-
-      const address =
+      const address=
         XLSX.utils
           .encode_cell({
             r,
             c
           });
 
-      input.value =
-        cellValue(
-          sheet[
-            address
-          ]
+      input.type=
+        'text';
+
+      input.autocomplete=
+        'off';
+
+      input.spellcheck=
+        false;
+
+      input.value=
+        getCellText(
+          sheet[address]
         );
 
-      input.addEventListener(
-        'input',
+      input.oninput=
         ()=>{
 
-          writeCell(
+          setCell(
             sheet,
             address,
             input.value
           );
 
-          current.dirty =
+          current.dirty=
             true;
 
           setStatus();
-        }
-      );
+        };
 
       td.appendChild(
         input
@@ -928,92 +780,62 @@ function renderGrid(){
     tbody
   );
 
-  wrap.innerHTML =
-    '';
-
   wrap.appendChild(
     table
   );
 
-  if(
-    range.e.r + 1 > 200 ||
-    range.e.c + 1 > 50
-  ){
-
-    setStatus(
-      '大きいシートのため最初の200行×50列を表示しています'
-    );
-
-  }else{
-
-    setStatus();
-  }
+  setStatus();
 }
 
 
-/* =========================================================
-   シートタブ
-========================================================= */
+/* ==============================
+   タブ
+============================== */
 
 function renderTabs(){
 
-  if(!current){
-    return;
-  }
-
-  const wrap =
+  const wrap=
     document.querySelector(
-      '#tomaEditor .sheetTabs'
+      '#tomaEditor .tabs'
     );
 
-  if(!wrap){
-    return;
-  }
-
-  wrap.innerHTML =
-    '';
+  wrap.innerHTML='';
 
   current.workbook
     .SheetNames
     .forEach(
-      sheetName=>{
+      name=>{
 
-        const button =
+        const button=
           document.createElement(
             'button'
           );
 
-        button.type =
+        button.type=
           'button';
 
-        button.className =
-          'sheetTab';
+        button.textContent=
+          name;
 
         if(
-          sheetName ===
+          name===
           current.sheetName
         ){
 
-          button.classList.add(
-            'active'
-          );
+          button.className=
+            'on';
         }
 
-        button.textContent =
-          sheetName;
-
-        button.addEventListener(
-          'click',
+        button.onclick=
           ()=>{
 
-            current.sheetName =
-              sheetName;
+            current.sheetName=
+              name;
 
             renderTabs();
 
             renderGrid();
-          }
-        );
+          };
 
         wrap.appendChild(
           button
@@ -1023,61 +845,31 @@ function renderTabs(){
 }
 
 
-/* =========================================================
-   閉じる
-========================================================= */
-
-function closeEditor(){
-
-  if(
-    current?.dirty
-  ){
-
-    const ok =
-      confirm(
-        '保存していない変更があります。\n閉じてもよろしいですか？'
-      );
-
-    if(!ok){
-      return;
-    }
-  }
-
-  document.getElementById(
-    'tomaEditor'
-  )?.remove();
-
-  current =
-    null;
-}
-
-
-/* =========================================================
+/* ==============================
    Base64
-========================================================= */
+============================== */
 
 function bytesToBase64(
   bytes
 ){
 
-  let binary =
-    '';
+  let binary='';
 
-  const chunk =
+  const step=
     0x8000;
 
   for(
     let i=0;
     i<bytes.length;
-    i+=chunk
+    i+=step
   ){
 
-    binary +=
+    binary+=
       String.fromCharCode(
         ...bytes.subarray(
           i,
           Math.min(
-            i + chunk,
+            i+step,
             bytes.length
           )
         )
@@ -1090,15 +882,13 @@ function bytesToBase64(
 }
 
 
-/* =========================================================
+/* ==============================
    保存
-========================================================= */
+============================== */
 
-async function saveEditor(){
+async function save(){
 
-  if(!current){
-    return;
-  }
+  if(!current)return;
 
   try{
 
@@ -1106,19 +896,16 @@ async function saveEditor(){
       '保存中…'
     );
 
-    const XLSX =
+    const XLSX=
       window.XLSX;
 
-    const filename =
-      String(
-        current.file.name ||
-        'file.xlsx'
-      );
+    const filename=
+      current.file.name;
 
-    const lower =
+    const lower=
       filename.toLowerCase();
 
-    let bytes;
+    let output;
     let mime;
 
     if(
@@ -1127,7 +914,7 @@ async function saveEditor(){
       )
     ){
 
-      const csv =
+      const csv=
         XLSX.utils
           .sheet_to_csv(
             current.workbook
@@ -1136,13 +923,13 @@ async function saveEditor(){
               ]
           );
 
-      bytes =
+      output=
         new TextEncoder()
           .encode(
             csv
           );
 
-      mime =
+      mime=
         'text/csv';
 
     }else if(
@@ -1151,7 +938,7 @@ async function saveEditor(){
       )
     ){
 
-      bytes =
+      output=
         new Uint8Array(
           XLSX.write(
             current.workbook,
@@ -1162,12 +949,12 @@ async function saveEditor(){
           )
         );
 
-      mime =
+      mime=
         'application/vnd.ms-excel';
 
     }else{
 
-      bytes =
+      output=
         new Uint8Array(
           XLSX.write(
             current.workbook,
@@ -1178,12 +965,12 @@ async function saveEditor(){
           )
         );
 
-      mime =
+      mime=
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     }
 
     if(
-      bytes.byteLength >
+      output.byteLength>
       2500000
     ){
 
@@ -1192,8 +979,10 @@ async function saveEditor(){
       );
     }
 
-    const dataUrl =
-      `data:${mime};base64,${bytesToBase64(bytes)}`;
+    const base64=
+      bytesToBase64(
+        output
+      );
 
     await api(
       'POST',
@@ -1205,27 +994,27 @@ async function saveEditor(){
           current.file.id,
 
         parent_id:
-          current.file.parent_id ||
+          current.file.parent_id||
           null,
 
         name:
-          filename,
+          current.file.name,
 
         mime_type:
           mime,
 
         size:
-          bytes.byteLength,
+          output.byteLength,
 
         data:
-          dataUrl,
+          `data:${mime};base64,${base64}`,
 
         by:
           getName()
       }
     );
 
-    current.dirty =
+    current.dirty=
       false;
 
     setStatus(
@@ -1250,67 +1039,81 @@ async function saveEditor(){
     );
 
     alert(
-      '保存できませんでした。\n\n' +
+      '保存できませんでした。\n\n'+
       error.message
     );
   }
 }
 
 
-/* =========================================================
-   編集画面を開く
-========================================================= */
+/* ==============================
+   閉じる
+============================== */
 
-async function openEditor(
-  id
+function close(){
+
+  if(
+    current?.dirty
+  ){
+
+    if(
+      !confirm(
+        '保存していない変更があります。\n閉じてもよろしいですか？'
+      )
+    ){
+
+      return;
+    }
+  }
+
+  document
+    .getElementById(
+      'tomaEditor'
+    )
+    ?.remove();
+
+  current=
+    null;
+}
+
+
+/* ==============================
+   ファイルを開く
+============================== */
+
+async function openFile(
+  file
 ){
 
   try{
 
-    setStatus(
-      ''
-    );
-
-    let file =
-      filesById.get(
-        String(
-          id
-        )
-      );
-
-    if(!file){
-
-      await refreshFileMap();
-
-      file =
-        filesById.get(
-          String(
-            id
-          )
-        );
-    }
-
     if(!file){
 
       throw new Error(
-        'ファイル情報を取得できませんでした'
+        'ファイル情報がありません'
       );
     }
 
+    const name=
+      String(
+        file.name||
+        ''
+      ).toLowerCase();
+
     if(
-      !isSpreadsheet(
-        file
-      )
+      !name.endsWith('.xlsx') &&
+      !name.endsWith('.xls') &&
+      !name.endsWith('.csv')
     ){
 
       throw new Error(
-        'このファイルは現在の編集機能の対象外です'
+        '現在はExcel・CSVファイルを編集できます'
       );
     }
 
     await loadXLSX();
 
-    const response =
+    const response=
       await fetch(
         `/api/data?file=${encodeURIComponent(file.id)}`,
         {
@@ -1335,12 +1138,12 @@ async function openEditor(
       );
     }
 
-    const arrayBuffer =
+    const buffer=
       await response.arrayBuffer();
 
-    const workbook =
+    const workbook=
       window.XLSX.read(
-        arrayBuffer,
+        buffer,
         {
           type:'array',
           cellDates:true
@@ -1348,18 +1151,17 @@ async function openEditor(
       );
 
     if(
-      !Array.isArray(
-        workbook.SheetNames
-      ) ||
-      workbook.SheetNames.length === 0
+      !workbook.SheetNames ||
+      workbook.SheetNames.length===
+      0
     ){
 
       throw new Error(
-        'シートが見つかりません'
+        'シートがありません'
       );
     }
 
-    current = {
+    current={
       file,
       workbook,
       sheetName:
@@ -1367,47 +1169,51 @@ async function openEditor(
       dirty:false
     };
 
-    document.getElementById(
-      'tomaEditor'
-    )?.remove();
+    ensureStyle();
 
-    const editor =
+    document
+      .getElementById(
+        'tomaEditor'
+      )
+      ?.remove();
+
+    const editor=
       document.createElement(
         'div'
       );
 
-    editor.id =
+    editor.id=
       'tomaEditor';
 
-    editor.innerHTML = `
+    editor.innerHTML=`
 
-      <div class="editorTop">
+      <div class="topbar">
 
         <button
+          class="back"
+          id="teBack"
           type="button"
-          class="backBtn"
-          id="tomaEditorBack"
         >
           ← 戻る
         </button>
 
-        <div class="editorTitle"></div>
+        <div class="title"></div>
 
         <button
+          class="save"
+          id="teSave"
           type="button"
-          class="saveBtn"
-          id="tomaEditorSave"
         >
           保存
         </button>
 
       </div>
 
-      <div class="sheetTabs"></div>
+      <div class="tabs"></div>
 
-      <div class="gridWrap"></div>
+      <div class="grid"></div>
 
-      <div class="editorStatus">
+      <div class="status">
         読み込み完了
       </div>
     `;
@@ -1418,24 +1224,26 @@ async function openEditor(
       );
 
     editor.querySelector(
-      '.editorTitle'
-    ).textContent =
-      '✏️ ' +
+      '.title'
+    ).textContent=
+      '✏️ '+
       file.name;
 
-    document.getElementById(
-      'tomaEditorBack'
-    ).addEventListener(
-      'click',
-      closeEditor
-    );
+    $('teBack');
 
-    document.getElementById(
-      'tomaEditorSave'
-    ).addEventListener(
-      'click',
-      saveEditor
-    );
+    document
+      .getElementById(
+        'teBack'
+      )
+      .onclick=
+        close;
+
+    document
+      .getElementById(
+        'teSave'
+      )
+      .onclick=
+        save;
 
     renderTabs();
 
@@ -1448,315 +1256,19 @@ async function openEditor(
     );
 
     alert(
-      '編集画面を開けません。\n\n' +
+      '編集画面を開けません。\n\n'+
       error.message
     );
   }
 }
 
 
-/* =========================================================
-   編集ボタン生成
-========================================================= */
-
-function createEditButton(
-  openButton,
-  file
-){
-
-  if(
-    !openButton ||
-    !file ||
-    !isSpreadsheet(
-      file
-    )
-  ){
-    return;
-  }
-
-  const id =
-    String(
-      file.id
-    );
-
-  /*
-    すでに存在するなら何もしない
-  */
-
-  const actionArea =
-    openButton.parentElement;
-
-  if(!actionArea){
-    return;
-  }
-
-  const existing =
-    Array.from(
-      actionArea.querySelectorAll(
-        '[data-toma-edit]'
-      )
-    ).find(
-      el =>
-        String(
-          el.getAttribute(
-            'data-toma-edit'
-          )
-        ) === id
-    );
-
-  if(existing){
-    return;
-  }
-
-  const button =
-    document.createElement(
-      'button'
-    );
-
-  button.type =
-    'button';
-
-  button.className =
-    'btn light tomaEditBtn';
-
-  button.setAttribute(
-    'data-toma-edit',
-    id
-  );
-
-  button.textContent =
-    '編集';
-
-  button.addEventListener(
-    'click',
-    event=>{
-
-      event.preventDefault();
-
-      event.stopPropagation();
-
-      openEditor(
-        id
-      );
-    }
-  );
-
-  /*
-    「開く」の直後
-  */
-
-  openButton.insertAdjacentElement(
-    'afterend',
-    button
-  );
-}
-
-
-/* =========================================================
-   ファイル画面をスキャン
-========================================================= */
-
-function scanButtons(){
-
-  const openButtons =
-    document.querySelectorAll(
-      'button[data-open], [data-open]'
-    );
-
-  openButtons.forEach(
-    openButton=>{
-
-      const id =
-        String(
-          openButton.getAttribute(
-            'data-open'
-          ) || ''
-        ).trim();
-
-      if(!id){
-        return;
-      }
-
-      const file =
-        filesById.get(
-          id
-        );
-
-      if(
-        file &&
-        isSpreadsheet(
-          file
-        )
-      ){
-
-        createEditButton(
-          openButton,
-          file
-        );
-
-        return;
-      }
-
-      /*
-        APIリスト取得前の保険。
-        ファイル行の文字列からExcel判定。
-      */
-
-      let node =
-        openButton;
-
-      for(
-        let i=0;
-        i<8 && node;
-        i++
-      ){
-
-        const text =
-          String(
-            node.textContent || ''
-          ).toLowerCase();
-
-        if(
-          text.includes('.xlsx') ||
-          text.includes('.xls') ||
-          text.includes('.csv')
-        ){
-
-          createEditButton(
-            openButton,
-            {
-              id,
-              name:
-                text.includes('.csv')
-                  ? 'file.csv'
-                  : (
-                    text.includes('.xls') &&
-                    !text.includes('.xlsx')
-                      ? 'file.xls'
-                      : 'file.xlsx'
-                  )
-            }
-          );
-
-          break;
-        }
-
-        node =
-          node.parentElement;
-      }
-    }
-  );
-}
-
-
-/* =========================================================
-   再スキャン予約
-========================================================= */
-
-function scheduleScan(){
-
-  clearTimeout(
-    scanTimer
-  );
-
-  scanTimer =
-    setTimeout(
-      scanButtons,
-      100
-    );
-}
-
-
-/* =========================================================
-   初期化
-========================================================= */
-
-async function start(){
-
-  ensureStyles();
-
-  /*
-    まずAPIから実データ取得
-  */
-
-  await refreshFileMap();
-
-  /*
-    初回スキャン
-  */
-
-  scanButtons();
-
-  /*
-    app.jsが画面を再描画したら
-    編集ボタンを再追加
-  */
-
-  const observer =
-    new MutationObserver(
-      ()=>{
-        scheduleScan();
-      }
-    );
-
-  observer.observe(
-    document.body,
-    {
-      childList:true,
-      subtree:true
-    }
-  );
-
-  /*
-    iPhone / Safari用
-  */
-
-  setTimeout(
-    scanButtons,
-    300
-  );
-
-  setTimeout(
-    scanButtons,
-    800
-  );
-
-  setTimeout(
-    scanButtons,
-    1500
-  );
-
-  setTimeout(
-    scanButtons,
-    3000
-  );
-
-  setTimeout(
-    async ()=>{
-
-      await refreshFileMap();
-
-      scanButtons();
-
-    },
-    5000
-  );
-}
-
-
-if(
-  document.readyState ===
-  'loading'
-){
-
-  document.addEventListener(
-    'DOMContentLoaded',
-    start
-  );
-
-}else{
-
-  start();
-}
+/* ==============================
+   app.jsから呼べるように公開
+============================== */
+
+window.TomaEditor={
+  openFile
+};
 
 })();
