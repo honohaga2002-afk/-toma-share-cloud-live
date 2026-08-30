@@ -37,9 +37,7 @@ const esc=s=>String(s??'').replace(
 );
 
 function idStr(v){
-  return v===null||v===undefined
-    ?''
-    :String(v);
+  return v===null||v===undefined?'':String(v);
 }
 
 function sameId(a,b){
@@ -49,18 +47,7 @@ function sameId(a,b){
 function openExternal(url){
   if(!url)return false;
 
-  const w=
-    window.open(
-      url,
-      '_blank',
-      'noopener,noreferrer'
-    );
-
-  if(w)return true;
-
-  const a=
-    document.createElement('a');
-
+  const a=document.createElement('a');
   a.href=url;
   a.target='_blank';
   a.rel='noopener noreferrer';
@@ -75,7 +62,6 @@ function openExternal(url){
 
 function say(t){
   const el=$('toast');
-
   if(!el)return;
 
   el.textContent=t;
@@ -86,6 +72,10 @@ function say(t){
   },1800);
 }
 
+/* ==============================
+   API
+============================== */
+
 async function api(method='GET',body=null){
 
   const headers={
@@ -93,8 +83,10 @@ async function api(method='GET',body=null){
     'x-workspace-code':C
   };
 
+  /* iPhone/Safari対策：
+     日本語をHTTPヘッダーへ直接入れない */
   if(N){
-    headers['x-member-name']=N;
+    headers['x-member-name']=encodeURIComponent(N);
   }
 
   const options={
@@ -104,35 +96,54 @@ async function api(method='GET',body=null){
   };
 
   if(body){
-    options.body=
-      JSON.stringify(body);
+    options.body=JSON.stringify(body);
   }
 
-  const r=
-    await fetch(
-      '/api/data',
-      options
+  try{
+
+    const r=await fetch('/api/data',options);
+
+    const text=await r.text();
+
+    let j={};
+
+    try{
+      j=text ? JSON.parse(text) : {};
+    }catch(e){
+      j={
+        error:'APIから正常なデータが返りませんでした'
+      };
+    }
+
+    if(!r.ok){
+      throw new Error(
+        j.error||
+        `通信エラー (${r.status})`
+      );
+    }
+
+    return j;
+
+  }catch(e){
+
+    console.error(
+      'TOMA SHARE API ERROR:',
+      e
     );
 
-  const j=
-    await r.json().catch(()=>({
-      error:'通信エラー'
-    }));
+    if(e instanceof TypeError){
+      throw new Error(
+        'サーバーへ接続できませんでした'
+      );
+    }
 
-  if(!r.ok){
-    throw new Error(
-      j.error||
-      '通信エラー'
-    );
+    throw e;
   }
-
-  return j;
 }
 
 async function load(){
 
-  const d=
-    await api();
+  const d=await api();
 
   state={
     schedules:d.schedules||[],
@@ -141,8 +152,7 @@ async function load(){
     minutes:d.minutes||[],
     reviews:d.reviews||[],
     permits:d.permits||[],
-    onlineMembers:
-      d.onlineMembers||[]
+    onlineMembers:d.onlineMembers||[]
   };
 }
 
@@ -159,23 +169,15 @@ async function doLogin(){
   const status=$('loginStatus');
 
   if(!codeEl||!btn){
-
-    alert(
-      'ログイン画面の読み込みに失敗しました'
-    );
-
+    alert('ログイン画面の読み込みに失敗しました');
     return;
   }
 
-  C=
-    codeEl.value
-      .trim()
-      .toUpperCase();
+  C=codeEl.value.trim().toUpperCase();
 
-  N=
-    nameEl
-      ?nameEl.value.trim()
-      :'';
+  N=nameEl
+    ?nameEl.value.trim()
+    :'';
 
   if(!N){
     N='メンバー';
@@ -184,9 +186,7 @@ async function doLogin(){
   if(!C){
 
     if(status){
-
       status.className='err';
-
       status.textContent=
         '共有コードを入力してください。';
     }
@@ -197,11 +197,8 @@ async function doLogin(){
   btn.disabled=true;
 
   if(status){
-
     status.className='meta';
-
-    status.textContent=
-      '接続中…';
+    status.textContent='接続中…';
   }
 
   try{
@@ -222,24 +219,18 @@ async function doLogin(){
     const nav=$('nav');
 
     if(login){
-      login.classList.add(
-        'hidden'
-      );
+      login.classList.add('hidden');
     }
 
     if(nav){
-      nav.classList.remove(
-        'hidden'
-      );
+      nav.classList.remove('hidden');
     }
 
     go('home');
 
     startPresence();
 
-    say(
-      'ログインしました'
-    );
+    say('ログインしました');
 
   }catch(e){
 
@@ -275,31 +266,24 @@ async function doLogin(){
 function startPresence(){
 
   if(presenceTimer){
-
-    clearInterval(
-      presenceTimer
-    );
+    clearInterval(presenceTimer);
   }
 
-  presenceTimer=
-    setInterval(
-      async()=>{
+  presenceTimer=setInterval(
+    async()=>{
 
-        if(!C||!N)return;
+      if(!C||!N)return;
 
-        try{
+      try{
+        await load();
+        render();
+      }catch(e){
+        console.error(e);
+      }
 
-          await load();
-
-          render();
-
-        }catch(e){
-
-          console.error(e);
-        }
-      },
-      30000
-    );
+    },
+    30000
+  );
 }
 
 function onlineNames(){
@@ -307,9 +291,7 @@ function onlineNames(){
   return (
     state.onlineMembers||[]
   )
-    .map(
-      x=>x.member_name
-    )
+    .map(x=>x.member_name)
     .filter(Boolean);
 }
 
@@ -320,13 +302,11 @@ function onlineNames(){
 
 function dataUrlToBlob(dataUrl){
 
-  const m=
-    String(dataUrl||'').match(
-      /^data:([^;,]+)?(;base64)?,(.*)$/s
-    );
+  const m=String(dataUrl||'').match(
+    /^data:([^;,]+)?(;base64)?,(.*)$/s
+  );
 
   if(!m){
-
     throw new Error(
       'ファイル形式を読み取れません'
     );
@@ -336,48 +316,39 @@ function dataUrlToBlob(dataUrl){
     m[1]||
     'application/octet-stream';
 
-  const raw=
-    m[3]||'';
+  const raw=m[3]||'';
 
   let bytes;
 
   if(m[2]){
 
-    bytes=
-      Uint8Array.from(
-        atob(raw),
-        c=>c.charCodeAt(0)
-      );
+    bytes=Uint8Array.from(
+      atob(raw),
+      c=>c.charCodeAt(0)
+    );
 
   }else{
 
-    bytes=
-      new TextEncoder().encode(
-        decodeURIComponent(raw)
-      );
+    bytes=new TextEncoder().encode(
+      decodeURIComponent(raw)
+    );
   }
 
   return new Blob(
     [bytes],
-    {
-      type:mime
-    }
+    {type:mime}
   );
 }
 
 function isPreviewable(f){
 
-  const mime=
-    (
-      f.mime_type||
-      ''
-    ).toLowerCase();
+  const mime=(
+    f.mime_type||''
+  ).toLowerCase();
 
-  const name=
-    (
-      f.name||
-      ''
-    ).toLowerCase();
+  const name=(
+    f.name||''
+  ).toLowerCase();
 
   return (
     mime.startsWith('image/')||
@@ -392,25 +363,17 @@ function driveUrl(f){
 
   if(
     typeof f.file_data==='string' &&
-    /^https?:\/\//i.test(
-      f.file_data
-    )
+    /^https?:\/\//i.test(f.file_data)
   ){
     return f.file_data;
   }
 
-  let content=
-    f.content;
+  let content=f.content;
 
-  if(
-    typeof content==='string'
-  ){
+  if(typeof content==='string'){
 
     try{
-
-      content=
-        JSON.parse(content);
-
+      content=JSON.parse(content);
     }catch(e){}
   }
 
@@ -430,59 +393,38 @@ function openFile(f){
   try{
 
     if(!f){
-
-      alert(
-        'ファイルが見つかりません'
-      );
-
+      alert('ファイルが見つかりません');
       return;
     }
 
-    const url=
-      driveUrl(f);
+    const url=driveUrl(f);
 
     if(url){
-
       openExternal(url);
-
       return;
     }
 
     if(!f.file_data){
-
-      alert(
-        'ファイルデータがありません'
-      );
-
+      alert('ファイルデータがありません');
       return;
     }
 
-    const blob=
-      dataUrlToBlob(
-        f.file_data
-      );
+    const blob=dataUrlToBlob(
+      f.file_data
+    );
 
     const blobUrl=
-      URL.createObjectURL(
-        blob
-      );
+      URL.createObjectURL(blob);
 
     const a=
-      document.createElement(
-        'a'
-      );
+      document.createElement('a');
 
-    a.href=
-      blobUrl;
+    a.href=blobUrl;
 
-    if(
-      isPreviewable(f)
-    ){
+    if(isPreviewable(f)){
 
       a.target='_blank';
-
-      a.rel=
-        'noopener noreferrer';
+      a.rel='noopener noreferrer';
 
     }else{
 
@@ -493,19 +435,12 @@ function openFile(f){
 
     a.style.display='none';
 
-    document.body
-      .appendChild(a);
-
+    document.body.appendChild(a);
     a.click();
-
     a.remove();
 
     setTimeout(()=>{
-
-      URL.revokeObjectURL(
-        blobUrl
-      );
-
+      URL.revokeObjectURL(blobUrl);
     },120000);
 
   }catch(e){
@@ -520,26 +455,21 @@ function openFile(f){
 function pickFile(id=null){
 
   const input=
-    document.createElement(
-      'input'
-    );
+    document.createElement('input');
 
   input.type='file';
-
-  input.style.position=
-    'fixed';
-
-  input.style.left=
-    '-9999px';
-
-  input.style.opacity=
-    '0';
 
   input.accept=
     '.xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.pdf,image/*';
 
-  document.body
-    .appendChild(input);
+  input.style.position='fixed';
+  input.style.left='-9999px';
+  input.style.top='0';
+  input.style.opacity='0';
+  input.style.width='1px';
+  input.style.height='1px';
+
+  document.body.appendChild(input);
 
   const cleanup=()=>{
 
@@ -559,47 +489,33 @@ function pickFile(id=null){
       input.files[0];
 
     if(!f){
-
       cleanup();
-
       return;
     }
 
-    if(
-      f.size>
-      2500000
-    ){
+    if(f.size>2500000){
 
       alert(
         '現在は1ファイル2.5MB以下でアップロードしてください'
       );
 
       cleanup();
-
       return;
     }
 
     selectedUploadFile=f;
-
-    selectedVersionId=
-      id||null;
+    selectedVersionId=id||null;
 
     if(id){
 
       const old=
         state.items.find(
-          x=>sameId(
-            x.id,
-            id
-          )
+          x=>sameId(x.id,id)
         );
 
       selectedFolderId=
-        old &&
-        old.parent_id
-          ?idStr(
-              old.parent_id
-            )
+        old&&old.parent_id
+          ?idStr(old.parent_id)
           :'';
 
     }else{
@@ -608,7 +524,6 @@ function pickFile(id=null){
     }
 
     go('drive');
-
     cleanup();
   };
 
@@ -617,66 +532,44 @@ function pickFile(id=null){
 
 async function saveSelectedFile(){
 
-  const f=
-    selectedUploadFile;
+  const f=selectedUploadFile;
 
   if(!f){
-
-    alert(
-      'ファイルを選択してください'
-    );
-
+    alert('ファイルを選択してください');
     return;
   }
 
-  const btn=
-    $('saveSelectedFile');
+  const btn=$('saveSelectedFile');
 
   try{
 
     if(btn){
-
       btn.disabled=true;
-
-      btn.textContent=
-        '保存中…';
+      btn.textContent='保存中…';
     }
 
-    say(
-      'Google Driveへ保存中…'
-    );
+    say('Google Driveへ保存中…');
 
-    const data=
-      await new Promise(
-        (
-          resolve,
-          reject
-        )=>{
+    const data=await new Promise(
+      (resolve,reject)=>{
 
-          const fr=
-            new FileReader();
+        const fr=new FileReader();
 
-          fr.onload=()=>{
+        fr.onload=()=>{
+          resolve(fr.result);
+        };
 
-            resolve(
-              fr.result
-            );
-          };
-
-          fr.onerror=()=>{
-
-            reject(
-              new Error(
-                'ファイルを読み込めませんでした'
-              )
-            );
-          };
-
-          fr.readAsDataURL(
-            f
+        fr.onerror=()=>{
+          reject(
+            new Error(
+              'ファイルを読み込めませんでした'
+            )
           );
-        }
-      );
+        };
+
+        fr.readAsDataURL(f);
+      }
+    );
 
     await api(
       'POST',
@@ -694,15 +587,13 @@ async function saveSelectedFile(){
           selectedFolderId||
           null,
 
-        name:
-          f.name,
+        name:f.name,
 
         mime_type:
           f.type||
           'application/octet-stream',
 
-        size:
-          f.size,
+        size:f.size,
 
         data,
 
@@ -718,9 +609,7 @@ async function saveSelectedFile(){
 
     go('drive');
 
-    say(
-      '保存しました'
-    );
+    say('保存しました');
 
   }catch(e){
 
@@ -730,11 +619,8 @@ async function saveSelectedFile(){
     );
 
     if(btn){
-
       btn.disabled=false;
-
-      btn.textContent=
-        '保存';
+      btn.textContent='保存';
     }
   }
 }
@@ -759,8 +645,7 @@ function homeR(){
 
   if(!el)return;
 
-  const online=
-    onlineNames();
+  const online=onlineNames();
 
   el.innerHTML=`
     <div class="panel">
@@ -770,7 +655,6 @@ function homeR(){
       </div>
 
       <div class="item" style="margin-top:12px">
-
         <div class="title">
           👥 オンライン ${online.length}人
         </div>
@@ -778,15 +662,10 @@ function homeR(){
         <div class="meta">
           ${
             online.length
-              ?online
-                .map(
-                  x=>esc(x)
-                )
-                .join('・')
+              ?online.map(x=>esc(x)).join('・')
               :'オンラインのメンバーはいません'
           }
         </div>
-
       </div>
 
     </div>
@@ -794,153 +673,80 @@ function homeR(){
     <div class="grid">
 
       <button class="card" data-go="drive">
-
-        <div class="ico">
-          📁
-        </div>
-
-        <div class="ct">
-          共有ドライブ
-        </div>
-
+        <div class="ico">📁</div>
+        <div class="ct">共有ドライブ</div>
         <div class="meta">
           ${
             state.items.filter(
-              x=>
-                x.item_type===
-                'file'
+              x=>x.item_type==='file'
             ).length
           }資料
         </div>
-
       </button>
 
       <button class="card" data-go="chat">
-
-        <div class="ico">
-          💬
-        </div>
-
-        <div class="ct">
-          メッセージ
-        </div>
-
+        <div class="ico">💬</div>
+        <div class="ct">メッセージ</div>
         <div class="meta">
           ${state.messages.length}件
         </div>
-
       </button>
 
       <button class="card" data-go="cal">
-
-        <div class="ico">
-          📅
-        </div>
-
-        <div class="ct">
-          スケジュール
-        </div>
-
+        <div class="ico">📅</div>
+        <div class="ct">スケジュール</div>
         <div class="meta">
           ${state.schedules.length}件
         </div>
-
       </button>
 
       <button class="card" data-go="more">
-
-        <div class="ico">
-          📝
-        </div>
-
-        <div class="ct">
-          議事録
-        </div>
-
+        <div class="ico">📝</div>
+        <div class="ct">議事録</div>
         <div class="meta">
           ${state.minutes.length}件
         </div>
-
       </button>
 
       <button class="card" data-go="more">
-
-        <div class="ico">
-          💡
-        </div>
-
-        <div class="ct">
-          反省点・改善
-        </div>
-
+        <div class="ico">💡</div>
+        <div class="ct">反省点・改善</div>
         <div class="meta">
           ${state.reviews.length}件
         </div>
-
       </button>
 
       <button class="card" data-go="more">
-
-        <div class="ico">
-          ✅
-        </div>
-
-        <div class="ct">
-          許可・申請
-        </div>
-
+        <div class="ico">✅</div>
+        <div class="ct">許可・申請</div>
         <div class="meta">
           ${state.permits.length}件
         </div>
-
       </button>
 
       <button class="card" data-go="more">
-
-        <div class="ico">
-          🎪
-        </div>
-
-        <div class="ct">
-          苫小牧イベント
-        </div>
-
-        <div class="meta">
-          年間行事
-        </div>
-
+        <div class="ico">🎪</div>
+        <div class="ct">苫小牧イベント</div>
+        <div class="meta">年間行事</div>
       </button>
 
       <button class="card" data-go="home">
-
-        <div class="ico">
-          👥
-        </div>
-
-        <div class="ct">
-          共有メンバー
-        </div>
-
+        <div class="ico">👥</div>
+        <div class="ct">共有メンバー</div>
         <div class="meta">
           オンライン ${online.length}人
         </div>
-
       </button>
 
     </div>
   `;
 
   document
-    .querySelectorAll(
-      '[data-go]'
-    )
+    .querySelectorAll('[data-go]')
     .forEach(b=>{
 
       b.onclick=()=>{
-
-        go(
-          b.dataset.go
-        );
+        go(b.dataset.go);
       };
     });
 }
@@ -1010,36 +816,27 @@ function fileRow(file){
 
 function driveR(){
 
-  const el=
-    $('drive');
+  const el=$('drive');
 
   if(!el)return;
 
   const folders=
     state.items.filter(
-      x=>
-        x.item_type===
-        'folder'
+      x=>x.item_type==='folder'
     );
 
   const files=
     state.items.filter(
-      x=>
-        x.item_type===
-        'file'
+      x=>x.item_type==='file'
     );
 
   let uploadBox='';
 
-  if(
-    selectedUploadFile
-  ){
+  if(selectedUploadFile){
 
-    const kb=
-      (
-        selectedUploadFile.size/
-        1024
-      ).toFixed(1);
+    const kb=(
+      selectedUploadFile.size/1024
+    ).toFixed(1);
 
     const folderOptions=
       folders.map(f=>`
@@ -1066,15 +863,12 @@ function driveR(){
         </div>
 
         <div class="item">
-
           <div class="title">
             ${esc(selectedUploadFile.name)}
           </div>
-
           <div class="meta">
             ${kb} KB
           </div>
-
         </div>
 
         <label class="fieldLabel">
@@ -1082,17 +876,13 @@ function driveR(){
         </label>
 
         <select id="folderSelect">
-
           <option value="">
             共有ドライブ直下
           </option>
-
           ${folderOptions}
-
         </select>
 
         <div class="row">
-
           <button
             class="btn"
             id="saveSelectedFile"
@@ -1106,7 +896,6 @@ function driveR(){
           >
             キャンセル
           </button>
-
         </div>
 
       </div>
@@ -1129,7 +918,6 @@ function driveR(){
           <div class="item">
 
             <div class="row">
-
               <div style="flex:1">
 
                 <div class="title">
@@ -1148,7 +936,6 @@ function driveR(){
               >
                 削除
               </button>
-
             </div>
 
             ${
@@ -1173,7 +960,6 @@ function driveR(){
     <div class="panel">
 
       <div class="sectionTitle">
-
         <div class="title">
           📁 共有ドライブ
         </div>
@@ -1184,7 +970,6 @@ function driveR(){
         >
           ↻更新
         </button>
-
       </div>
 
       <div class="row">
@@ -1240,94 +1025,79 @@ function driveR(){
 
       ${
         rootFiles.length
-          ?rootFiles
-            .map(fileRow)
-            .join('')
+          ?rootFiles.map(fileRow).join('')
           :'<div class="empty">ファイルはありません</div>'
       }
 
     </div>
   `;
 
-  const refresh=
-    $('refreshD');
+  const refresh=$('refreshD');
 
   if(refresh){
 
-    refresh.onclick=
-      async()=>{
+    refresh.onclick=async()=>{
 
-        await load();
-
-        go('drive');
-      };
+      await load();
+      go('drive');
+    };
   }
 
-  const up=
-    $('up');
+  const up=$('up');
 
   if(up){
 
     up.onclick=()=>{
-
       pickFile();
     };
   }
 
-  const newF=
-    $('newF');
+  const newF=$('newF');
 
   if(newF){
 
-    newF.onclick=
-      async()=>{
+    newF.onclick=async()=>{
 
-        const name=
-          prompt(
-            'フォルダ名'
-          );
+      const name=
+        prompt('フォルダ名');
 
-        if(!name)return;
+      if(!name)return;
 
-        try{
+      try{
 
-          await api(
-            'POST',
-            {
-              action:'folder',
-              name:name.trim(),
-              by:N
-            }
-          );
+        await api(
+          'POST',
+          {
+            action:'folder',
+            name:name.trim(),
+            by:N
+          }
+        );
 
-          await load();
+        await load();
 
-          go('drive');
+        go('drive');
 
-          say(
-            'フォルダを作成しました'
-          );
+        say(
+          'フォルダを作成しました'
+        );
 
-        }catch(e){
+      }catch(e){
 
-          alert(
-            'フォルダを作成できません：'+
-            e.message
-          );
-        }
-      };
+        alert(
+          'フォルダを作成できません：'+
+          e.message
+        );
+      }
+    };
   }
 
-  const sheet=
-    $('openSheet');
+  const sheet=$('openSheet');
 
   if(sheet){
 
     sheet.onclick=()=>{
-
-      openExternal(
-        SHEET_URL
-      );
+      openExternal(SHEET_URL);
     };
   }
 
@@ -1337,7 +1107,6 @@ function driveR(){
   if(folderSelect){
 
     folderSelect.onchange=()=>{
-
       selectedFolderId=
         folderSelect.value;
     };
@@ -1347,7 +1116,6 @@ function driveR(){
     $('saveSelectedFile');
 
   if(saveBtn){
-
     saveBtn.onclick=
       saveSelectedFile;
   }
@@ -1356,15 +1124,12 @@ function driveR(){
     $('cancelSelectedFile');
 
   if(cancelBtn){
-
     cancelBtn.onclick=
       cancelSelectedFile;
   }
 
   document
-    .querySelectorAll(
-      '[data-open]'
-    )
+    .querySelectorAll('[data-open]')
     .forEach(b=>{
 
       b.onclick=()=>{
@@ -1382,13 +1147,10 @@ function driveR(){
     });
 
   document
-    .querySelectorAll(
-      '[data-ver]'
-    )
+    .querySelectorAll('[data-ver]')
     .forEach(b=>{
 
       b.onclick=()=>{
-
         pickFile(
           b.dataset.ver
         );
@@ -1396,49 +1158,37 @@ function driveR(){
     });
 
   document
-    .querySelectorAll(
-      '[data-del]'
-    )
+    .querySelectorAll('[data-del]')
     .forEach(b=>{
 
-      b.onclick=
-        async()=>{
+      b.onclick=async()=>{
 
-          if(
-            !confirm(
-              '削除しますか？'
-            )
-          ){
-            return;
-          }
+        if(!confirm('削除しますか？')){
+          return;
+        }
 
-          try{
+        try{
 
-            await api(
-              'POST',
-              {
-                action:
-                  'item_delete',
+          await api(
+            'POST',
+            {
+              action:'item_delete',
+              id:b.dataset.del,
+              by:N
+            }
+          );
 
-                id:
-                  b.dataset.del,
+          await load();
+          go('drive');
 
-                by:N
-              }
-            );
+        }catch(e){
 
-            await load();
-
-            go('drive');
-
-          }catch(e){
-
-            alert(
-              '削除できません：'+
-              e.message
-            );
-          }
-        };
+          alert(
+            '削除できません：'+
+            e.message
+          );
+        }
+      };
     });
 }
 
@@ -1449,71 +1199,66 @@ function driveR(){
 
 function chatR(){
 
-  const el=
-    $('chat');
+  const el=$('chat');
 
   if(!el)return;
 
   const messages=
-    state.messages.map(
-      x=>{
+    state.messages.map(x=>{
 
-        const mine=
-          x.updated_by===N;
+      const mine=
+        x.updated_by===N;
 
-        return `
-          <div class="item">
+      return `
+        <div class="item">
 
-            <div class="row">
+          <div class="row">
 
-              <div style="flex:1">
+            <div style="flex:1">
 
-                <div>
-                  ${esc(x.name)}
-                </div>
-
-                <div class="meta">
-                  ${esc(x.updated_by||'')}
-                  ｜
-                  ${
-                    x.created_at
-                      ?new Date(
-                          x.created_at
-                        )
-                        .toLocaleString(
-                          'ja-JP'
-                        )
-                      :''
-                  }
-                </div>
-
+              <div>
+                ${esc(x.name)}
               </div>
 
-              ${
-                mine
-                  ?`
-                    <button
-                      class="btn danger"
-                      data-msgdel="${x.id}"
-                    >
-                      取消
-                    </button>
-                  `
-                  :''
-              }
+              <div class="meta">
+                ${esc(x.updated_by||'')}
+                ｜
+                ${
+                  x.created_at
+                    ?new Date(
+                        x.created_at
+                      ).toLocaleString(
+                        'ja-JP'
+                      )
+                    :''
+                }
+              </div>
 
             </div>
 
+            ${
+              mine
+                ?`
+                  <button
+                    class="btn danger"
+                    data-msgdel="${x.id}"
+                  >
+                    取消
+                  </button>
+                `
+                :''
+            }
+
           </div>
-        `;
-      }
-    ).join('');
+
+        </div>
+      `;
+    }).join('');
 
   el.innerHTML=`
     <div class="panel">
 
       <div class="sectionTitle">
-
         <div class="title">
           💬 メッセージ
         </div>
@@ -1524,7 +1269,6 @@ function chatR(){
         >
           ↻更新
         </button>
-
       </div>
 
       ${
@@ -1547,115 +1291,96 @@ function chatR(){
     </div>
   `;
 
-  const refresh=
-    $('refreshC');
+  const refresh=$('refreshC');
 
   if(refresh){
 
-    refresh.onclick=
-      async()=>{
-
-        await load();
-
-        go('chat');
-      };
+    refresh.onclick=async()=>{
+      await load();
+      go('chat');
+    };
   }
 
-  const send=
-    $('send');
+  const send=$('send');
 
   if(send){
 
-    send.onclick=
-      async()=>{
+    send.onclick=async()=>{
 
-        const msg=
-          $('msg');
+      const msg=$('msg');
 
-        if(!msg)return;
+      if(!msg)return;
 
-        const text=
-          msg.value.trim();
+      const text=msg.value.trim();
 
-        if(!text)return;
+      if(!text)return;
+
+      try{
+
+        await api(
+          'POST',
+          {
+            action:'message',
+            text,
+            by:N
+          }
+        );
+
+        await load();
+        go('chat');
+
+        say('送信しました');
+
+      }catch(e){
+
+        alert(
+          '送信できません：'+
+          e.message
+        );
+      }
+    };
+  }
+
+  document
+    .querySelectorAll('[data-msgdel]')
+    .forEach(b=>{
+
+      b.onclick=async()=>{
+
+        if(
+          !confirm(
+            'このメッセージを取り消しますか？'
+          )
+        ){
+          return;
+        }
 
         try{
 
           await api(
             'POST',
             {
-              action:'message',
-              text,
+              action:'message_delete',
+              id:b.dataset.msgdel,
               by:N
             }
           );
 
           await load();
-
           go('chat');
 
           say(
-            '送信しました'
+            'メッセージを取り消しました'
           );
 
         }catch(e){
 
           alert(
-            '送信できません：'+
+            '取り消せません：'+
             e.message
           );
         }
       };
-  }
-
-  document
-    .querySelectorAll(
-      '[data-msgdel]'
-    )
-    .forEach(b=>{
-
-      b.onclick=
-        async()=>{
-
-          if(
-            !confirm(
-              'このメッセージを取り消しますか？'
-            )
-          ){
-            return;
-          }
-
-          try{
-
-            await api(
-              'POST',
-              {
-                action:
-                  'message_delete',
-
-                id:
-                  b.dataset.msgdel,
-
-                by:N
-              }
-            );
-
-            await load();
-
-            go('chat');
-
-            say(
-              'メッセージを取り消しました'
-            );
-
-          }catch(e){
-
-            alert(
-              '取り消せません：'+
-              e.message
-            );
-          }
-        };
     });
 }
 
@@ -1666,74 +1391,65 @@ function chatR(){
 
 function calR(){
 
-  const el=
-    $('cal');
+  const el=$('cal');
 
   if(!el)return;
 
   const list=
-    state.schedules.map(
-      x=>{
+    state.schedules.map(x=>{
 
-        const d=
-          x.starts_at
-            ?new Date(
-                x.starts_at
-              )
-            :null;
+      const d=
+        x.starts_at
+          ?new Date(x.starts_at)
+          :null;
 
-        const when=
-          d
-            ?d.toLocaleDateString(
-                'ja-JP'
-              )+
-              ' '+
-              d.toLocaleTimeString(
-                'ja-JP',
-                {
-                  hour:
-                    '2-digit',
+      const when=
+        d
+          ?d.toLocaleDateString(
+              'ja-JP'
+            )+
+            ' '+
+            d.toLocaleTimeString(
+              'ja-JP',
+              {
+                hour:'2-digit',
+                minute:'2-digit'
+              }
+            )
+          :'';
 
-                  minute:
-                    '2-digit'
-                }
-              )
-            :'';
+      return `
+        <div class="item row">
 
-        return `
-          <div class="item row">
+          <div style="flex:1">
 
-            <div style="flex:1">
-
-              <div class="title">
-                ${esc(x.title)}
-              </div>
-
-              <div class="meta">
-                ${when}
-                ${x.place?'｜'+esc(x.place):''}
-                ${x.memo?'｜'+esc(x.memo):''}
-              </div>
-
+            <div class="title">
+              ${esc(x.title)}
             </div>
 
-            <button
-              class="btn danger"
-              data-sdel="${x.id}"
-            >
-              削除
-            </button>
+            <div class="meta">
+              ${when}
+              ${x.place?'｜'+esc(x.place):''}
+              ${x.memo?'｜'+esc(x.memo):''}
+            </div>
 
           </div>
-        `;
-      }
-    ).join('');
+
+          <button
+            class="btn danger"
+            data-sdel="${x.id}"
+          >
+            削除
+          </button>
+
+        </div>
+      `;
+    }).join('');
 
   el.innerHTML=`
     <div class="panel">
 
       <div class="sectionTitle">
-
         <div class="title">
           📅 スケジュール
         </div>
@@ -1744,7 +1460,6 @@ function calR(){
         >
           ↻更新
         </button>
-
       </div>
 
       ${
@@ -1796,121 +1511,98 @@ function calR(){
     </div>
   `;
 
-  $('refreshS').onclick=
-    async()=>{
+  $('refreshS').onclick=async()=>{
+    await load();
+    go('cal');
+  };
+
+  $('addS').onclick=async()=>{
+
+    const date=$('sdate').value;
+
+    const time=
+      $('stime').value||
+      '09:00';
+
+    const title=
+      $('ttl').value.trim();
+
+    if(!date){
+
+      alert(
+        '日付を選んでください'
+      );
+
+      return;
+    }
+
+    if(!title){
+
+      alert(
+        '予定名を入力してください'
+      );
+
+      return;
+    }
+
+    try{
+
+      await api(
+        'POST',
+        {
+          action:'schedule',
+          title,
+          starts_at:
+            `${date}T${time}:00+09:00`,
+          ends_at:null,
+          place:$('pl').value,
+          memo:$('sm').value,
+          by:N
+        }
+      );
 
       await load();
-
       go('cal');
-    };
 
-  $('addS').onclick=
-    async()=>{
+      say(
+        '予定を保存しました'
+      );
 
-      const date=
-        $('sdate').value;
+    }catch(e){
 
-      const time=
-        $('stime').value||
-        '09:00';
+      alert(
+        '予定を保存できません：'+
+        e.message
+      );
+    }
+  };
 
-      const title=
-        $('ttl').value.trim();
+  document
+    .querySelectorAll('[data-sdel]')
+    .forEach(b=>{
 
-      if(!date){
+      b.onclick=async()=>{
 
-        alert(
-          '日付を選んでください'
-        );
-
-        return;
-      }
-
-      if(!title){
-
-        alert(
-          '予定名を入力してください'
-        );
-
-        return;
-      }
-
-      try{
+        if(
+          !confirm(
+            '予定を削除しますか？'
+          )
+        ){
+          return;
+        }
 
         await api(
           'POST',
           {
-            action:
-              'schedule',
-
-            title,
-
-            starts_at:
-              `${date}T${time}:00+09:00`,
-
-            ends_at:null,
-
-            place:
-              $('pl').value,
-
-            memo:
-              $('sm').value,
-
+            action:'schedule_delete',
+            id:b.dataset.sdel,
             by:N
           }
         );
 
         await load();
-
         go('cal');
-
-        say(
-          '予定を保存しました'
-        );
-
-      }catch(e){
-
-        alert(
-          '予定を保存できません：'+
-          e.message
-        );
-      }
-    };
-
-  document
-    .querySelectorAll(
-      '[data-sdel]'
-    )
-    .forEach(b=>{
-
-      b.onclick=
-        async()=>{
-
-          if(
-            !confirm(
-              '予定を削除しますか？'
-            )
-          ){
-            return;
-          }
-
-          await api(
-            'POST',
-            {
-              action:
-                'schedule_delete',
-
-              id:
-                b.dataset.sdel,
-
-              by:N
-            }
-          );
-
-          await load();
-
-          go('cal');
-        };
+      };
     });
 }
 
@@ -1928,9 +1620,7 @@ function rec(x,k){
     detail=
       `${x.meeting_date||''} ${x.body||''} ${x.action_items||''}`;
 
-  }else if(
-    k==='review'
-  ){
+  }else if(k==='review'){
 
     detail=
       `${x.category||''} ${x.body||''}`;
@@ -1974,8 +1664,7 @@ function rec(x,k){
 
 function moreR(){
 
-  const el=
-    $('more');
+  const el=$('more');
 
   if(!el)return;
 
@@ -1990,10 +1679,7 @@ function moreR(){
         state.minutes.length
           ?state.minutes
             .map(
-              x=>rec(
-                x,
-                'minute'
-              )
+              x=>rec(x,'minute')
             )
             .join('')
           :'<div class="empty">まだありません</div>'
@@ -2038,10 +1724,7 @@ function moreR(){
         state.reviews.length
           ?state.reviews
             .map(
-              x=>rec(
-                x,
-                'review'
-              )
+              x=>rec(x,'review')
             )
             .join('')
           :'<div class="empty">まだありません</div>'
@@ -2053,23 +1736,10 @@ function moreR(){
       >
 
       <select id="rc">
-
-        <option>
-          改善
-        </option>
-
-        <option>
-          反省
-        </option>
-
-        <option>
-          良かった点
-        </option>
-
-        <option>
-          次回対応
-        </option>
-
+        <option>改善</option>
+        <option>反省</option>
+        <option>良かった点</option>
+        <option>次回対応</option>
       </select>
 
       <textarea
@@ -2096,10 +1766,7 @@ function moreR(){
         state.permits.length
           ?state.permits
             .map(
-              x=>rec(
-                x,
-                'permit'
-              )
+              x=>rec(x,'permit')
             )
             .join('')
           :'<div class="empty">まだありません</div>'
@@ -2141,182 +1808,118 @@ function moreR(){
       </div>
 
       <div class="item">
-
-        <span class="pill">
-          冬
-        </span>
-
+        <span class="pill">冬</span>
         スケート・冬季イベント
-
       </div>
 
       <div class="item">
-
-        <span class="pill">
-          春
-        </span>
-
+        <span class="pill">春</span>
         地域行事・新年度イベント
-
       </div>
 
       <div class="item">
-
-        <span class="pill">
-          夏
-        </span>
-
+        <span class="pill">夏</span>
         港まつり・地域フェス・屋外イベント
-
       </div>
 
       <div class="item">
-
-        <span class="pill">
-          秋
-        </span>
-
+        <span class="pill">秋</span>
         文化・スポーツ・地域イベント
-
       </div>
 
     </div>
   `;
 
-  $('addM').onclick=
-    async()=>{
+  $('addM').onclick=async()=>{
 
-      if(
-        !$('mt').value.trim()
-      )return;
+    if(!$('mt').value.trim()){
+      return;
+    }
 
-      await api(
-        'POST',
-        {
-          action:'minute',
+    await api(
+      'POST',
+      {
+        action:'minute',
+        title:$('mt').value,
+        meeting_date:
+          $('md').value||
+          null,
+        body:$('mb').value,
+        action_items:$('ma').value,
+        by:N
+      }
+    );
 
-          title:
-            $('mt').value,
+    await load();
+    go('more');
+  };
 
-          meeting_date:
-            $('md').value||
-            null,
+  $('addR').onclick=async()=>{
 
-          body:
-            $('mb').value,
+    if(!$('rt').value.trim()){
+      return;
+    }
 
-          action_items:
-            $('ma').value,
+    await api(
+      'POST',
+      {
+        action:'review',
+        title:$('rt').value,
+        category:$('rc').value,
+        body:$('rb').value,
+        by:N
+      }
+    );
 
-          by:N
-        }
-      );
+    await load();
+    go('more');
+  };
 
-      await load();
+  $('addP').onclick=async()=>{
 
-      go('more');
-    };
+    if(!$('pt').value.trim()){
+      return;
+    }
 
-  $('addR').onclick=
-    async()=>{
+    await api(
+      'POST',
+      {
+        action:'permit',
+        title:$('pt').value,
+        organization:$('po').value,
+        contact:$('pc').value,
+        body:$('pb').value,
+        by:N
+      }
+    );
 
-      if(
-        !$('rt').value.trim()
-      )return;
-
-      await api(
-        'POST',
-        {
-          action:'review',
-
-          title:
-            $('rt').value,
-
-          category:
-            $('rc').value,
-
-          body:
-            $('rb').value,
-
-          by:N
-        }
-      );
-
-      await load();
-
-      go('more');
-    };
-
-  $('addP').onclick=
-    async()=>{
-
-      if(
-        !$('pt').value.trim()
-      )return;
-
-      await api(
-        'POST',
-        {
-          action:'permit',
-
-          title:
-            $('pt').value,
-
-          organization:
-            $('po').value,
-
-          contact:
-            $('pc').value,
-
-          body:
-            $('pb').value,
-
-          by:N
-        }
-      );
-
-      await load();
-
-      go('more');
-    };
+    await load();
+    go('more');
+  };
 
   document
-    .querySelectorAll(
-      '[data-rdel]'
-    )
+    .querySelectorAll('[data-rdel]')
     .forEach(b=>{
 
-      b.onclick=
-        async()=>{
+      b.onclick=async()=>{
 
-          if(
-            !confirm(
-              '削除しますか？'
-            )
-          ){
-            return;
+        if(!confirm('削除しますか？')){
+          return;
+        }
+
+        await api(
+          'POST',
+          {
+            action:'record_delete',
+            kind:b.dataset.kind,
+            id:b.dataset.rdel,
+            by:N
           }
+        );
 
-          await api(
-            'POST',
-            {
-              action:
-                'record_delete',
-
-              kind:
-                b.dataset.kind,
-
-              id:
-                b.dataset.rdel,
-
-              by:N
-            }
-          );
-
-          await load();
-
-          go('more');
-        };
+        await load();
+        go('more');
+      };
     });
 }
 
@@ -2353,30 +1956,19 @@ function go(p){
   cur=p;
 
   document
-    .querySelectorAll(
-      'main>section'
-    )
+    .querySelectorAll('main>section')
     .forEach(s=>{
-
-      s.classList.add(
-        'hidden'
-      );
+      s.classList.add('hidden');
     });
 
-  const target=
-    $(p);
+  const target=$(p);
 
   if(target){
-
-    target.classList.remove(
-      'hidden'
-    );
+    target.classList.remove('hidden');
   }
 
   document
-    .querySelectorAll(
-      '.nav'
-    )
+    .querySelectorAll('.nav')
     .forEach(n=>{
 
       n.classList.toggle(
@@ -2395,14 +1987,9 @@ function go(p){
 
 function init(){
 
-  const codeEl=
-    $('code');
-
-  const nameEl=
-    $('memberName');
-
-  const enterEl=
-    $('enter');
+  const codeEl=$('code');
+  const nameEl=$('memberName');
+  const enterEl=$('enter');
 
   if(codeEl){
 
@@ -2423,43 +2010,31 @@ function init(){
   }
 
   if(enterEl){
-
-    enterEl.onclick=
-      doLogin;
+    enterEl.onclick=doLogin;
   }
 
   if(nameEl){
 
-    nameEl.onkeydown=
-      e=>{
+    nameEl.onkeydown=e=>{
 
-        if(
-          e.key==='Enter'
-        ){
-
-          doLogin();
-        }
-      };
+      if(e.key==='Enter'){
+        doLogin();
+      }
+    };
   }
 
   document
-    .querySelectorAll(
-      '.nav'
-    )
+    .querySelectorAll('.nav')
     .forEach(n=>{
 
       n.onclick=()=>{
-
-        go(
-          n.dataset.p
-        );
+        go(n.dataset.p);
       };
     });
 }
 
 if(
-  document.readyState===
-  'loading'
+  document.readyState==='loading'
 ){
 
   document.addEventListener(
