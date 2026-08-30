@@ -1,41 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
+
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0b76d1">
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
+
+  <meta
+    name="apple-mobile-web-app-capable"
+    content="yes"
+  >
+
+  <meta
+    name="apple-mobile-web-app-status-bar-style"
+    content="default"
+  >
+
+  <meta
+    name="theme-color"
+    content="#ffffff"
+  >
+
   <title>TOMA SHARE</title>
-  <link rel="stylesheet" href="/style.css">
+
+  <link
+    rel="stylesheet"
+    href="/style.css"
+  >
+
 </head>
+
+
 <body>
-<header>
-  <h1>❄️ TOMA SHARE</h1>
-  <div class="sub">予定・資料・連絡・議事録を同じクラウドで共有</div>
-</header>
-<main class="wrap">
-  <section id="login">
-    <div class="panel">
-      <div class="title">共有ワークスペースに入る</div>
-      <input id="code" placeholder="共有コード" value="TOMA-2026" autocomplete="off" autocapitalize="characters">
-      <input id="memberName" placeholder="あなたの名前" autocomplete="name">
-      <button class="btn" id="enter" type="button">ログイン</button>
-      <div id="loginStatus" class="meta">同じ共有コードの端末は同じデータを表示します。</div>
+
+
+  <!-- =========================================
+       ログイン画面
+  ========================================== -->
+
+  <div id="loginView">
+
+    <div class="login-wrap">
+
+      <div class="login-card">
+
+        <h1>
+          TOMA SHARE
+        </h1>
+
+        <p class="muted">
+          情報共有ワークスペース
+        </p>
+
+
+        <label>
+          共有コード
+        </label>
+
+        <input
+          id="workspaceCode"
+          type="text"
+          placeholder="例：TOMA-2026"
+          autocomplete="off"
+          autocapitalize="characters"
+        >
+
+
+        <label>
+          メンバー名
+        </label>
+
+        <input
+          id="memberName"
+          type="text"
+          placeholder="名前を入力"
+          autocomplete="name"
+        >
+
+
+        <button
+          id="loginBtn"
+          type="button"
+          class="btn primary"
+        >
+          ログイン
+        </button>
+
+
+        <div
+          id="loginError"
+          class="error"
+        ></div>
+
+      </div>
+
     </div>
-  </section>
-  <section id="home" class="hidden"></section>
-  <section id="drive" class="hidden"></section>
-  <section id="chat" class="hidden"></section>
-  <section id="cal" class="hidden"></section>
-  <section id="more" class="hidden"></section>
-</main>
-<nav class="bottom hidden" id="nav">
-  <button class="nav on" data-p="home"><span>🏠</span>ホーム</button>
-  <button class="nav" data-p="drive"><span>📁</span>ドライブ</button>
-  <button class="nav" data-p="chat"><span>💬</span>連絡</button>
-  <button class="nav" data-p="cal"><span>📅</span>予定</button>
-  <button class="nav" data-p="more"><span>☰</span>その他</button>
-</nav>
-<div id="toast" class="toast hidden"></div>
-<script src="/app.js"></script>
+
+  </div>
+
+
+
+  <!-- =========================================
+       アプリ本体
+  ========================================== -->
+
+  <div
+    id="appView"
+    style="display:none;"
+  >
+
+
+    <!-- ヘッダー -->
+
+    <header class="topbar">
+
+      <div>
+
+        <div class="brand">
+          TOMA SHARE
+        </div>
+
+        <div
+          id="workspaceName"
+          class="muted small"
+        ></div>
+
+      </div>
+
+
+      <div class="top-actions">
+
+        <span
+          id="currentMember"
+          class="small"
+        ></span>
+
+        <button
+          id="logoutBtn"
+          type="button"
+          class="btn light"
+        >
+          ログアウト
+        </button>
+
+      </div>
+
+    </header>
+
+
+
+    <!-- メイン -->
+
+    <main id="main">
+
+      <div id="content">
+
+        読み込み中…
+
+      </div>
+
+    </main>
+
+
+
+    <!-- 下部ナビ -->
+
+    <nav class="bottom-nav">
+
+      <button
+        type="button"
+        data-nav="home"
+      >
+        ホーム
+      </button>
+
+      <button
+        type="button"
+        data-nav="schedule"
+      >
+        スケジュール
+      </button>
+
+      <button
+        type="button"
+        data-nav="drive"
+      >
+        共有ドライブ
+      </button>
+
+      <button
+        type="button"
+        data-nav="minutes"
+      >
+        議事録
+      </button>
+
+      <button
+        type="button"
+        data-nav="menu"
+      >
+        メニュー
+      </button>
+
+    </nav>
+
+
+  </div>
+
+
+
+  <!-- =========================================
+       ファイル選択
+  ========================================== -->
+
+  <input
+    id="fileInput"
+    type="file"
+    hidden
+    multiple
+    accept="
+      .xlsx,
+      .xls,
+      .csv,
+      .doc,
+      .docx,
+      .ppt,
+      .pptx,
+      .pdf,
+      image/*,
+      text/plain
+    "
+  >
+
+
+
+  <!-- =========================================
+       TOMA SHARE本体
+  ========================================== -->
+
+  <script src="/app.js"></script>
+
+
+  <!-- =========================================
+       Excel / CSV 編集機能
+  ========================================== -->
+
+  <script src="/editor.js"></script>
+
+
 </body>
+
 </html>
