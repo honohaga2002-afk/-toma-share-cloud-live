@@ -4,47 +4,54 @@ const { Readable } = require('stream');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
 
 function send(res,status,obj){
   return res.status(status).json(obj);
 }
 
-/* iPhone/Safariから送られた日本語名を戻す */
 function decodeHeader(value){
-
-  const v=String(
-    value||''
-  );
-
+  const v=String(value||'');
   if(!v)return '';
+  try{return decodeURIComponent(v);}
+  catch(e){return v;}
+}
 
-  try{
-    return decodeURIComponent(v);
-  }catch(e){
-    return v;
+function readCookie(req,name){
+  const raw=String(req.headers.cookie||'');
+
+  for(const part of raw.split(';')){
+    const p=part.trim();
+    const i=p.indexOf('=');
+
+    if(i<0)continue;
+    if(p.slice(0,i)!==name)continue;
+
+    const v=p.slice(i+1);
+
+    try{
+      return decodeURIComponent(v);
+    }catch(e){
+      return v;
+    }
   }
+
+  return '';
 }
 
 function driveClient(){
 
-  const auth =
-    new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    );
+  const auth=new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET
+  );
 
-  const refreshToken=
-    String(
-      process.env.GOOGLE_REFRESH_TOKEN||
-      ''
-    ).replace(/\s+/g,'');
+  const refreshToken=String(
+    process.env.GOOGLE_REFRESH_TOKEN||''
+  ).replace(/\s+/g,'');
 
   if(!refreshToken){
-
     throw new Error(
       'GOOGLE_REFRESH_TOKEN が未設定です'
     );
@@ -62,8 +69,7 @@ function driveClient(){
 
 function googleMime(name=''){
 
-  const n=
-    name.toLowerCase();
+  const n=String(name).toLowerCase();
 
   if(
     n.endsWith('.xlsx')||
@@ -90,6 +96,55 @@ function googleMime(name=''){
   return null;
 }
 
+function exportMime(
+  googleMimeType,
+  name=''
+){
+
+  const n=
+    String(name).toLowerCase();
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.spreadsheet'
+  ){
+
+    return n.endsWith('.csv')
+      ?'text/csv'
+      :'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.document'
+  ){
+
+    return (
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+  }
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.presentation'
+  ){
+
+    return (
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    );
+  }
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.drawing'
+  ){
+
+    return 'application/pdf';
+  }
+
+  return null;
+}
+
 function parseContent(value){
 
   if(!value)return {};
@@ -107,7 +162,124 @@ function parseContent(value){
   }
 }
 
-async function createDriveFolder(name){
+function safeFilename(name){
+
+  return String(
+    name||'file'
+  ).replace(
+    /[\r\n"]/g,
+    '_'
+  );
+}
+
+async function workspace(code){
+
+  if(!code)return null;
+
+  const q=
+    await pool.query(
+      `
+      select
+        id,
+        name,
+        invite_code
+      from workspaces
+      where upper(invite_code)=upper($1)
+      limit 1
+      `,
+      [code]
+    );
+
+  return q.rows[0]||null;
+}
+
+async function ensurePresenceTable(){
+
+  await pool.query(`
+    create table if not exists workspace_presence (
+      workspace_id uuid not null,
+      member_name text not null,
+      last_seen timestamptz not null default now(),
+      primary key (
+        workspace_id,
+        member_name
+      )
+    )
+  `);
+}
+
+async function touchPresence(
+  workspaceId,
+  memberName
+){
+
+  const name=
+    String(
+      memberName||''
+    ).trim();
+
+  if(!name)return;
+
+  await ensurePresenceTable();
+
+  await pool.query(
+    `
+    insert into workspace_presence
+    (
+      workspace_id,
+      member_name,
+      last_seen
+    )
+    values(
+      $1,
+      $2,
+      now()
+    )
+
+    on conflict
+    (
+      workspace_id,
+      member_name
+    )
+
+    do update
+
+    set last_seen=now()
+    `,
+    [
+      workspaceId,
+      name
+    ]
+  );
+}
+
+async function getOnlineMembers(
+  workspaceId
+){
+
+  await ensurePresenceTable();
+
+  const q=
+    await pool.query(
+      `
+      select
+        member_name,
+        last_seen
+      from workspace_presence
+      where workspace_id=$1
+        and last_seen >
+          now() - interval '2 minutes'
+      order by member_name
+      `,
+      [workspaceId]
+    );
+
+  return q.rows;
+}
+
+async function createDriveFolder(
+  name
+){
 
   const drive=
     driveClient();
@@ -138,20 +310,23 @@ async function getDriveFolder(
 
   const q=
     await pool.query(
-      `select *
-       from shared_items
-       where id=$1
-         and workspace_id=$2
-         and item_type='folder'
-         and trashed=false
-       limit 1`,
+      `
+      select *
+      from shared_items
+      where id=$1
+        and workspace_id=$2
+        and item_type='folder'
+        and trashed=false
+      limit 1
+      `,
       [
         parentId,
         workspaceId
       ]
     );
 
-  const folder=q.rows[0];
+  const folder=
+    q.rows[0];
 
   if(!folder){
 
@@ -165,8 +340,13 @@ async function getDriveFolder(
       folder.content
     );
 
-  if(content.driveFolderId){
-    return content.driveFolderId;
+  if(
+    content.driveFolderId
+  ){
+
+    return (
+      content.driveFolderId
+    );
   }
 
   const driveFolder=
@@ -175,6 +355,7 @@ async function getDriveFolder(
     );
 
   const newContent={
+
     ...content,
 
     driveFolderId:
@@ -189,13 +370,16 @@ async function getDriveFolder(
   };
 
   await pool.query(
-    `update shared_items
-     set content=$1,
-         file_data=$2,
-         updated_by=$3,
-         updated_at=now()
-     where id=$4
-       and workspace_id=$5`,
+    `
+    update shared_items
+    set
+      content=$1,
+      file_data=$2,
+      updated_by=$3,
+      updated_at=now()
+    where id=$4
+      and workspace_id=$5
+    `,
     [
       JSON.stringify(
         newContent
@@ -269,6 +453,7 @@ async function uploadToDrive(
       requestBody,
 
       media:{
+
         mimeType:
           mimeType||
           match[1]||
@@ -287,90 +472,217 @@ async function uploadToDrive(
   return result.data;
 }
 
-async function workspace(code){
-
-  if(!code)return null;
+async function streamFile(
+  req,
+  res,
+  ws,
+  fileId
+){
 
   const q=
     await pool.query(
-      `select id,name,invite_code
-       from workspaces
-       where upper(invite_code)=upper($1)
-       limit 1`,
-      [code]
+      `
+      select
+        id,
+        name,
+        mime_type,
+        content
+      from shared_items
+      where id=$1
+        and workspace_id=$2
+        and item_type='file'
+        and trashed=false
+      limit 1
+      `,
+      [
+        fileId,
+        ws.id
+      ]
     );
 
-  return q.rows[0]||null;
-}
+  const item=
+    q.rows[0];
 
-async function ensurePresenceTable(){
+  if(!item){
 
-  await pool.query(`
-    create table if not exists workspace_presence (
-      workspace_id uuid not null,
-      member_name text not null,
-      last_seen timestamptz not null default now(),
-      primary key (workspace_id, member_name)
-    )
-  `);
-}
+    return send(
+      res,
+      404,
+      {
+        error:
+          'ファイルが見つかりません'
+      }
+    );
+  }
 
-async function touchPresence(
-  workspaceId,
-  memberName
-){
+  const content=
+    parseContent(
+      item.content
+    );
 
-  const name=
-    String(
-      memberName||''
-    ).trim();
+  const driveFileId=
+    content.driveFileId;
 
-  if(!name)return;
+  if(!driveFileId){
 
-  await ensurePresenceTable();
+    return send(
+      res,
+      404,
+      {
+        error:
+          'Google Drive上のファイル情報がありません'
+      }
+    );
+  }
 
-  await pool.query(
-    `insert into workspace_presence
-      (
-        workspace_id,
-        member_name,
-        last_seen
-      )
-     values($1,$2,now())
-     on conflict
-       (workspace_id,member_name)
-     do update
-     set last_seen=now()`,
-    [
-      workspaceId,
-      name
-    ]
+  const drive=
+    driveClient();
+
+  const metaResult=
+    await drive.files.get({
+
+      fileId:
+        driveFileId,
+
+      fields:
+        'id,name,mimeType,size'
+    });
+
+  const meta=
+    metaResult.data||{};
+
+  const googleMimeType=
+
+    meta.mimeType||
+
+    content.googleMimeType||
+
+    item.mime_type||
+
+    'application/octet-stream';
+
+  const convertedMime=
+    exportMime(
+      googleMimeType,
+      item.name
+    );
+
+  let result;
+  let contentType;
+
+  if(convertedMime){
+
+    result=
+      await drive.files.export(
+
+        {
+          fileId:
+            driveFileId,
+
+          mimeType:
+            convertedMime
+        },
+
+        {
+          responseType:
+            'stream'
+        }
+      );
+
+    contentType=
+      convertedMime;
+
+  }else{
+
+    result=
+      await drive.files.get(
+
+        {
+          fileId:
+            driveFileId,
+
+          alt:
+            'media'
+        },
+
+        {
+          responseType:
+            'stream'
+        }
+      );
+
+    contentType=
+
+      item.mime_type||
+
+      googleMimeType||
+
+      'application/octet-stream';
+  }
+
+  const filename=
+    safeFilename(
+      item.name
+    );
+
+  const encodedName=
+    encodeURIComponent(
+      filename
+    );
+
+  res.setHeader(
+    'Cache-Control',
+    'private, no-store'
+  );
+
+  res.setHeader(
+    'X-Content-Type-Options',
+    'nosniff'
+  );
+
+  res.setHeader(
+    'Content-Type',
+    contentType
+  );
+
+  res.setHeader(
+    'Content-Disposition',
+    `inline; filename="${filename}"; filename*=UTF-8''${encodedName}`
+  );
+
+  result.data.on(
+    'error',
+    err=>{
+
+      console.error(
+        'TOMA SHARE FILE STREAM ERROR:',
+        err
+      );
+
+      if(!res.headersSent){
+
+        send(
+          res,
+          500,
+          {
+            error:
+              'ファイルを取得できませんでした'
+          }
+        );
+
+      }else{
+
+        res.end();
+      }
+    }
+  );
+
+  return result.data.pipe(
+    res
   );
 }
 
-async function getOnlineMembers(
-  workspaceId
-){
-
-  await ensurePresenceTable();
-
-  const q=
-    await pool.query(
-      `select
-        member_name,
-        last_seen
-       from workspace_presence
-       where workspace_id=$1
-         and last_seen >
-           now() - interval '2 minutes'
-       order by member_name`,
-      [workspaceId]
-    );
-
-  return q.rows;
-}
-
-module.exports =
+module.exports=
 async(req,res)=>{
 
   res.setHeader(
@@ -392,10 +704,20 @@ async(req,res)=>{
     );
   }
 
-  const code=
+  const headerCode=
     req.headers[
       'x-workspace-code'
     ];
+
+  const cookieCode=
+    readCookie(
+      req,
+      'toma_ws'
+    );
+
+  const code=
+    headerCode||
+    cookieCode;
 
   try{
 
@@ -414,6 +736,39 @@ async(req,res)=>{
       );
     }
 
+    /*
+      TOMA SHAREログイン情報を
+      Cookieへ保存
+    */
+    if(headerCode){
+
+      res.setHeader(
+
+        'Set-Cookie',
+
+        `toma_ws=${encodeURIComponent(headerCode)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`
+      );
+    }
+
+    /*
+      TOMA SHARE経由で
+      Google Driveファイルを表示
+    */
+    if(
+      req.method==='GET' &&
+      req.query &&
+      req.query.file
+    ){
+
+      return await streamFile(
+        req,
+        res,
+        ws,
+        String(
+          req.query.file
+        )
+      );
+    }
 
     /* ==============================
        GET
@@ -447,47 +802,57 @@ async(req,res)=>{
       await Promise.all([
 
         pool.query(
-          `select *
-           from schedules
-           where workspace_id=$1
-           order by
-             starts_at nulls last,
-             created_at desc`,
+          `
+          select *
+          from schedules
+          where workspace_id=$1
+          order by
+            starts_at nulls last,
+            created_at desc
+          `,
           [ws.id]
         ),
 
         pool.query(
-          `select *
-           from shared_items
-           where workspace_id=$1
-             and trashed=false
-           order by item_type,name`,
+          `
+          select *
+          from shared_items
+          where workspace_id=$1
+            and trashed=false
+          order by item_type,name
+          `,
           [ws.id]
         ),
 
         pool.query(
-          `select *
-           from minutes
-           where workspace_id=$1
-           order by
-             meeting_date desc nulls last,
-             created_at desc`,
+          `
+          select *
+          from minutes
+          where workspace_id=$1
+          order by
+            meeting_date desc nulls last,
+            created_at desc
+          `,
           [ws.id]
         ),
 
         pool.query(
-          `select *
-           from reviews
-           where workspace_id=$1
-           order by created_at desc`,
+          `
+          select *
+          from reviews
+          where workspace_id=$1
+          order by created_at desc
+          `,
           [ws.id]
         ),
 
         pool.query(
-          `select *
-           from permits
-           where workspace_id=$1
-           order by created_at desc`,
+          `
+          select *
+          from permits
+          where workspace_id=$1
+          order by created_at desc
+          `,
           [ws.id]
         ),
 
@@ -496,8 +861,69 @@ async(req,res)=>{
         )
       ]);
 
+      const host=
+        String(
+          req.headers.host||
+          ''
+        );
+
+      const proto=
+        String(
+          req.headers[
+            'x-forwarded-proto'
+          ]||
+          'https'
+        )
+        .split(',')[0]
+        .trim();
+
+      /*
+        app.js側は変更しない。
+        Drive URLを
+        TOMA SHARE URLへ差し替える。
+      */
+      const sharedItems=
+        items.rows.map(
+          x=>{
+
+            if(
+              x.item_type!==
+              'file'
+            ){
+
+              return x;
+            }
+
+            const proxyUrl=
+
+              `${proto}://${host}/api/data?file=${encodeURIComponent(x.id)}`;
+
+            const content=
+              parseContent(
+                x.content
+              );
+
+            return {
+
+              ...x,
+
+              file_data:
+                proxyUrl,
+
+              content:
+                JSON.stringify({
+
+                  ...content,
+
+                  webViewLink:
+                    proxyUrl
+                })
+            };
+          }
+        );
+
       const messages=
-        items.rows.filter(
+        sharedItems.filter(
           x=>
             x.item_type===
             'message'
@@ -507,13 +933,15 @@ async(req,res)=>{
         res,
         200,
         {
-          workspace:ws,
+
+          workspace:
+            ws,
 
           schedules:
             schedules.rows,
 
           items:
-            items.rows.filter(
+            sharedItems.filter(
               x=>
                 x.item_type!==
                 'message'
@@ -536,8 +964,9 @@ async(req,res)=>{
       );
     }
 
-
-    if(req.method!=='POST'){
+    if(
+      req.method!=='POST'
+    ){
 
       return send(
         res,
@@ -561,12 +990,13 @@ async(req,res)=>{
       by
     );
 
-    switch(b.action){
-
+    switch(
+      b.action
+    ){
 
       case 'presence':
-        break;
 
+        break;
 
       case 'folder':{
 
@@ -606,7 +1036,8 @@ async(req,res)=>{
         };
 
         await pool.query(
-          `insert into shared_items
+          `
+          insert into shared_items
           (
             workspace_id,
             item_type,
@@ -624,9 +1055,11 @@ async(req,res)=>{
             $4,
             $5,
             $6
-          )`,
+          )
+          `,
           [
             ws.id,
+
             name,
 
             'application/vnd.google-apps.folder',
@@ -644,7 +1077,6 @@ async(req,res)=>{
 
         break;
       }
-
 
       case 'file':{
 
@@ -686,7 +1118,8 @@ async(req,res)=>{
         };
 
         await pool.query(
-          `insert into shared_items
+          `
+          insert into shared_items
           (
             workspace_id,
             parent_id,
@@ -698,8 +1131,16 @@ async(req,res)=>{
             updated_by
           )
           values(
-            $1,$2,'file',$3,$4,$5,$6,$7
-          )`,
+            $1,
+            $2,
+            'file',
+            $3,
+            $4,
+            $5,
+            $6,
+            $7
+          )
+          `,
           [
             ws.id,
 
@@ -725,24 +1166,27 @@ async(req,res)=>{
         break;
       }
 
-
       case 'version':{
 
         const old=
           await pool.query(
-            `select *
-             from shared_items
-             where id=$1
-               and workspace_id=$2
-               and item_type='file'
-             limit 1`,
+            `
+            select *
+            from shared_items
+            where id=$1
+              and workspace_id=$2
+              and item_type='file'
+            limit 1
+            `,
             [
               b.id,
               ws.id
             ]
           );
 
-        if(!old.rows[0]){
+        if(
+          !old.rows[0]
+        ){
 
           return send(
             res,
@@ -758,7 +1202,8 @@ async(req,res)=>{
           old.rows[0];
 
         await pool.query(
-          `insert into item_versions
+          `
+          insert into item_versions
           (
             item_id,
             version,
@@ -767,8 +1212,13 @@ async(req,res)=>{
             updated_by
           )
           values(
-            $1,$2,$3,$4,$5
-          )`,
+            $1,
+            $2,
+            $3,
+            $4,
+            $5
+          )
+          `,
           [
             x.id,
             x.version,
@@ -779,11 +1229,15 @@ async(req,res)=>{
         );
 
         const parentId=
+
           b.parent_id!==undefined
+
             ?b.parent_id
+
             :x.parent_id;
 
         const driveFolderId=
+
           await getDriveFolder(
             ws.id,
             parentId||
@@ -821,18 +1275,20 @@ async(req,res)=>{
         };
 
         await pool.query(
-          `update shared_items
-           set
-             parent_id=$1,
-             name=$2,
-             mime_type=$3,
-             file_data=$4,
-             content=$5,
-             version=version+1,
-             updated_by=$6,
-             updated_at=now()
-           where id=$7
-             and workspace_id=$8`,
+          `
+          update shared_items
+          set
+            parent_id=$1,
+            name=$2,
+            mime_type=$3,
+            file_data=$4,
+            content=$5,
+            version=version+1,
+            updated_by=$6,
+            updated_at=now()
+          where id=$7
+            and workspace_id=$8
+          `,
           [
             parentId||
             null,
@@ -858,17 +1314,18 @@ async(req,res)=>{
         break;
       }
 
-
       case 'item_delete':
 
         await pool.query(
-          `update shared_items
-           set
-             trashed=true,
-             updated_by=$1,
-             updated_at=now()
-           where id=$2
-             and workspace_id=$3`,
+          `
+          update shared_items
+          set
+            trashed=true,
+            updated_by=$1,
+            updated_at=now()
+          where id=$2
+            and workspace_id=$3
+          `,
           [
             by,
             b.id,
@@ -878,11 +1335,11 @@ async(req,res)=>{
 
         break;
 
-
       case 'message':
 
         await pool.query(
-          `insert into shared_items
+          `
+          insert into shared_items
           (
             workspace_id,
             item_type,
@@ -894,7 +1351,8 @@ async(req,res)=>{
             'message',
             $2,
             $3
-          )`,
+          )
+          `,
           [
             ws.id,
             b.text,
@@ -904,27 +1362,30 @@ async(req,res)=>{
 
         break;
 
-
       case 'message_delete':{
 
         const q=
           await pool.query(
-            `select
+            `
+            select
               id,
               updated_by
-             from shared_items
-             where id=$1
-               and workspace_id=$2
-               and item_type='message'
-               and trashed=false
-             limit 1`,
+            from shared_items
+            where id=$1
+              and workspace_id=$2
+              and item_type='message'
+              and trashed=false
+            limit 1
+            `,
             [
               b.id,
               ws.id
             ]
           );
 
-        if(!q.rows[0]){
+        if(
+          !q.rows[0]
+        ){
 
           return send(
             res,
@@ -952,12 +1413,14 @@ async(req,res)=>{
         }
 
         await pool.query(
-          `update shared_items
-           set
-             trashed=true,
-             updated_at=now()
-           where id=$1
-             and workspace_id=$2`,
+          `
+          update shared_items
+          set
+            trashed=true,
+            updated_at=now()
+          where id=$1
+            and workspace_id=$2
+          `,
           [
             b.id,
             ws.id
@@ -967,11 +1430,11 @@ async(req,res)=>{
         break;
       }
 
-
       case 'schedule':
 
         await pool.query(
-          `insert into schedules
+          `
+          insert into schedules
           (
             workspace_id,
             title,
@@ -982,8 +1445,15 @@ async(req,res)=>{
             updated_by
           )
           values(
-            $1,$2,$3,$4,$5,$6,$7
-          )`,
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7
+          )
+          `,
           [
             ws.id,
             b.title,
@@ -1006,13 +1476,14 @@ async(req,res)=>{
 
         break;
 
-
       case 'schedule_delete':
 
         await pool.query(
-          `delete from schedules
-           where id=$1
-             and workspace_id=$2`,
+          `
+          delete from schedules
+          where id=$1
+            and workspace_id=$2
+          `,
           [
             b.id,
             ws.id
@@ -1021,11 +1492,11 @@ async(req,res)=>{
 
         break;
 
-
       case 'minute':
 
         await pool.query(
-          `insert into minutes
+          `
+          insert into minutes
           (
             workspace_id,
             title,
@@ -1035,8 +1506,14 @@ async(req,res)=>{
             updated_by
           )
           values(
-            $1,$2,$3,$4,$5,$6
-          )`,
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6
+          )
+          `,
           [
             ws.id,
             b.title,
@@ -1056,11 +1533,11 @@ async(req,res)=>{
 
         break;
 
-
       case 'review':
 
         await pool.query(
-          `insert into reviews
+          `
+          insert into reviews
           (
             workspace_id,
             title,
@@ -1069,8 +1546,13 @@ async(req,res)=>{
             updated_by
           )
           values(
-            $1,$2,$3,$4,$5
-          )`,
+            $1,
+            $2,
+            $3,
+            $4,
+            $5
+          )
+          `,
           [
             ws.id,
             b.title,
@@ -1087,11 +1569,11 @@ async(req,res)=>{
 
         break;
 
-
       case 'permit':
 
         await pool.query(
-          `insert into permits
+          `
+          insert into permits
           (
             workspace_id,
             title,
@@ -1101,8 +1583,14 @@ async(req,res)=>{
             updated_by
           )
           values(
-            $1,$2,$3,$4,$5,$6
-          )`,
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6
+          )
+          `,
           [
             ws.id,
             b.title,
@@ -1122,14 +1610,22 @@ async(req,res)=>{
 
         break;
 
-
       case 'record_delete':{
 
         const table={
-          minute:'minutes',
-          review:'reviews',
-          permit:'permits'
-        }[b.kind];
+
+          minute:
+            'minutes',
+
+          review:
+            'reviews',
+
+          permit:
+            'permits'
+
+        }[
+          b.kind
+        ];
 
         if(!table){
 
@@ -1144,9 +1640,11 @@ async(req,res)=>{
         }
 
         await pool.query(
-          `delete from ${table}
-           where id=$1
-             and workspace_id=$2`,
+          `
+          delete from ${table}
+          where id=$1
+            and workspace_id=$2
+          `,
           [
             b.id,
             ws.id
@@ -1155,7 +1653,6 @@ async(req,res)=>{
 
         break;
       }
-
 
       default:
 
@@ -1186,19 +1683,26 @@ async(req,res)=>{
       'unknown'
     );
 
-    return send(
-      res,
-      500,
-      {
-        error:
-          'サーバーエラー: '+
-          (
-            e?.response?.data
-              ?.error_description||
-            e?.message||
-            '不明なエラー'
-          )
-      }
-    );
+    if(
+      !res.headersSent
+    ){
+
+      return send(
+        res,
+        500,
+        {
+          error:
+            'サーバーエラー: '+
+            (
+              e?.response?.data
+                ?.error_description||
+              e?.message||
+              '不明なエラー'
+            )
+        }
+      );
+    }
+
+    return res.end();
   }
 };
