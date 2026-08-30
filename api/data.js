@@ -4,61 +4,123 @@ const { Readable } = require('stream');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
+
 
 function send(res,status,obj){
   return res.status(status).json(obj);
 }
 
+
+/* ==============================
+   日本語ヘッダー復元
+============================== */
+
 function decodeHeader(value){
-  const v=String(value||'');
-  if(!v)return '';
-  try{return decodeURIComponent(v);}
-  catch(e){return v;}
+
+  const v =
+    String(value || '');
+
+  if(!v){
+    return '';
+  }
+
+  try{
+    return decodeURIComponent(v);
+  }catch(e){
+    return v;
+  }
 }
 
+
+/* ==============================
+   Cookie
+============================== */
+
 function readCookie(req,name){
-  const raw=String(req.headers.cookie||'');
 
-  for(const part of raw.split(';')){
-    const p=part.trim();
-    const i=p.indexOf('=');
+  const raw =
+    String(
+      req.headers.cookie || ''
+    );
 
-    if(i<0)continue;
-    if(p.slice(0,i)!==name)continue;
+  const parts =
+    raw.split(';');
 
-    const v=p.slice(i+1);
+  for(const part of parts){
+
+    const p =
+      part.trim();
+
+    const index =
+      p.indexOf('=');
+
+    if(index < 0){
+      continue;
+    }
+
+    const key =
+      p.slice(
+        0,
+        index
+      );
+
+    const value =
+      p.slice(
+        index + 1
+      );
+
+    if(key !== name){
+      continue;
+    }
 
     try{
-      return decodeURIComponent(v);
+      return decodeURIComponent(
+        value
+      );
     }catch(e){
-      return v;
+      return value;
     }
   }
 
   return '';
 }
 
+
+/* ==============================
+   Google Drive
+============================== */
+
 function driveClient(){
 
-  const auth=new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  );
+  const auth =
+    new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
 
-  const refreshToken=String(
-    process.env.GOOGLE_REFRESH_TOKEN||''
-  ).replace(/\s+/g,'');
+  const refreshToken =
+    String(
+      process.env.GOOGLE_REFRESH_TOKEN ||
+      ''
+    ).replace(
+      /\s+/g,
+      ''
+    );
 
   if(!refreshToken){
+
     throw new Error(
       'GOOGLE_REFRESH_TOKEN が未設定です'
     );
   }
 
   auth.setCredentials({
-    refresh_token:refreshToken
+    refresh_token:
+      refreshToken
   });
 
   return google.drive({
@@ -67,55 +129,84 @@ function driveClient(){
   });
 }
 
+
+/* ==============================
+   Office → Google形式
+============================== */
+
 function googleMime(name=''){
 
-  const n=String(name).toLowerCase();
+  const n =
+    String(name)
+      .toLowerCase();
 
   if(
-    n.endsWith('.xlsx')||
-    n.endsWith('.xls')||
+    n.endsWith('.xlsx') ||
+    n.endsWith('.xls') ||
     n.endsWith('.csv')
   ){
-    return 'application/vnd.google-apps.spreadsheet';
+
+    return (
+      'application/vnd.google-apps.spreadsheet'
+    );
   }
 
   if(
-    n.endsWith('.docx')||
+    n.endsWith('.docx') ||
     n.endsWith('.doc')
   ){
-    return 'application/vnd.google-apps.document';
+
+    return (
+      'application/vnd.google-apps.document'
+    );
   }
 
   if(
-    n.endsWith('.pptx')||
+    n.endsWith('.pptx') ||
     n.endsWith('.ppt')
   ){
-    return 'application/vnd.google-apps.presentation';
+
+    return (
+      'application/vnd.google-apps.presentation'
+    );
   }
 
   return null;
 }
+
+
+/* ==============================
+   Google形式 → Office形式
+============================== */
 
 function exportMime(
   googleMimeType,
   name=''
 ){
 
-  const n=
-    String(name).toLowerCase();
+  const n =
+    String(name)
+      .toLowerCase();
 
   if(
-    googleMimeType===
+    googleMimeType ===
     'application/vnd.google-apps.spreadsheet'
   ){
 
-    return n.endsWith('.csv')
-      ?'text/csv'
-      :'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if(
+      n.endsWith('.csv')
+    ){
+      return 'text/csv';
+    }
+
+    return (
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
   }
 
+
   if(
-    googleMimeType===
+    googleMimeType ===
     'application/vnd.google-apps.document'
   ){
 
@@ -124,8 +215,9 @@ function exportMime(
     );
   }
 
+
   if(
-    googleMimeType===
+    googleMimeType ===
     'application/vnd.google-apps.presentation'
   ){
 
@@ -134,49 +226,139 @@ function exportMime(
     );
   }
 
+
   if(
-    googleMimeType===
+    googleMimeType ===
     'application/vnd.google-apps.drawing'
   ){
 
-    return 'application/pdf';
+    return (
+      'application/pdf'
+    );
   }
 
   return null;
 }
 
+
+/* ==============================
+   JSON content
+============================== */
+
 function parseContent(value){
 
-  if(!value)return {};
+  if(!value){
+    return {};
+  }
 
   if(
-    typeof value==='object'
+    typeof value ===
+    'object'
   ){
+
     return value;
   }
 
   try{
-    return JSON.parse(value);
+
+    return JSON.parse(
+      value
+    );
+
   }catch(e){
+
     return {};
   }
 }
 
+
+/* ==============================
+   ファイル名
+   日本語・英語両対応
+============================== */
+
 function safeFilename(name){
 
-  return String(
-    name||'file'
-  ).replace(
-    /[\r\n"]/g,
-    '_'
-  );
+  const original =
+    String(
+      name ||
+      'file'
+    );
+
+
+  /*
+    filename="" 用
+
+    HTTPヘッダーには
+    ASCIIだけを入れる。
+
+    日本語、中国語、韓国語、
+    絵文字などは _ にする。
+  */
+
+  let ascii =
+    original
+      .normalize('NFKD')
+      .replace(
+        /[^\x20-\x7E]/g,
+        '_'
+      )
+      .replace(
+        /["\\;\r\n]/g,
+        '_'
+      );
+
+
+  if(
+    !ascii ||
+    !ascii.trim()
+  ){
+
+    ascii =
+      'file';
+  }
+
+
+  /*
+    filename*=UTF-8'' 用
+
+    本来の日本語・英語名を
+    UTF-8エンコードして保持
+  */
+
+  const utf8 =
+    encodeURIComponent(
+      original
+    ).replace(
+      /['()*]/g,
+      char =>
+        '%' +
+        char
+          .charCodeAt(0)
+          .toString(16)
+          .toUpperCase()
+    );
+
+
+  return {
+    original,
+    ascii,
+    utf8
+  };
 }
+
+
+/* ==============================
+   ワークスペース
+============================== */
 
 async function workspace(code){
 
-  if(!code)return null;
+  if(!code){
+    return null;
+  }
 
-  const q=
+  const q =
     await pool.query(
       `
       select
@@ -187,38 +369,61 @@ async function workspace(code){
       where upper(invite_code)=upper($1)
       limit 1
       `,
-      [code]
+      [
+        code
+      ]
     );
 
-  return q.rows[0]||null;
+  return (
+    q.rows[0] ||
+    null
+  );
 }
+
+
+/* ==============================
+   オンライン表示
+============================== */
 
 async function ensurePresenceTable(){
 
-  await pool.query(`
-    create table if not exists workspace_presence (
+  await pool.query(
+    `
+    create table if not exists workspace_presence
+    (
       workspace_id uuid not null,
+
       member_name text not null,
-      last_seen timestamptz not null default now(),
-      primary key (
+
+      last_seen timestamptz
+        not null
+        default now(),
+
+      primary key
+      (
         workspace_id,
         member_name
       )
     )
-  `);
+    `
+  );
 }
+
 
 async function touchPresence(
   workspaceId,
   memberName
 ){
 
-  const name=
+  const name =
     String(
-      memberName||''
+      memberName ||
+      ''
     ).trim();
 
-  if(!name)return;
+  if(!name){
+    return;
+  }
 
   await ensurePresenceTable();
 
@@ -230,7 +435,9 @@ async function touchPresence(
       member_name,
       last_seen
     )
-    values(
+
+    values
+    (
       $1,
       $2,
       now()
@@ -244,7 +451,8 @@ async function touchPresence(
 
     do update
 
-    set last_seen=now()
+    set
+      last_seen=now()
     `,
     [
       workspaceId,
@@ -253,42 +461,58 @@ async function touchPresence(
   );
 }
 
+
 async function getOnlineMembers(
   workspaceId
 ){
 
   await ensurePresenceTable();
 
-  const q=
+  const q =
     await pool.query(
       `
       select
         member_name,
         last_seen
+
       from workspace_presence
+
       where workspace_id=$1
+
         and last_seen >
-          now() - interval '2 minutes'
-      order by member_name
+          now() -
+          interval '2 minutes'
+
+      order by
+        member_name
       `,
-      [workspaceId]
+      [
+        workspaceId
+      ]
     );
 
   return q.rows;
 }
 
+
+/* ==============================
+   Driveフォルダ作成
+============================== */
+
 async function createDriveFolder(
   name
 ){
 
-  const drive=
+  const drive =
     driveClient();
 
-  const result=
+  const result =
     await drive.files.create({
 
       requestBody:{
+
         name,
+
         mimeType:
           'application/vnd.google-apps.folder'
       },
@@ -297,8 +521,15 @@ async function createDriveFolder(
         'id,name,mimeType,webViewLink'
     });
 
-  return result.data;
+  return (
+    result.data
+  );
 }
+
+
+/* ==============================
+   保存先フォルダ取得
+============================== */
 
 async function getDriveFolder(
   workspaceId,
@@ -306,17 +537,25 @@ async function getDriveFolder(
   by
 ){
 
-  if(!parentId)return null;
+  if(!parentId){
+    return null;
+  }
 
-  const q=
+  const q =
     await pool.query(
       `
       select *
+
       from shared_items
+
       where id=$1
+
         and workspace_id=$2
+
         and item_type='folder'
+
         and trashed=false
+
       limit 1
       `,
       [
@@ -325,8 +564,10 @@ async function getDriveFolder(
       ]
     );
 
-  const folder=
+
+  const folder =
     q.rows[0];
+
 
   if(!folder){
 
@@ -335,10 +576,12 @@ async function getDriveFolder(
     );
   }
 
-  const content=
+
+  const content =
     parseContent(
       folder.content
     );
+
 
   if(
     content.driveFolderId
@@ -349,12 +592,14 @@ async function getDriveFolder(
     );
   }
 
-  const driveFolder=
+
+  const driveFolder =
     await createDriveFolder(
       folder.name
     );
 
-  const newContent={
+
+  const newContent = {
 
     ...content,
 
@@ -362,40 +607,59 @@ async function getDriveFolder(
       driveFolder.id,
 
     webViewLink:
-      driveFolder.webViewLink||
+      driveFolder.webViewLink ||
       null,
 
     googleMimeType:
       driveFolder.mimeType
   };
 
+
   await pool.query(
     `
     update shared_items
+
     set
+
       content=$1,
+
       file_data=$2,
+
       updated_by=$3,
+
       updated_at=now()
+
     where id=$4
+
       and workspace_id=$5
     `,
     [
+
       JSON.stringify(
         newContent
       ),
 
-      driveFolder.webViewLink||
+      driveFolder.webViewLink ||
       null,
 
       by,
+
       folder.id,
+
       workspaceId
     ]
   );
 
-  return driveFolder.id;
+
+  return (
+    driveFolder.id
+  );
 }
+
+
+/* ==============================
+   Driveへアップロード
+============================== */
 
 async function uploadToDrive(
   name,
@@ -404,12 +668,14 @@ async function uploadToDrive(
   driveFolderId=null
 ){
 
-  const match=
+  const match =
     String(
-      data||''
+      data ||
+      ''
     ).match(
       /^data:([^;]+);base64,(.+)$/s
     );
+
 
   if(!match){
 
@@ -418,36 +684,50 @@ async function uploadToDrive(
     );
   }
 
-  const buffer=
+
+  const buffer =
     Buffer.from(
       match[2],
       'base64'
     );
 
-  const targetMime=
-    googleMime(name);
 
-  const drive=
+  const targetMime =
+    googleMime(
+      name
+    );
+
+
+  const drive =
     driveClient();
 
-  const requestBody={
+
+  const requestBody = {
     name
   };
 
+
+  /*
+    Excel / Word / PowerPointは
+    Google形式に変換して保存
+  */
+
   if(targetMime){
 
-    requestBody.mimeType=
+    requestBody.mimeType =
       targetMime;
   }
 
+
   if(driveFolderId){
 
-    requestBody.parents=[
+    requestBody.parents = [
       driveFolderId
     ];
   }
 
-  const result=
+
+  const result =
     await drive.files.create({
 
       requestBody,
@@ -455,8 +735,8 @@ async function uploadToDrive(
       media:{
 
         mimeType:
-          mimeType||
-          match[1]||
+          mimeType ||
+          match[1] ||
           'application/octet-stream',
 
         body:
@@ -469,8 +749,16 @@ async function uploadToDrive(
         'id,name,mimeType,webViewLink,parents'
     });
 
-  return result.data;
+
+  return (
+    result.data
+  );
 }
+
+
+/* ==============================
+   TOMA SHARE経由ファイル表示
+============================== */
 
 async function streamFile(
   req,
@@ -479,19 +767,29 @@ async function streamFile(
   fileId
 ){
 
-  const q=
+  const q =
     await pool.query(
       `
       select
+
         id,
+
         name,
+
         mime_type,
+
         content
+
       from shared_items
+
       where id=$1
+
         and workspace_id=$2
+
         and item_type='file'
+
         and trashed=false
+
       limit 1
       `,
       [
@@ -500,8 +798,10 @@ async function streamFile(
       ]
     );
 
-  const item=
+
+  const item =
     q.rows[0];
+
 
   if(!item){
 
@@ -515,13 +815,16 @@ async function streamFile(
     );
   }
 
-  const content=
+
+  const content =
     parseContent(
       item.content
     );
 
-  const driveFileId=
+
+  const driveFileId =
     content.driveFileId;
+
 
   if(!driveFileId){
 
@@ -535,10 +838,16 @@ async function streamFile(
     );
   }
 
-  const drive=
+
+  const drive =
     driveClient();
 
-  const metaResult=
+
+  /*
+    Drive上のファイル形式確認
+  */
+
+  const metaResult =
     await drive.files.get({
 
       fileId:
@@ -548,34 +857,48 @@ async function streamFile(
         'id,name,mimeType,size'
     });
 
-  const meta=
-    metaResult.data||{};
 
-  const googleMimeType=
+  const meta =
+    metaResult.data ||
+    {};
 
-    meta.mimeType||
 
-    content.googleMimeType||
+  const googleMimeType =
 
-    item.mime_type||
+    meta.mimeType ||
+
+    content.googleMimeType ||
+
+    item.mime_type ||
 
     'application/octet-stream';
 
-  const convertedMime=
+
+  const convertedMime =
     exportMime(
       googleMimeType,
       item.name
     );
 
+
   let result;
+
   let contentType;
+
+
+  /*
+    Google Sheets
+    Google Docs
+    Google Slides
+  */
 
   if(convertedMime){
 
-    result=
+    result =
       await drive.files.export(
 
         {
+
           fileId:
             driveFileId,
 
@@ -584,20 +907,30 @@ async function streamFile(
         },
 
         {
+
           responseType:
             'stream'
         }
       );
 
-    contentType=
+
+    contentType =
       convertedMime;
 
   }else{
 
-    result=
+    /*
+      PDF
+      JPG
+      PNG
+      その他
+    */
+
+    result =
       await drive.files.get(
 
         {
+
           fileId:
             driveFileId,
 
@@ -606,62 +939,89 @@ async function streamFile(
         },
 
         {
+
           responseType:
             'stream'
         }
       );
 
-    contentType=
 
-      item.mime_type||
+    contentType =
 
-      googleMimeType||
+      item.mime_type ||
+
+      googleMimeType ||
 
       'application/octet-stream';
   }
 
-  const filename=
+
+  /*
+    日本語・英語対応ファイル名
+  */
+
+  const filename =
     safeFilename(
       item.name
     );
 
-  const encodedName=
-    encodeURIComponent(
-      filename
-    );
 
   res.setHeader(
     'Cache-Control',
     'private, no-store'
   );
 
+
   res.setHeader(
     'X-Content-Type-Options',
     'nosniff'
   );
+
 
   res.setHeader(
     'Content-Type',
     contentType
   );
 
+
+  /*
+    重要
+
+    filenameにはASCIIのみ。
+
+    filename*には
+    UTF-8の日本語・英語名。
+
+    これでVercelの
+
+    Invalid character in
+    Content-Disposition
+
+    を回避する。
+  */
+
   res.setHeader(
     'Content-Disposition',
-    `inline; filename="${filename}"; filename*=UTF-8''${encodedName}`
+
+    `inline; filename="${filename.ascii}"; filename*=UTF-8''${filename.utf8}`
   );
+
 
   result.data.on(
     'error',
-    err=>{
+    err => {
 
       console.error(
         'TOMA SHARE FILE STREAM ERROR:',
         err
       );
 
-      if(!res.headersSent){
 
-        send(
+      if(
+        !res.headersSent
+      ){
+
+        return send(
           res,
           500,
           {
@@ -669,26 +1029,33 @@ async function streamFile(
               'ファイルを取得できませんでした'
           }
         );
-
-      }else{
-
-        res.end();
       }
+
+
+      res.end();
     }
   );
+
 
   return result.data.pipe(
     res
   );
 }
 
-module.exports=
+
+/* ==============================
+   API
+============================== */
+
+module.exports =
 async(req,res)=>{
+
 
   res.setHeader(
     'Cache-Control',
     'no-store'
   );
+
 
   if(
     !process.env.DATABASE_URL
@@ -704,25 +1071,42 @@ async(req,res)=>{
     );
   }
 
-  const headerCode=
+
+  /*
+    通常APIアクセスはヘッダー。
+
+    ファイルを新しいタブで開く時は
+    Cookieから共有コードを取得。
+  */
+
+  const headerCode =
     req.headers[
       'x-workspace-code'
     ];
 
-  const cookieCode=
+
+  const cookieCode =
     readCookie(
       req,
       'toma_ws'
     );
 
-  const code=
-    headerCode||
+
+  const code =
+
+    headerCode ||
+
     cookieCode;
+
 
   try{
 
-    const ws=
-      await workspace(code);
+
+    const ws =
+      await workspace(
+        code
+      );
+
 
     if(!ws){
 
@@ -736,10 +1120,13 @@ async(req,res)=>{
       );
     }
 
+
     /*
-      TOMA SHAREログイン情報を
-      Cookieへ保存
+      TOMA SHAREログイン済み情報
+
+      30日保存
     */
+
     if(headerCode){
 
       res.setHeader(
@@ -750,13 +1137,16 @@ async(req,res)=>{
       );
     }
 
-    /*
-      TOMA SHARE経由で
-      Google Driveファイルを表示
-    */
+
+    /* ==============================
+       ファイルを開く
+    ============================== */
+
     if(
-      req.method==='GET' &&
+      req.method === 'GET' &&
+
       req.query &&
+
       req.query.file
     ){
 
@@ -770,18 +1160,24 @@ async(req,res)=>{
       );
     }
 
+
     /* ==============================
-       GET
+       通常GET
     ============================== */
 
-    if(req.method==='GET'){
+    if(
+      req.method ===
+      'GET'
+    ){
 
-      const memberName=
+
+      const memberName =
         decodeHeader(
           req.headers[
             'x-member-name'
           ]
         );
+
 
       if(memberName){
 
@@ -791,124 +1187,196 @@ async(req,res)=>{
         );
       }
 
+
       const [
+
         schedules,
+
         items,
+
         minutes,
+
         reviews,
+
         permits,
+
         online
-      ]=
+
+      ] =
       await Promise.all([
 
+
         pool.query(
           `
           select *
+
           from schedules
+
           where workspace_id=$1
+
           order by
-            starts_at nulls last,
+
+            starts_at
+              nulls last,
+
             created_at desc
           `,
-          [ws.id]
+          [
+            ws.id
+          ]
         ),
+
 
         pool.query(
           `
           select *
+
           from shared_items
+
           where workspace_id=$1
+
             and trashed=false
-          order by item_type,name
+
+          order by
+            item_type,
+            name
           `,
-          [ws.id]
+          [
+            ws.id
+          ]
         ),
+
 
         pool.query(
           `
           select *
+
           from minutes
+
           where workspace_id=$1
+
           order by
-            meeting_date desc nulls last,
+
+            meeting_date
+              desc
+              nulls last,
+
             created_at desc
           `,
-          [ws.id]
+          [
+            ws.id
+          ]
         ),
+
 
         pool.query(
           `
           select *
+
           from reviews
+
           where workspace_id=$1
-          order by created_at desc
+
+          order by
+            created_at desc
           `,
-          [ws.id]
+          [
+            ws.id
+          ]
         ),
+
 
         pool.query(
           `
           select *
+
           from permits
+
           where workspace_id=$1
-          order by created_at desc
+
+          order by
+            created_at desc
           `,
-          [ws.id]
+          [
+            ws.id
+          ]
         ),
+
 
         getOnlineMembers(
           ws.id
         )
       ]);
 
-      const host=
+
+      /*
+        TOMA SHARE自身のURLを作成
+      */
+
+      const host =
         String(
-          req.headers.host||
+          req.headers.host ||
           ''
         );
 
-      const proto=
+
+      const proto =
         String(
           req.headers[
             'x-forwarded-proto'
-          ]||
+          ] ||
           'https'
         )
         .split(',')[0]
         .trim();
 
+
       /*
-        app.js側は変更しない。
-        Drive URLを
-        TOMA SHARE URLへ差し替える。
+        Drive URLをユーザーへ渡さず
+
+        TOMA SHARE経由URLへ変更
       */
-      const sharedItems=
+
+      const sharedItems =
         items.rows.map(
-          x=>{
+          x => {
+
 
             if(
-              x.item_type!==
+              x.item_type !==
               'file'
             ){
 
               return x;
             }
 
-            const proxyUrl=
+
+            const proxyUrl =
 
               `${proto}://${host}/api/data?file=${encodeURIComponent(x.id)}`;
 
-            const content=
+
+            const content =
               parseContent(
                 x.content
               );
+
 
             return {
 
               ...x,
 
+
+              /*
+                app.jsは
+                file_dataがURLなら
+                そのまま開くため
+                TOMA SHARE URLを入れる
+              */
+
               file_data:
                 proxyUrl,
+
 
               content:
                 JSON.stringify({
@@ -922,12 +1390,14 @@ async(req,res)=>{
           }
         );
 
-      const messages=
+
+      const messages =
         sharedItems.filter(
-          x=>
-            x.item_type===
+          x =>
+            x.item_type ===
             'message'
         );
+
 
       return send(
         res,
@@ -937,26 +1407,33 @@ async(req,res)=>{
           workspace:
             ws,
 
+
           schedules:
             schedules.rows,
 
+
           items:
             sharedItems.filter(
-              x=>
-                x.item_type!==
+              x =>
+                x.item_type !==
                 'message'
             ),
 
+
           messages,
+
 
           minutes:
             minutes.rows,
 
+
           reviews:
             reviews.rows,
 
+
           permits:
             permits.rows,
+
 
           onlineMembers:
             online
@@ -964,8 +1441,14 @@ async(req,res)=>{
       );
     }
 
+
+    /* ==============================
+       POST以外拒否
+    ============================== */
+
     if(
-      req.method!=='POST'
+      req.method !==
+      'POST'
     ){
 
       return send(
@@ -978,32 +1461,50 @@ async(req,res)=>{
       );
     }
 
-    const b=
-      req.body||{};
 
-    const by=
-      b.by||
+    const b =
+      req.body ||
+      {};
+
+
+    const by =
+      b.by ||
       'メンバー';
+
 
     await touchPresence(
       ws.id,
       by
     );
 
+
     switch(
       b.action
     ){
+
+
+      /* ==============================
+         オンライン
+      ============================== */
 
       case 'presence':
 
         break;
 
+
+      /* ==============================
+         フォルダ
+      ============================== */
+
       case 'folder':{
 
-        const name=
+
+        const name =
           String(
-            b.name||''
+            b.name ||
+            ''
           ).trim();
+
 
         if(!name){
 
@@ -1017,54 +1518,72 @@ async(req,res)=>{
           );
         }
 
-        const driveFolder=
+
+        const driveFolder =
           await createDriveFolder(
             name
           );
 
-        const content={
+
+        const content = {
 
           driveFolderId:
             driveFolder.id,
 
           webViewLink:
-            driveFolder.webViewLink||
+            driveFolder.webViewLink ||
             null,
 
           googleMimeType:
             driveFolder.mimeType
         };
 
+
         await pool.query(
           `
           insert into shared_items
           (
             workspace_id,
+
             item_type,
+
             name,
+
             mime_type,
+
             file_data,
+
             content,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
+
             'folder',
+
             $2,
+
             $3,
+
             $4,
+
             $5,
+
             $6
           )
           `,
           [
+
             ws.id,
 
             name,
 
             'application/vnd.google-apps.folder',
 
-            driveFolder.webViewLink||
+            driveFolder.webViewLink ||
             null,
 
             JSON.stringify(
@@ -1075,84 +1594,120 @@ async(req,res)=>{
           ]
         );
 
+
         break;
       }
 
+
+      /* ==============================
+         ファイル追加
+      ============================== */
+
       case 'file':{
 
-        const driveFolderId=
+
+        const driveFolderId =
+
           await getDriveFolder(
+
             ws.id,
-            b.parent_id||
+
+            b.parent_id ||
             null,
+
             by
           );
 
-        const driveFile=
+
+        const driveFile =
+
           await uploadToDrive(
+
             b.name,
+
             b.mime_type,
+
             b.data,
+
             driveFolderId
           );
 
-        const content={
+
+        const content = {
 
           size:
-            b.size||
+            b.size ||
             null,
 
           driveFileId:
             driveFile.id,
 
           webViewLink:
-            driveFile.webViewLink||
+            driveFile.webViewLink ||
             null,
 
           googleMimeType:
             driveFile.mimeType,
 
           driveFolderId:
-            driveFolderId||
+            driveFolderId ||
             null
         };
+
 
         await pool.query(
           `
           insert into shared_items
           (
             workspace_id,
+
             parent_id,
+
             item_type,
+
             name,
+
             mime_type,
+
             file_data,
+
             content,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
+
             $2,
+
             'file',
+
             $3,
+
             $4,
+
             $5,
+
             $6,
+
             $7
           )
           `,
           [
+
             ws.id,
 
-            b.parent_id||
+            b.parent_id ||
             null,
 
             b.name,
 
-            b.mime_type||
+            b.mime_type ||
             null,
 
-            driveFile.webViewLink||
+            driveFile.webViewLink ||
             null,
 
             JSON.stringify(
@@ -1163,19 +1718,31 @@ async(req,res)=>{
           ]
         );
 
+
         break;
       }
 
+
+      /* ==============================
+         更新版
+      ============================== */
+
       case 'version':{
 
-        const old=
+
+        const old =
           await pool.query(
             `
             select *
+
             from shared_items
+
             where id=$1
+
               and workspace_id=$2
+
               and item_type='file'
+
             limit 1
             `,
             [
@@ -1183,6 +1750,7 @@ async(req,res)=>{
               ws.id
             ]
           );
+
 
         if(
           !old.rows[0]
@@ -1198,20 +1766,28 @@ async(req,res)=>{
           );
         }
 
-        const x=
+
+        const x =
           old.rows[0];
+
 
         await pool.query(
           `
           insert into item_versions
           (
             item_id,
+
             version,
+
             file_data,
+
             content,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
             $2,
             $3,
@@ -1220,85 +1796,118 @@ async(req,res)=>{
           )
           `,
           [
+
             x.id,
+
             x.version,
+
             x.file_data,
+
             x.content,
+
             by
           ]
         );
 
-        const parentId=
 
-          b.parent_id!==undefined
+        const parentId =
 
-            ?b.parent_id
+          b.parent_id !==
+          undefined
 
-            :x.parent_id;
+            ? b.parent_id
 
-        const driveFolderId=
+            : x.parent_id;
+
+
+        const driveFolderId =
 
           await getDriveFolder(
+
             ws.id,
-            parentId||
+
+            parentId ||
             null,
+
             by
           );
 
-        const driveFile=
+
+        const driveFile =
+
           await uploadToDrive(
+
             b.name,
+
             b.mime_type,
+
             b.data,
+
             driveFolderId
           );
 
-        const content={
+
+        const content = {
 
           size:
-            b.size||
+            b.size ||
             null,
 
           driveFileId:
             driveFile.id,
 
           webViewLink:
-            driveFile.webViewLink||
+            driveFile.webViewLink ||
             null,
 
           googleMimeType:
             driveFile.mimeType,
 
           driveFolderId:
-            driveFolderId||
+            driveFolderId ||
             null
         };
+
 
         await pool.query(
           `
           update shared_items
+
           set
+
             parent_id=$1,
+
             name=$2,
+
             mime_type=$3,
+
             file_data=$4,
+
             content=$5,
-            version=version+1,
+
+            version=
+              version+1,
+
             updated_by=$6,
-            updated_at=now()
+
+            updated_at=
+              now()
+
           where id=$7
+
             and workspace_id=$8
           `,
           [
-            parentId||
+
+            parentId ||
             null,
 
             b.name,
 
-            b.mime_type||
+            b.mime_type ||
             null,
 
-            driveFile.webViewLink||
+            driveFile.webViewLink ||
             null,
 
             JSON.stringify(
@@ -1306,82 +1915,136 @@ async(req,res)=>{
             ),
 
             by,
+
             b.id,
+
             ws.id
           ]
         );
+
 
         break;
       }
 
+
+      /* ==============================
+         ファイル削除
+      ============================== */
+
       case 'item_delete':
+
 
         await pool.query(
           `
           update shared_items
+
           set
+
             trashed=true,
+
             updated_by=$1,
+
             updated_at=now()
+
           where id=$2
+
             and workspace_id=$3
           `,
           [
+
             by,
+
             b.id,
+
             ws.id
           ]
         );
 
+
         break;
 
+
+      /* ==============================
+         メッセージ
+      ============================== */
+
       case 'message':
+
 
         await pool.query(
           `
           insert into shared_items
           (
             workspace_id,
+
             item_type,
+
             name,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
+
             'message',
+
             $2,
+
             $3
           )
           `,
           [
+
             ws.id,
+
             b.text,
+
             by
           ]
         );
 
+
         break;
+
+
+      /* ==============================
+         メッセージ取消
+      ============================== */
 
       case 'message_delete':{
 
-        const q=
+
+        const q =
           await pool.query(
             `
             select
+
               id,
+
               updated_by
+
             from shared_items
+
             where id=$1
+
               and workspace_id=$2
+
               and item_type='message'
+
               and trashed=false
+
             limit 1
             `,
             [
+
               b.id,
+
               ws.id
             ]
           );
+
 
         if(
           !q.rows[0]
@@ -1397,8 +2060,10 @@ async(req,res)=>{
           );
         }
 
+
         if(
-          q.rows[0].updated_by!==
+          q.rows[0]
+            .updated_by !==
           by
         ){
 
@@ -1412,39 +2077,62 @@ async(req,res)=>{
           );
         }
 
+
         await pool.query(
           `
           update shared_items
+
           set
+
             trashed=true,
+
             updated_at=now()
+
           where id=$1
+
             and workspace_id=$2
           `,
           [
+
             b.id,
+
             ws.id
           ]
         );
 
+
         break;
       }
 
+
+      /* ==============================
+         スケジュール
+      ============================== */
+
       case 'schedule':
+
 
         await pool.query(
           `
           insert into schedules
           (
             workspace_id,
+
             title,
+
             starts_at,
+
             ends_at,
+
             place,
+
             memo,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
             $2,
             $3,
@@ -1455,57 +2143,84 @@ async(req,res)=>{
           )
           `,
           [
+
             ws.id,
+
             b.title,
 
-            b.starts_at||
+            b.starts_at ||
             null,
 
-            b.ends_at||
+            b.ends_at ||
             null,
 
-            b.place||
+            b.place ||
             null,
 
-            b.memo||
+            b.memo ||
             null,
 
             by
           ]
         );
 
+
         break;
 
+
+      /* ==============================
+         スケジュール削除
+      ============================== */
+
       case 'schedule_delete':
+
 
         await pool.query(
           `
           delete from schedules
+
           where id=$1
+
             and workspace_id=$2
           `,
           [
+
             b.id,
+
             ws.id
           ]
         );
 
+
         break;
 
+
+      /* ==============================
+         議事録
+      ============================== */
+
       case 'minute':
+
 
         await pool.query(
           `
           insert into minutes
           (
             workspace_id,
+
             title,
+
             meeting_date,
+
             body,
+
             action_items,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
             $2,
             $3,
@@ -1515,37 +2230,52 @@ async(req,res)=>{
           )
           `,
           [
+
             ws.id,
+
             b.title,
 
-            b.meeting_date||
+            b.meeting_date ||
             null,
 
-            b.body||
+            b.body ||
             null,
 
-            b.action_items||
+            b.action_items ||
             null,
 
             by
           ]
         );
 
+
         break;
 
+
+      /* ==============================
+         反省点
+      ============================== */
+
       case 'review':
+
 
         await pool.query(
           `
           insert into reviews
           (
             workspace_id,
+
             title,
+
             category,
+
             body,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
             $2,
             $3,
@@ -1554,35 +2284,51 @@ async(req,res)=>{
           )
           `,
           [
+
             ws.id,
+
             b.title,
 
-            b.category||
+            b.category ||
             null,
 
-            b.body||
+            b.body ||
             null,
 
             by
           ]
         );
 
+
         break;
 
+
+      /* ==============================
+         許可・申請
+      ============================== */
+
       case 'permit':
+
 
         await pool.query(
           `
           insert into permits
           (
             workspace_id,
+
             title,
+
             organization,
+
             contact,
+
             body,
+
             updated_by
           )
-          values(
+
+          values
+          (
             $1,
             $2,
             $3,
@@ -1592,27 +2338,36 @@ async(req,res)=>{
           )
           `,
           [
+
             ws.id,
+
             b.title,
 
-            b.organization||
+            b.organization ||
             null,
 
-            b.contact||
+            b.contact ||
             null,
 
-            b.body||
+            b.body ||
             null,
 
             by
           ]
         );
 
+
         break;
+
+
+      /* ==============================
+         記録削除
+      ============================== */
 
       case 'record_delete':{
 
-        const table={
+
+        const table = {
 
           minute:
             'minutes',
@@ -1627,6 +2382,7 @@ async(req,res)=>{
           b.kind
         ];
 
+
         if(!table){
 
           return send(
@@ -1639,22 +2395,30 @@ async(req,res)=>{
           );
         }
 
+
         await pool.query(
           `
           delete from ${table}
+
           where id=$1
+
             and workspace_id=$2
           `,
           [
+
             b.id,
+
             ws.id
           ]
         );
 
+
         break;
       }
 
+
       default:
+
 
         return send(
           res,
@@ -1666,6 +2430,7 @@ async(req,res)=>{
         );
     }
 
+
     return send(
       res,
       200,
@@ -1674,14 +2439,20 @@ async(req,res)=>{
       }
     );
 
+
   }catch(e){
+
 
     console.error(
       'TOMA SHARE API error:',
-      e?.response?.data||
-      e?.message||
+
+      e?.response?.data ||
+
+      e?.message ||
+
       'unknown'
     );
+
 
     if(
       !res.headersSent
@@ -1692,16 +2463,20 @@ async(req,res)=>{
         500,
         {
           error:
-            'サーバーエラー: '+
+            'サーバーエラー: ' +
             (
-              e?.response?.data
-                ?.error_description||
-              e?.message||
+              e?.response
+                ?.data
+                ?.error_description ||
+
+              e?.message ||
+
               '不明なエラー'
             )
         }
       );
     }
+
 
     return res.end();
   }
