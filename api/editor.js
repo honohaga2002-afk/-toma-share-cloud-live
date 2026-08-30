@@ -12,6 +12,7 @@ const XLSX_URL =
 
 let xlsxLoading = null;
 let current = null;
+let itemCache = [];
 
 
 /* =========================================================
@@ -20,7 +21,9 @@ let current = null;
 
 function getCode(){
   return String(
-    localStorage.getItem('tomaCode') || ''
+    localStorage.getItem('tomaCode') ||
+    document.getElementById('code')?.value ||
+    'TOMA-2026'
   )
   .trim()
   .toUpperCase();
@@ -28,7 +31,9 @@ function getCode(){
 
 function getName(){
   return String(
-    localStorage.getItem('tomaName') || 'メンバー'
+    localStorage.getItem('tomaName') ||
+    document.getElementById('memberName')?.value ||
+    'メンバー'
   ).trim() || 'メンバー';
 }
 
@@ -55,22 +60,17 @@ async function api(
       )
   };
 
-
   const options = {
     method,
     headers,
-    cache:'no-store'
+    cache:'no-store',
+    credentials:'same-origin'
   };
 
-
   if(body){
-
     options.body =
-      JSON.stringify(
-        body
-      );
+      JSON.stringify(body);
   }
-
 
   const response =
     await fetch(
@@ -78,32 +78,24 @@ async function api(
       options
     );
 
-
   const text =
     await response.text();
 
-
   let json = {};
 
-
   try{
-
     json =
       text
         ? JSON.parse(text)
         : {};
-
   }catch(e){}
 
-
   if(!response.ok){
-
     throw new Error(
       json.error ||
       `通信エラー (${response.status})`
     );
   }
-
 
   return json;
 }
@@ -117,10 +109,8 @@ function isSpreadsheet(file){
 
   const name =
     String(
-      file?.name ||
-      ''
+      file?.name || ''
     ).toLowerCase();
-
 
   return (
     name.endsWith('.xlsx') ||
@@ -137,49 +127,36 @@ function isSpreadsheet(file){
 async function loadXLSX(){
 
   if(window.XLSX){
-
     return window.XLSX;
   }
 
-
   if(xlsxLoading){
-
     return xlsxLoading;
   }
 
-
   xlsxLoading =
     new Promise(
-      (
-        resolve,
-        reject
-      )=>{
+      (resolve,reject)=>{
 
         const script =
           document.createElement(
             'script'
           );
 
-
         script.src =
           XLSX_URL;
 
-
         script.async =
           true;
-
 
         script.onload =
           ()=>{
 
             if(window.XLSX){
-
               resolve(
                 window.XLSX
               );
-
             }else{
-
               reject(
                 new Error(
                   '表計算機能を読み込めませんでした'
@@ -188,10 +165,8 @@ async function loadXLSX(){
             }
           };
 
-
         script.onerror =
           ()=>{
-
             reject(
               new Error(
                 '表計算機能を読み込めませんでした'
@@ -199,14 +174,12 @@ async function loadXLSX(){
             );
           };
 
-
         document.head
           .appendChild(
             script
           );
       }
     );
-
 
   return xlsxLoading;
 }
@@ -223,20 +196,16 @@ function ensureStyle(){
       'tomaEditorStyle'
     )
   ){
-
     return;
   }
-
 
   const style =
     document.createElement(
       'style'
     );
 
-
   style.id =
     'tomaEditorStyle';
-
 
   style.textContent = `
 
@@ -393,7 +362,6 @@ function ensureStyle(){
 
 `;
 
-
   document.head
     .appendChild(
       style
@@ -408,17 +376,13 @@ function ensureStyle(){
 function columnName(index){
 
   let result = '';
-
   let number =
     index + 1;
-
 
   while(number > 0){
 
     const remainder =
-      (number - 1) %
-      26;
-
+      (number - 1) % 26;
 
     result =
       String.fromCharCode(
@@ -426,14 +390,11 @@ function columnName(index){
       ) +
       result;
 
-
     number =
       Math.floor(
-        (number - 1) /
-        26
+        (number - 1) / 26
       );
   }
-
 
   return result;
 }
@@ -446,25 +407,19 @@ function columnName(index){
 function cellText(cell){
 
   if(!cell){
-
     return '';
   }
 
-
   if(cell.f){
-
     return '=' + cell.f;
   }
-
 
   if(
     cell.v === null ||
     cell.v === undefined
   ){
-
     return '';
   }
-
 
   return String(
     cell.v
@@ -485,12 +440,10 @@ function setCell(
   const XLSX =
     window.XLSX;
 
-
   const text =
     String(
       value ?? ''
     );
-
 
   if(text === ''){
 
@@ -529,16 +482,13 @@ function setCell(
     };
   }
 
-
   const rc =
     XLSX.utils
       .decode_cell(
         address
       );
 
-
   let range;
-
 
   if(sheet['!ref']){
 
@@ -562,20 +512,17 @@ function setCell(
     };
   }
 
-
   range.e.r =
     Math.max(
       range.e.r,
       rc.r
     );
 
-
   range.e.c =
     Math.max(
       range.e.c,
       rc.c
     );
-
 
   sheet['!ref'] =
     XLSX.utils
@@ -598,12 +545,9 @@ function updateStatus(
       '#tomaEditor .teStatus'
     );
 
-
   if(!status){
-
     return;
   }
-
 
   if(message){
 
@@ -612,7 +556,6 @@ function updateStatus(
 
     return;
   }
-
 
   status.textContent =
     current?.dirty
@@ -630,28 +573,23 @@ function renderSheet(){
   const XLSX =
     window.XLSX;
 
-
   const editor =
     document.getElementById(
       'tomaEditor'
     );
 
-
   if(
     !editor ||
     !current
   ){
-
     return;
   }
-
 
   const sheet =
     current.workbook
       .Sheets[
         current.sheetName
       ];
-
 
   let range = {
     s:{
@@ -664,7 +602,6 @@ function renderSheet(){
     }
   };
 
-
   if(sheet['!ref']){
 
     range =
@@ -673,12 +610,6 @@ function renderSheet(){
           sheet['!ref']
         );
   }
-
-
-  /*
-    iPhoneでも重くなり過ぎないように
-    最大200行 × 50列
-  */
 
   const rowCount =
     Math.min(
@@ -689,7 +620,6 @@ function renderSheet(){
       200
     );
 
-
   const columnCount =
     Math.min(
       Math.max(
@@ -699,48 +629,39 @@ function renderSheet(){
       50
     );
 
-
   const wrap =
     editor.querySelector(
       '.teWrap'
     );
 
-
   wrap.innerHTML = '';
-
 
   const table =
     document.createElement(
       'table'
     );
 
-
   const thead =
     document.createElement(
       'thead'
     );
-
 
   const headerRow =
     document.createElement(
       'tr'
     );
 
-
   const corner =
     document.createElement(
       'th'
     );
 
-
   corner.className =
     'rowHead';
-
 
   headerRow.appendChild(
     corner
   );
-
 
   for(
     let column=0;
@@ -753,34 +674,28 @@ function renderSheet(){
         'th'
       );
 
-
     th.textContent =
       columnName(
         column
       );
-
 
     headerRow.appendChild(
       th
     );
   }
 
-
   thead.appendChild(
     headerRow
   );
-
 
   table.appendChild(
     thead
   );
 
-
   const tbody =
     document.createElement(
       'tbody'
     );
-
 
   for(
     let row=0;
@@ -793,27 +708,22 @@ function renderSheet(){
         'tr'
       );
 
-
     const rowHead =
       document.createElement(
         'th'
       );
 
-
     rowHead.className =
       'rowHead';
-
 
     rowHead.textContent =
       String(
         row + 1
       );
 
-
     tr.appendChild(
       rowHead
     );
-
 
     for(
       let column=0;
@@ -826,24 +736,19 @@ function renderSheet(){
           'td'
         );
 
-
       const input =
         document.createElement(
           'input'
         );
 
-
       input.className =
         'cell';
-
 
       input.autocomplete =
         'off';
 
-
       input.spellcheck =
         false;
-
 
       const address =
         XLSX.utils
@@ -852,16 +757,13 @@ function renderSheet(){
             c:column
           });
 
-
       input.dataset.address =
         address;
-
 
       input.value =
         cellText(
           sheet[address]
         );
-
 
       input.addEventListener(
         'change',
@@ -873,42 +775,34 @@ function renderSheet(){
             input.value
           );
 
-
           current.dirty =
             true;
-
 
           updateStatus();
         }
       );
 
-
       td.appendChild(
         input
       );
-
 
       tr.appendChild(
         td
       );
     }
 
-
     tbody.appendChild(
       tr
     );
   }
 
-
   table.appendChild(
     tbody
   );
 
-
   wrap.appendChild(
     table
   );
-
 
   if(
     range.e.r + 1 > 200 ||
@@ -937,15 +831,11 @@ function renderTabs(){
       '#tomaEditor .teTabs'
     );
 
-
   if(!tabs){
-
     return;
   }
 
-
   tabs.innerHTML = '';
-
 
   current.workbook
     .SheetNames
@@ -957,20 +847,16 @@ function renderTabs(){
             'button'
           );
 
-
         button.textContent =
           sheetName;
-
 
         if(
           sheetName ===
           current.sheetName
         ){
-
           button.className =
             'on';
         }
-
 
         button.onclick =
           ()=>{
@@ -978,12 +864,9 @@ function renderTabs(){
             current.sheetName =
               sheetName;
 
-
             renderTabs();
-
             renderSheet();
           };
-
 
         tabs.appendChild(
           button
@@ -1005,22 +888,17 @@ function closeEditor(){
       '保存していない変更があります。\n閉じてもよろしいですか？'
     )
   ){
-
     return;
   }
-
 
   const editor =
     document.getElementById(
       'tomaEditor'
     );
 
-
   if(editor){
-
     editor.remove();
   }
-
 
   current =
     null;
@@ -1040,7 +918,6 @@ function bytesToBase64(
   const step =
     0x8000;
 
-
   for(
     let i=0;
     i<bytes.length;
@@ -1059,7 +936,6 @@ function bytesToBase64(
       );
   }
 
-
   return btoa(
     binary
   );
@@ -1073,10 +949,8 @@ function bytesToBase64(
 async function saveEditor(){
 
   if(!current){
-
     return;
   }
-
 
   try{
 
@@ -1084,23 +958,17 @@ async function saveEditor(){
       '保存中…'
     );
 
-
     const XLSX =
       window.XLSX;
-
 
     const filename =
       current.file.name;
 
-
     const lower =
       filename.toLowerCase();
 
-
     let output;
-
     let mimeType;
-
 
     if(
       lower.endsWith(
@@ -1117,13 +985,11 @@ async function saveEditor(){
               ]
           );
 
-
       output =
         new TextEncoder()
           .encode(
             csv
           );
-
 
       mimeType =
         'text/csv';
@@ -1145,7 +1011,6 @@ async function saveEditor(){
           )
         );
 
-
       mimeType =
         'application/vnd.ms-excel';
 
@@ -1162,15 +1027,9 @@ async function saveEditor(){
           )
         );
 
-
       mimeType =
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     }
-
-
-    /*
-      Vercelへの送信サイズ対策
-    */
 
     if(
       output.byteLength >
@@ -1182,16 +1041,13 @@ async function saveEditor(){
       );
     }
 
-
     const base64 =
       bytesToBase64(
         output
       );
 
-
     const fileData =
       `data:${mimeType};base64,${base64}`;
-
 
     await api(
       'POST',
@@ -1224,15 +1080,12 @@ async function saveEditor(){
       }
     );
 
-
     current.dirty =
       false;
-
 
     updateStatus(
       '保存しました'
     );
-
 
     setTimeout(
       ()=>{
@@ -1249,11 +1102,9 @@ async function saveEditor(){
       error
     );
 
-
     updateStatus(
       '保存に失敗しました'
     );
-
 
     alert(
       '保存できませんでした。\n\n' +
@@ -1280,16 +1131,8 @@ async function openEditor(
       );
     }
 
-
-    const data =
-      await api();
-
-
-    const file =
-      (
-        data.items ||
-        []
-      ).find(
+    let file =
+      itemCache.find(
         item =>
           String(
             item.id
@@ -1299,6 +1142,26 @@ async function openEditor(
           )
       );
 
+    if(!file){
+
+      const data =
+        await api();
+
+      itemCache =
+        data.items ||
+        [];
+
+      file =
+        itemCache.find(
+          item =>
+            String(
+              item.id
+            ) ===
+            String(
+              id
+            )
+        );
+    }
 
     if(!file){
 
@@ -1306,7 +1169,6 @@ async function openEditor(
         'ファイルが見つかりません'
       );
     }
-
 
     if(
       !isSpreadsheet(
@@ -1319,14 +1181,7 @@ async function openEditor(
       );
     }
 
-
     await loadXLSX();
-
-
-    /*
-      Google Driveへ直接行かず
-      TOMA SHARE経由で取得
-    */
 
     const response =
       await fetch(
@@ -1337,7 +1192,6 @@ async function openEditor(
         }
       );
 
-
     if(!response.ok){
 
       throw new Error(
@@ -1345,10 +1199,8 @@ async function openEditor(
       );
     }
 
-
     const buffer =
       await response.arrayBuffer();
-
 
     const workbook =
       window.XLSX.read(
@@ -1359,7 +1211,6 @@ async function openEditor(
         }
       );
 
-
     if(
       !workbook.SheetNames.length
     ){
@@ -1368,7 +1219,6 @@ async function openEditor(
         'シートがありません'
       );
     }
-
 
     current = {
 
@@ -1382,31 +1232,24 @@ async function openEditor(
       dirty:false
     };
 
-
     ensureStyle();
-
 
     const old =
       document.getElementById(
         'tomaEditor'
       );
 
-
     if(old){
-
       old.remove();
     }
-
 
     const editor =
       document.createElement(
         'div'
       );
 
-
     editor.id =
       'tomaEditor';
-
 
     editor.innerHTML = `
 
@@ -1447,12 +1290,10 @@ async function openEditor(
 
 `;
 
-
     document.body
       .appendChild(
         editor
       );
-
 
     editor
       .querySelector(
@@ -1462,14 +1303,12 @@ async function openEditor(
         '✏️ ' +
         file.name;
 
-
     editor
       .querySelector(
         '#teClose'
       )
       .onclick =
         closeEditor;
-
 
     editor
       .querySelector(
@@ -1478,9 +1317,7 @@ async function openEditor(
       .onclick =
         saveEditor;
 
-
     renderTabs();
-
     renderSheet();
 
   }catch(error){
@@ -1488,7 +1325,6 @@ async function openEditor(
     console.error(
       error
     );
-
 
     alert(
       '編集画面を開けません。\n\n' +
@@ -1499,123 +1335,198 @@ async function openEditor(
 
 
 /* =========================================================
-   「編集」ボタン追加
+   ファイル一覧からID取得
 ========================================================= */
 
-function addEditButtons(){
+function getOpenId(
+  button
+){
+
+  if(!button){
+    return '';
+  }
+
+  return String(
+    button.dataset.open ||
+    button.getAttribute('data-open') ||
+    ''
+  ).trim();
+}
+
+
+/* =========================================================
+   編集ボタン追加
+========================================================= */
+
+async function addEditButtons(){
+
+  let data;
+
+  try{
+
+    data =
+      await api();
+
+    itemCache =
+      data.items ||
+      [];
+
+  }catch(error){
+
+    return;
+  }
 
   const openButtons =
     document.querySelectorAll(
-      'button[data-open]'
+      '[data-open]'
     );
-
 
   openButtons.forEach(
     openButton=>{
 
       const id =
-        openButton.dataset.open;
-
+        getOpenId(
+          openButton
+        );
 
       if(!id){
-
         return;
       }
 
+      const file =
+        itemCache.find(
+          item =>
+            String(
+              item.id
+            ) ===
+            String(
+              id
+            )
+        );
+
+      if(
+        !file ||
+        !isSpreadsheet(
+          file
+        )
+      ){
+        return;
+      }
 
       const parent =
         openButton.parentElement;
 
-
       if(!parent){
-
         return;
       }
-
 
       const existing =
-        Array.from(
-          parent.querySelectorAll(
-            '[data-toma-edit]'
-          )
-        ).find(
-          button =>
-            button.dataset.tomaEdit ===
-            id
+        parent.querySelector(
+          `[data-toma-edit="${CSS.escape(id)}"]`
         );
 
-
       if(existing){
-
         return;
       }
-
 
       const button =
         document.createElement(
           'button'
         );
 
+      button.type =
+        'button';
 
       button.className =
         'btn light tomaEditBtn';
 
-
       button.dataset.tomaEdit =
         id;
-
 
       button.textContent =
         '編集';
 
-
-      button.addEventListener(
-        'click',
+      button.onclick =
         event=>{
 
           event.preventDefault();
-
           event.stopPropagation();
-
 
           openEditor(
             id
           );
-        }
-      );
+        };
 
+      if(
+        openButton.nextSibling
+      ){
 
-      openButton
-        .insertAdjacentElement(
-          'afterend',
+        parent.insertBefore(
+          button,
+          openButton.nextSibling
+        );
+
+      }else{
+
+        parent.appendChild(
           button
         );
+      }
     }
   );
 }
 
 
 /* =========================================================
-   app.jsの画面更新を監視
+   監視
 ========================================================= */
+
+let timer = null;
+
+function scheduleAddButtons(){
+
+  clearTimeout(
+    timer
+  );
+
+  timer =
+    setTimeout(
+      ()=>{
+        addEditButtons();
+      },
+      250
+    );
+}
 
 const observer =
   new MutationObserver(
-    ()=>{
+    scheduleAddButtons
+  );
 
-      addEditButtons();
+function start(){
+
+  ensureStyle();
+
+  observer.observe(
+    document.body,
+    {
+      childList:true,
+      subtree:true
     }
   );
 
+  scheduleAddButtons();
 
-observer.observe(
-  document.documentElement,
-  {
-    childList:true,
-    subtree:true
-  }
-);
+  setTimeout(
+    scheduleAddButtons,
+    1000
+  );
 
+  setTimeout(
+    scheduleAddButtons,
+    2500
+  );
+}
 
 if(
   document.readyState ===
@@ -1624,12 +1535,12 @@ if(
 
   document.addEventListener(
     'DOMContentLoaded',
-    addEditButtons
+    start
   );
 
 }else{
 
-  addEditButtons();
+  start();
 }
 
 })();
