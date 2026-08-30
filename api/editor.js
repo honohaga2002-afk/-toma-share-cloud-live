@@ -20,6 +20,7 @@ let itemCache = [];
 ========================================================= */
 
 function getCode(){
+
   return String(
     localStorage.getItem('tomaCode') ||
     document.getElementById('code')?.value ||
@@ -30,6 +31,7 @@ function getCode(){
 }
 
 function getName(){
+
   return String(
     localStorage.getItem('tomaName') ||
     document.getElementById('memberName')?.value ||
@@ -69,7 +71,9 @@ async function api(
 
   if(body){
     options.body =
-      JSON.stringify(body);
+      JSON.stringify(
+        body
+      );
   }
 
   const response =
@@ -91,6 +95,7 @@ async function api(
   }catch(e){}
 
   if(!response.ok){
+
     throw new Error(
       json.error ||
       `通信エラー (${response.status})`
@@ -102,15 +107,19 @@ async function api(
 
 
 /* =========================================================
-   Excel判定
+   Excel / CSV 判定
 ========================================================= */
 
-function isSpreadsheet(file){
+function isSpreadsheet(
+  file
+){
 
   const name =
     String(
       file?.name || ''
-    ).toLowerCase();
+    )
+    .trim()
+    .toLowerCase();
 
   return (
     name.endsWith('.xlsx') ||
@@ -153,10 +162,13 @@ async function loadXLSX(){
           ()=>{
 
             if(window.XLSX){
+
               resolve(
                 window.XLSX
               );
+
             }else{
+
               reject(
                 new Error(
                   '表計算機能を読み込めませんでした'
@@ -167,6 +179,7 @@ async function loadXLSX(){
 
         script.onerror =
           ()=>{
+
             reject(
               new Error(
                 '表計算機能を読み込めませんでした'
@@ -229,7 +242,7 @@ function ensureStyle(){
     max(10px, env(safe-area-inset-top))
     10px
     10px;
-  background:white;
+  background:#fff;
   border-bottom:1px solid #ddd;
   display:flex;
   gap:8px;
@@ -252,7 +265,7 @@ function ensureStyle(){
   font-size:14px;
   font-weight:700;
   background:#0879d1;
-  color:white;
+  color:#fff;
 }
 
 #tomaEditor button.light{
@@ -261,7 +274,7 @@ function ensureStyle(){
 }
 
 #tomaEditor .teTabs{
-  background:white;
+  background:#fff;
   display:flex;
   gap:6px;
   padding:8px;
@@ -278,13 +291,13 @@ function ensureStyle(){
 
 #tomaEditor .teTabs button.on{
   background:#0879d1;
-  color:white;
+  color:#fff;
 }
 
 #tomaEditor .teWrap{
   flex:1;
   overflow:auto;
-  background:white;
+  background:#fff;
   -webkit-overflow-scrolling:touch;
 }
 
@@ -333,7 +346,7 @@ function ensureStyle(){
   width:100%;
   height:34px;
   padding:5px 7px;
-  background:white;
+  background:#fff;
   font-size:16px;
 }
 
@@ -344,7 +357,7 @@ function ensureStyle(){
 }
 
 #tomaEditor .teStatus{
-  background:white;
+  background:#fff;
   border-top:1px solid #ddd;
   padding:
     7px
@@ -357,7 +370,7 @@ function ensureStyle(){
 .tomaEditBtn{
   margin-left:6px !important;
   background:#16864f !important;
-  color:white !important;
+  color:#fff !important;
 }
 
 `;
@@ -373,7 +386,9 @@ function ensureStyle(){
    列名
 ========================================================= */
 
-function columnName(index){
+function columnName(
+  index
+){
 
   let result = '';
   let number =
@@ -404,7 +419,9 @@ function columnName(index){
    セル表示
 ========================================================= */
 
-function cellText(cell){
+function cellText(
+  cell
+){
 
   if(!cell){
     return '';
@@ -533,7 +550,7 @@ function setCell(
 
 
 /* =========================================================
-   保存状態
+   状態表示
 ========================================================= */
 
 function updateStatus(
@@ -1089,9 +1106,7 @@ async function saveEditor(){
 
     setTimeout(
       ()=>{
-
         location.reload();
-
       },
       700
     );
@@ -1221,14 +1236,10 @@ async function openEditor(
     }
 
     current = {
-
       file,
-
       workbook,
-
       sheetName:
         workbook.SheetNames[0],
-
       dirty:false
     };
 
@@ -1274,17 +1285,11 @@ async function openEditor(
 
 </div>
 
-<div
-  class="teTabs"
-></div>
+<div class="teTabs"></div>
 
-<div
-  class="teWrap"
-></div>
+<div class="teWrap"></div>
 
-<div
-  class="teStatus"
->
+<div class="teStatus">
   読み込み完了
 </div>
 
@@ -1335,46 +1340,11 @@ async function openEditor(
 
 
 /* =========================================================
-   ファイル一覧からID取得
-========================================================= */
-
-function getOpenId(
-  button
-){
-
-  if(!button){
-    return '';
-  }
-
-  return String(
-    button.dataset.open ||
-    button.getAttribute('data-open') ||
-    ''
-  ).trim();
-}
-
-
-/* =========================================================
    編集ボタン追加
+   APIを使わず、画面表示だけで判定
 ========================================================= */
 
-async function addEditButtons(){
-
-  let data;
-
-  try{
-
-    data =
-      await api();
-
-    itemCache =
-      data.items ||
-      [];
-
-  }catch(error){
-
-    return;
-  }
+function addEditButtons(){
 
   const openButtons =
     document.querySelectorAll(
@@ -1385,47 +1355,61 @@ async function addEditButtons(){
     openButton=>{
 
       const id =
-        getOpenId(
-          openButton
-        );
+        String(
+          openButton.getAttribute(
+            'data-open'
+          ) || ''
+        ).trim();
 
       if(!id){
         return;
       }
 
-      const file =
-        itemCache.find(
-          item =>
-            String(
-              item.id
-            ) ===
-            String(
-              id
-            )
-        );
+      const actionArea =
+        openButton.parentElement;
 
+      if(!actionArea){
+        return;
+      }
+
+      /*
+       * すでに編集ボタンがあれば追加しない
+       */
       if(
-        !file ||
-        !isSpreadsheet(
-          file
+        actionArea.querySelector(
+          `[data-toma-edit="${id}"]`
         )
       ){
         return;
       }
 
-      const parent =
-        openButton.parentElement;
+      /*
+       * ファイル行全体を取得
+       */
+      let row =
+        actionArea.parentElement;
 
-      if(!parent){
-        return;
+      if(!row){
+        row =
+          actionArea;
       }
 
-      const existing =
-        parent.querySelector(
-          `[data-toma-edit="${CSS.escape(id)}"]`
-        );
+      /*
+       * 画面上のファイル名を含む文字列で判定
+       */
+      const rowText =
+        String(
+          row.textContent || ''
+        )
+        .trim()
+        .toLowerCase();
 
-      if(existing){
+      const isExcel =
+        rowText.includes('.xlsx') ||
+        rowText.includes('.xls') ||
+        rowText.includes('.csv');
+
+      if(!isExcel){
         return;
       }
 
@@ -1447,7 +1431,7 @@ async function addEditButtons(){
         '編集';
 
       button.onclick =
-        event=>{
+        function(event){
 
           event.preventDefault();
           event.stopPropagation();
@@ -1457,18 +1441,21 @@ async function addEditButtons(){
           );
         };
 
+      /*
+       * 開くボタンの直後に追加
+       */
       if(
         openButton.nextSibling
       ){
 
-        parent.insertBefore(
+        actionArea.insertBefore(
           button,
           openButton.nextSibling
         );
 
       }else{
 
-        parent.appendChild(
+        actionArea.appendChild(
           button
         );
       }
@@ -1478,7 +1465,7 @@ async function addEditButtons(){
 
 
 /* =========================================================
-   監視
+   app.jsの再描画監視
 ========================================================= */
 
 let timer = null;
@@ -1491,16 +1478,18 @@ function scheduleAddButtons(){
 
   timer =
     setTimeout(
-      ()=>{
-        addEditButtons();
-      },
-      250
+      addEditButtons,
+      120
     );
 }
 
 const observer =
   new MutationObserver(
-    scheduleAddButtons
+    function(){
+
+      scheduleAddButtons();
+
+    }
   );
 
 function start(){
@@ -1515,16 +1504,31 @@ function start(){
     }
   );
 
-  scheduleAddButtons();
+  addEditButtons();
 
   setTimeout(
-    scheduleAddButtons,
-    1000
+    addEditButtons,
+    300
   );
 
   setTimeout(
-    scheduleAddButtons,
-    2500
+    addEditButtons,
+    700
+  );
+
+  setTimeout(
+    addEditButtons,
+    1200
+  );
+
+  setTimeout(
+    addEditButtons,
+    2000
+  );
+
+  setTimeout(
+    addEditButtons,
+    3500
   );
 }
 
