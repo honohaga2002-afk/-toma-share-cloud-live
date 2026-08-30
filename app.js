@@ -13,6 +13,7 @@ const toastEl=$('toast');
 let C='';
 let N='';
 let cur='home';
+let presenceTimer=null;
 
 let state={
   schedules:[],
@@ -20,22 +21,32 @@ let state={
   items:[],
   minutes:[],
   reviews:[],
-  permits:[]
+  permits:[],
+  onlineMembers:[]
 };
 
 let selectedUploadFile=null;
 let selectedVersionId=null;
 let selectedFolderId='';
 
-const SHEET_URL='https://docs.google.com/spreadsheets/d/1wi2FQ7crs8pXmu-43Gu-XdEnyJ_J6SI19N8eDxVSd68/edit';
+const SHEET_URL=
+'https://docs.google.com/spreadsheets/d/1wi2FQ7crs8pXmu-43Gu-XdEnyJ_J6SI19N8eDxVSd68/edit';
 
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({
-  '&':'&amp;',
-  '<':'&lt;',
-  '>':'&gt;',
-  '"':'&quot;',
-  "'":'&#39;'
-}[c]));
+
+/* =================================
+   基本
+================================= */
+
+const esc=s=>String(s??'').replace(
+  /[&<>"']/g,
+  c=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[c])
+);
 
 function say(t){
   if(!toastEl)return;
@@ -49,13 +60,25 @@ function say(t){
 }
 
 async function api(method='GET',body){
+  const headers={
+    'Content-Type':'application/json',
+    'x-workspace-code':C
+  };
+
+  /*
+   * GETのたびに現在利用中の名前を
+   * サーバーへ送る
+   */
+  if(N){
+    headers['x-member-name']=N;
+  }
+
   const r=await fetch('/api/data',{
     method,
-    headers:{
-      'Content-Type':'application/json',
-      'x-workspace-code':C
-    },
-    body:body?JSON.stringify(body):undefined,
+    headers,
+    body:body
+      ?JSON.stringify(body)
+      :undefined,
     cache:'no-store'
   });
 
@@ -64,15 +87,33 @@ async function api(method='GET',body){
   }));
 
   if(!r.ok){
-    throw new Error(j.error||'通信エラー');
+    throw new Error(
+      j.error||'通信エラー'
+    );
   }
 
   return j;
 }
 
 async function load(){
-  state=await api();
+  const data=await api();
+
+  state={
+    schedules:data.schedules||[],
+    messages:data.messages||[],
+    items:data.items||[],
+    minutes:data.minutes||[],
+    reviews:data.reviews||[],
+    permits:data.permits||[],
+    onlineMembers:
+      data.onlineMembers||[]
+  };
 }
+
+
+/* =================================
+   ログイン
+================================= */
 
 async function doLogin(){
   C=codeEl.value.trim().toUpperCase();
@@ -80,56 +121,127 @@ async function doLogin(){
 
   if(!C){
     statusEl.className='err';
-    statusEl.textContent='共有コードを入力してください。';
+    statusEl.textContent=
+      '共有コードを入力してください。';
     return;
   }
 
   enterEl.disabled=true;
+
   statusEl.className='meta';
   statusEl.textContent='接続中…';
 
   try{
     await load();
 
-    localStorage.setItem('tomaCode',C);
-    localStorage.setItem('tomaName',N);
+    localStorage.setItem(
+      'tomaCode',
+      C
+    );
+
+    localStorage.setItem(
+      'tomaName',
+      N
+    );
 
     loginEl.classList.add('hidden');
     navEl.classList.remove('hidden');
 
     go('home');
+
+    startPresence();
+
     say('ログインしました');
 
   }catch(e){
     statusEl.className='err';
-    statusEl.textContent='ログインできません：'+e.message;
+    statusEl.textContent=
+      'ログインできません：'+
+      e.message;
   }finally{
     enterEl.disabled=false;
   }
 }
 
 if(enterEl){
-  enterEl.addEventListener('click',doLogin);
+  enterEl.addEventListener(
+    'click',
+    doLogin
+  );
 }
 
 if(memberNameEl){
-  memberNameEl.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){
-      doLogin();
+  memberNameEl.addEventListener(
+    'keydown',
+    e=>{
+      if(e.key==='Enter'){
+        doLogin();
+      }
     }
-  });
+  );
 }
 
 if(codeEl){
   codeEl.value=
-    localStorage.getItem('tomaCode')||
+    localStorage.getItem(
+      'tomaCode'
+    )||
     'TOMA-2026';
 }
 
 if(memberNameEl){
   memberNameEl.value=
-    localStorage.getItem('tomaName')||
+    localStorage.getItem(
+      'tomaName'
+    )||
     '';
+}
+
+
+/* =================================
+   オンライン状態
+================================= */
+
+function startPresence(){
+  if(presenceTimer){
+    clearInterval(
+      presenceTimer
+    );
+  }
+
+  /*
+   * 30秒ごとにオンライン状態を更新
+   */
+  presenceTimer=setInterval(
+    async()=>{
+      if(!C||!N)return;
+
+      try{
+        await load();
+
+        /*
+         * 今見ている画面だけ
+         * 再描画
+         */
+        render();
+
+      }catch(e){
+        console.error(
+          'presence:',
+          e
+        );
+      }
+    },
+    30000
+  );
+}
+
+function onlineNames(){
+  return (
+    state.onlineMembers||[]
+  ).map(x=>
+    x.member_name
+  ).filter(Boolean);
 }
 
 
@@ -138,12 +250,16 @@ if(memberNameEl){
 ================================= */
 
 function dataUrlToBlob(dataUrl){
-  const m=String(dataUrl||'').match(
+  const m=String(
+    dataUrl||''
+  ).match(
     /^data:([^;,]+)?(;base64)?,(.*)$/s
   );
 
   if(!m){
-    throw new Error('ファイル形式を読み取れません');
+    throw new Error(
+      'ファイル形式を読み取れません'
+    );
   }
 
   const mime=
@@ -161,12 +277,20 @@ function dataUrlToBlob(dataUrl){
         decodeURIComponent(raw)
       );
 
-  return new Blob([bytes],{type:mime});
+  return new Blob(
+    [bytes],
+    {type:mime}
+  );
 }
 
 function isPreviewable(f){
-  const mime=(f.mime_type||'').toLowerCase();
-  const name=(f.name||'').toLowerCase();
+  const mime=
+    (f.mime_type||'')
+      .toLowerCase();
+
+  const name=
+    (f.name||'')
+      .toLowerCase();
 
   return (
     mime.startsWith('image/')||
@@ -180,16 +304,21 @@ function driveUrl(f){
 
   if(
     typeof f.file_data==='string' &&
-    /^https?:\/\//i.test(f.file_data)
+    /^https?:\/\//i.test(
+      f.file_data
+    )
   ){
     return f.file_data;
   }
 
   let content=f.content;
 
-  if(typeof content==='string'){
+  if(
+    typeof content==='string'
+  ){
     try{
-      content=JSON.parse(content);
+      content=
+        JSON.parse(content);
     }catch(e){}
   }
 
@@ -204,17 +333,29 @@ function driveUrl(f){
   return null;
 }
 
+
+/* =================================
+   ファイルを開く
+================================= */
+
 function openFile(f){
   try{
     if(!f){
-      alert('ファイルが見つかりません');
+      alert(
+        'ファイルが見つかりません'
+      );
       return;
     }
 
     const url=driveUrl(f);
 
     if(url){
-      const a=document.createElement('a');
+      /*
+       * SafariのTOMA SHAREを残して
+       * Google Drive側を開く
+       */
+      const a=
+        document.createElement('a');
 
       a.href=url;
       a.target='_blank';
@@ -229,15 +370,23 @@ function openFile(f){
     }
 
     if(!f.file_data){
-      alert('ファイルデータがありません');
+      alert(
+        'ファイルデータがありません'
+      );
       return;
     }
 
-    const blob=dataUrlToBlob(f.file_data);
-    const blobUrl=URL.createObjectURL(blob);
+    const blob=
+      dataUrlToBlob(
+        f.file_data
+      );
+
+    const blobUrl=
+      URL.createObjectURL(blob);
 
     if(isPreviewable(f)){
-      const a=document.createElement('a');
+      const a=
+        document.createElement('a');
 
       a.href=blobUrl;
       a.target='_blank';
@@ -249,10 +398,13 @@ function openFile(f){
       a.remove();
 
     }else{
-      const a=document.createElement('a');
+      const a=
+        document.createElement('a');
 
       a.href=blobUrl;
-      a.download=f.name||'download';
+      a.download=
+        f.name||'download';
+
       a.style.display='none';
 
       document.body.appendChild(a);
@@ -261,7 +413,9 @@ function openFile(f){
     }
 
     setTimeout(()=>{
-      URL.revokeObjectURL(blobUrl);
+      URL.revokeObjectURL(
+        blobUrl
+      );
     },120000);
 
   }catch(e){
@@ -278,7 +432,10 @@ function openFile(f){
 ================================= */
 
 function pickFile(id){
-  const input=document.createElement('input');
+  const input=
+    document.createElement(
+      'input'
+    );
 
   input.type='file';
 
@@ -286,7 +443,8 @@ function pickFile(id){
     '.xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.pdf,image/*';
 
   input.onchange=()=>{
-    const f=input.files?.[0];
+    const f=
+      input.files?.[0];
 
     if(!f)return;
 
@@ -298,15 +456,18 @@ function pickFile(id){
     }
 
     selectedUploadFile=f;
-    selectedVersionId=id||null;
+    selectedVersionId=
+      id||null;
 
     if(id){
-      const old=state.items.find(
-        x=>x.id===id
-      );
+      const old=
+        state.items.find(
+          x=>x.id===id
+        );
 
       selectedFolderId=
         old?.parent_id||'';
+
     }else{
       selectedFolderId='';
     }
@@ -319,34 +480,44 @@ function pickFile(id){
 
 
 /* =================================
-   選択ファイル保存
+   ファイル保存
 ================================= */
 
 async function saveSelectedFile(){
-  const f=selectedUploadFile;
+  const f=
+    selectedUploadFile;
 
   if(!f){
-    alert('ファイルを選択してください');
+    alert(
+      'ファイルを選択してください'
+    );
     return;
   }
 
-  const btn=$('saveSelectedFile');
+  const btn=
+    $('saveSelectedFile');
 
   try{
     if(btn){
       btn.disabled=true;
-      btn.textContent='保存中…';
+      btn.textContent=
+        '保存中…';
     }
 
-    say('Google Driveへ保存中…');
+    say(
+      'Google Driveへ保存中…'
+    );
 
     const data=
       await new Promise(
         (resolve,reject)=>{
-          const fr=new FileReader();
+          const fr=
+            new FileReader();
 
           fr.onload=()=>{
-            resolve(fr.result);
+            resolve(
+              fr.result
+            );
           };
 
           fr.onerror=()=>{
@@ -361,38 +532,42 @@ async function saveSelectedFile(){
         }
       );
 
-    await api('POST',{
-      action:
-        selectedVersionId
-          ?'version'
-          :'file',
+    await api(
+      'POST',
+      {
+        action:
+          selectedVersionId
+            ?'version'
+            :'file',
 
-      id:
-        selectedVersionId||
-        null,
+        id:
+          selectedVersionId||
+          null,
 
-      parent_id:
-        selectedFolderId||
-        null,
+        parent_id:
+          selectedFolderId||
+          null,
 
-      name:f.name,
+        name:f.name,
 
-      mime_type:
-        f.type||
-        'application/octet-stream',
+        mime_type:
+          f.type||
+          'application/octet-stream',
 
-      size:f.size,
+        size:f.size,
 
-      data,
+        data,
 
-      by:N
-    });
+        by:N
+      }
+    );
 
     selectedUploadFile=null;
     selectedVersionId=null;
     selectedFolderId='';
 
     await load();
+
     go('drive');
 
     say('保存しました');
@@ -430,11 +605,39 @@ function homeR(){
 
   if(!el)return;
 
+  const online=
+    onlineNames();
+
   el.innerHTML=`
     <div class="panel">
+
       <div class="ok">
-        🟢 クラウド接続中｜${esc(N)}
+        🟢 クラウド接続中｜
+        ${esc(N)}
       </div>
+
+      <div
+        class="item"
+        style="margin-top:12px"
+      >
+        <div class="title">
+          👥 オンライン
+          ${online.length}人
+        </div>
+
+        <div class="meta">
+          ${
+            online.length
+              ?online
+                .map(
+                  x=>esc(x)
+                )
+                .join('・')
+              :'現在オンラインのメンバーはいません'
+          }
+        </div>
+      </div>
+
     </div>
 
     <div class="grid">
@@ -450,7 +653,9 @@ function homeR(){
         <div class="meta">
           ${
             state.items.filter(
-              x=>x.item_type==='file'
+              x=>
+                x.item_type===
+                'file'
             ).length
           }資料
         </div>
@@ -536,14 +741,15 @@ function homeR(){
 
       <button
         class="card"
-        data-go="more"
+        data-go="home"
       >
         <div class="ico">👥</div>
         <div class="ct">
           共有メンバー
         </div>
         <div class="meta">
-          同じコードで共有
+          オンライン
+          ${online.length}人
         </div>
       </button>
 
@@ -551,21 +757,26 @@ function homeR(){
   `;
 
   document
-    .querySelectorAll('[data-go]')
+    .querySelectorAll(
+      '[data-go]'
+    )
     .forEach(b=>{
       b.onclick=()=>{
-        go(b.dataset.go);
+        go(
+          b.dataset.go
+        );
       };
     });
 }
 
 
 /* =================================
-   ファイル表示部品
+   ファイル行
 ================================= */
 
 function fileRow(file){
-  const isDrive=!!driveUrl(file);
+  const isDrive=
+    !!driveUrl(file);
 
   return `
     <div class="item">
@@ -573,6 +784,7 @@ function fileRow(file){
       <div class="row">
 
         <div style="flex:1">
+
           <div class="title">
             ${isDrive?'☁️':'📎'}
             ${esc(file.name)}
@@ -581,13 +793,16 @@ function fileRow(file){
           <div class="meta">
             Ver.${file.version||1}
             ｜
-            ${esc(file.updated_by||'')}
+            ${esc(
+              file.updated_by||''
+            )}
             ${
               isDrive
                 ?'｜Google Drive'
                 :''
             }
           </div>
+
         </div>
 
         <button
@@ -629,12 +844,16 @@ function driveR(){
 
   const folders=
     state.items.filter(
-      x=>x.item_type==='folder'
+      x=>
+        x.item_type===
+        'folder'
     );
 
   const files=
     state.items.filter(
-      x=>x.item_type==='file'
+      x=>
+        x.item_type===
+        'file'
     );
 
   let uploadBox='';
@@ -651,7 +870,8 @@ function driveR(){
         <option
           value="${esc(f.id)}"
           ${
-            selectedFolderId===f.id
+            selectedFolderId===
+            f.id
               ?'selected'
               :''
           }
@@ -668,20 +888,28 @@ function driveR(){
         </div>
 
         <div class="item">
+
           <div class="title">
-            ${esc(selectedUploadFile.name)}
+            ${esc(
+              selectedUploadFile.name
+            )}
           </div>
 
           <div class="meta">
             ${kb} KB
           </div>
+
         </div>
 
-        <label class="fieldLabel">
+        <label
+          class="fieldLabel"
+        >
           保存先フォルダ
         </label>
 
-        <select id="folderSelect">
+        <select
+          id="folderSelect"
+        >
           <option value="">
             共有ドライブ直下
           </option>
@@ -690,6 +918,7 @@ function driveR(){
         </select>
 
         <div class="row">
+
           <button
             class="btn"
             id="saveSelectedFile"
@@ -703,6 +932,7 @@ function driveR(){
           >
             キャンセル
           </button>
+
         </div>
 
       </div>
@@ -713,6 +943,7 @@ function driveR(){
     <div class="panel">
 
       <div class="sectionTitle">
+
         <div class="title">
           📁 共有ドライブ
         </div>
@@ -723,9 +954,11 @@ function driveR(){
         >
           ↻更新
         </button>
+
       </div>
 
       <div class="row">
+
         <button
           class="btn"
           id="up"
@@ -739,6 +972,7 @@ function driveR(){
         >
           ＋フォルダ
         </button>
+
       </div>
 
       <button
@@ -768,25 +1002,32 @@ function driveR(){
         folders.length
           ?folders.map(folder=>{
 
-            const count=
+            const folderFiles=
               files.filter(
                 file=>
                   file.parent_id===
                   folder.id
-              ).length;
+              );
 
             return `
               <div class="item">
+
                 <div class="row">
 
-                  <div style="flex:1">
+                  <div
+                    style="flex:1"
+                  >
+
                     <div class="title">
-                      📂 ${esc(folder.name)}
+                      📂
+                      ${esc(folder.name)}
                     </div>
 
                     <div class="meta">
-                      ${count}ファイル
+                      ${folderFiles.length}
+                      ファイル
                     </div>
+
                   </div>
 
                   <button
@@ -799,15 +1040,11 @@ function driveR(){
                 </div>
 
                 ${
-                  count
-                    ?files
-                      .filter(
+                  folderFiles.length
+                    ?folderFiles
+                      .map(
                         file=>
-                          file.parent_id===
-                          folder.id
-                      )
-                      .map(file=>
-                        fileRow(file)
+                          fileRow(file)
                       )
                       .join('')
                     :'<div class="empty">このフォルダは空です</div>'
@@ -833,7 +1070,8 @@ function driveR(){
         ).length
           ?files
             .filter(
-              file=>!file.parent_id
+              file=>
+                !file.parent_id
             )
             .map(
               file=>fileRow(file)
@@ -845,13 +1083,15 @@ function driveR(){
     </div>
   `;
 
-  const refresh=$('refreshD');
+  const refresh=
+    $('refreshD');
 
   if(refresh){
-    refresh.onclick=async()=>{
-      await load();
-      go('drive');
-    };
+    refresh.onclick=
+      async()=>{
+        await load();
+        go('drive');
+      };
   }
 
   const up=$('up');
@@ -865,50 +1105,69 @@ function driveR(){
   const newF=$('newF');
 
   if(newF){
-    newF.onclick=async()=>{
-      const name=prompt('フォルダ名');
+    newF.onclick=
+      async()=>{
+        const name=
+          prompt(
+            'フォルダ名'
+          );
 
-      if(!name)return;
+        if(!name)return;
 
-      try{
-        await api('POST',{
-          action:'folder',
-          name:name.trim(),
-          by:N
-        });
+        try{
+          await api(
+            'POST',
+            {
+              action:'folder',
+              name:
+                name.trim(),
+              by:N
+            }
+          );
 
-        await load();
-        go('drive');
+          await load();
+          go('drive');
 
-        say('フォルダを作成しました');
+          say(
+            'フォルダを作成しました'
+          );
 
-      }catch(e){
-        alert(
-          'フォルダを作成できません：'+
-          e.message
-        );
-      }
-    };
+        }catch(e){
+          alert(
+            'フォルダを作成できません：'+
+            e.message
+          );
+        }
+      };
   }
 
-  const sheet=$('openSheet');
+  const sheet=
+    $('openSheet');
 
   if(sheet){
     sheet.onclick=()=>{
-      const a=document.createElement('a');
+      const a=
+        document.createElement(
+          'a'
+        );
 
       a.href=SHEET_URL;
       a.target='_blank';
-      a.rel='noopener noreferrer';
+      a.rel=
+        'noopener noreferrer';
+
       a.style.display='none';
 
-      document.body.appendChild(a);
+      document.body
+        .appendChild(a);
+
       a.click();
       a.remove();
     };
   }
 
-  const folderSelect=$('folderSelect');
+  const folderSelect=
+    $('folderSelect');
 
   if(folderSelect){
     folderSelect.onchange=()=>{
@@ -917,14 +1176,16 @@ function driveR(){
     };
   }
 
-  const saveBtn=$('saveSelectedFile');
+  const saveBtn=
+    $('saveSelectedFile');
 
   if(saveBtn){
     saveBtn.onclick=
       saveSelectedFile;
   }
 
-  const cancelBtn=$('cancelSelectedFile');
+  const cancelBtn=
+    $('cancelSelectedFile');
 
   if(cancelBtn){
     cancelBtn.onclick=
@@ -932,20 +1193,26 @@ function driveR(){
   }
 
   document
-    .querySelectorAll('[data-open]')
+    .querySelectorAll(
+      '[data-open]'
+    )
     .forEach(b=>{
       b.onclick=()=>{
-        const f=files.find(
-          x=>x.id===
-          b.dataset.open
-        );
+        const f=
+          files.find(
+            x=>
+              x.id===
+              b.dataset.open
+          );
 
         openFile(f);
       };
     });
 
   document
-    .querySelectorAll('[data-ver]')
+    .querySelectorAll(
+      '[data-ver]'
+    )
     .forEach(b=>{
       b.onclick=()=>{
         pickFile(
@@ -955,34 +1222,44 @@ function driveR(){
     });
 
   document
-    .querySelectorAll('[data-del]')
+    .querySelectorAll(
+      '[data-del]'
+    )
     .forEach(b=>{
-      b.onclick=async()=>{
-        if(
-          !confirm(
-            '削除しますか？'
-          )
-        ){
-          return;
-        }
+      b.onclick=
+        async()=>{
+          if(
+            !confirm(
+              '削除しますか？'
+            )
+          ){
+            return;
+          }
 
-        try{
-          await api('POST',{
-            action:'item_delete',
-            id:b.dataset.del,
-            by:N
-          });
+          try{
+            await api(
+              'POST',
+              {
+                action:
+                  'item_delete',
 
-          await load();
-          go('drive');
+                id:
+                  b.dataset.del,
 
-        }catch(e){
-          alert(
-            '削除できません：'+
-            e.message
-          );
-        }
-      };
+                by:N
+              }
+            );
+
+            await load();
+            go('drive');
+
+          }catch(e){
+            alert(
+              '削除できません：'+
+              e.message
+            );
+          }
+        };
     });
 }
 
@@ -1000,6 +1277,7 @@ function chatR(){
     <div class="panel">
 
       <div class="sectionTitle">
+
         <div class="title">
           💬 メッセージ
         </div>
@@ -1010,33 +1288,68 @@ function chatR(){
         >
           ↻更新
         </button>
+
       </div>
 
       ${
         state.messages.length
-          ?state.messages.map(x=>`
-            <div class="item">
+          ?state.messages
+            .map(x=>{
 
-              <div>
-                ${esc(x.name)}
-              </div>
+              const mine=
+                x.updated_by===N;
 
-              <div class="meta">
-                ${esc(x.updated_by||'')}
-                ｜
-                ${
-                  x.created_at
-                    ?new Date(
-                        x.created_at
-                      ).toLocaleString(
-                        'ja-JP'
-                      )
-                    :''
-                }
-              </div>
+              return `
+                <div class="item">
 
-            </div>
-          `).join('')
+                  <div class="row">
+
+                    <div
+                      style="flex:1"
+                    >
+
+                      <div>
+                        ${esc(x.name)}
+                      </div>
+
+                      <div class="meta">
+                        ${esc(
+                          x.updated_by||
+                          ''
+                        )}
+                        ｜
+                        ${
+                          x.created_at
+                            ?new Date(
+                                x.created_at
+                              ).toLocaleString(
+                                'ja-JP'
+                              )
+                            :''
+                        }
+                      </div>
+
+                    </div>
+
+                    ${
+                      mine
+                        ?`
+                          <button
+                            class="btn danger"
+                            data-msgdel="${x.id}"
+                          >
+                            取消
+                          </button>
+                        `
+                        :''
+                    }
+
+                  </div>
+
+                </div>
+              `;
+            })
+            .join('')
           :'<div class="empty">まだありません</div>'
       }
 
@@ -1055,25 +1368,95 @@ function chatR(){
     </div>
   `;
 
-  $('refreshC').onclick=async()=>{
-    await load();
-    go('chat');
-  };
+  $('refreshC').onclick=
+    async()=>{
+      await load();
+      go('chat');
+    };
 
-  $('send').onclick=async()=>{
-    const text=$('msg').value.trim();
+  $('send').onclick=
+    async()=>{
+      const text=
+        $('msg')
+          .value
+          .trim();
 
-    if(!text)return;
+      if(!text)return;
 
-    await api('POST',{
-      action:'message',
-      text,
-      by:N
+      try{
+        await api(
+          'POST',
+          {
+            action:
+              'message',
+
+            text,
+
+            by:N
+          }
+        );
+
+        await load();
+        go('chat');
+
+        say(
+          '送信しました'
+        );
+
+      }catch(e){
+        alert(
+          '送信できません：'+
+          e.message
+        );
+      }
+    };
+
+  document
+    .querySelectorAll(
+      '[data-msgdel]'
+    )
+    .forEach(b=>{
+
+      b.onclick=
+        async()=>{
+
+          if(
+            !confirm(
+              'このメッセージを取り消しますか？'
+            )
+          ){
+            return;
+          }
+
+          try{
+            await api(
+              'POST',
+              {
+                action:
+                  'message_delete',
+
+                id:
+                  b.dataset.msgdel,
+
+                by:N
+              }
+            );
+
+            await load();
+            go('chat');
+
+            say(
+              'メッセージを取り消しました'
+            );
+
+          }catch(e){
+            alert(
+              '取り消せません：'+
+              e.message
+            );
+          }
+        };
     });
-
-    await load();
-    go('chat');
-  };
 }
 
 
@@ -1090,6 +1473,7 @@ function calR(){
     <div class="panel">
 
       <div class="sectionTitle">
+
         <div class="title">
           📅 スケジュール
         </div>
@@ -1100,66 +1484,86 @@ function calR(){
         >
           ↻更新
         </button>
+
       </div>
 
       ${
         state.schedules.length
-          ?state.schedules.map(x=>{
-            const d=x.starts_at
-              ?new Date(x.starts_at)
-              :null;
+          ?state.schedules
+            .map(x=>{
 
-            const when=d
-              ?d.toLocaleDateString(
-                  'ja-JP'
-                )+
-                ' '+
-                d.toLocaleTimeString(
-                  'ja-JP',
-                  {
-                    hour:'2-digit',
-                    minute:'2-digit'
-                  }
-                )
-              :'';
+              const d=
+                x.starts_at
+                  ?new Date(
+                      x.starts_at
+                    )
+                  :null;
 
-            return `
-              <div class="item row">
+              const when=
+                d
+                  ?d.toLocaleDateString(
+                      'ja-JP'
+                    )+
+                    ' '+
+                    d.toLocaleTimeString(
+                      'ja-JP',
+                      {
+                        hour:
+                          '2-digit',
+                        minute:
+                          '2-digit'
+                      }
+                    )
+                  :'';
 
-                <div style="flex:1">
-                  <div class="title">
-                    ${esc(x.title)}
+              return `
+                <div class="item row">
+
+                  <div
+                    style="flex:1"
+                  >
+
+                    <div class="title">
+                      ${esc(x.title)}
+                    </div>
+
+                    <div class="meta">
+                      ${when}
+
+                      ${
+                        x.place
+                          ?'｜'+
+                            esc(x.place)
+                          :''
+                      }
+
+                      ${
+                        x.memo
+                          ?'｜'+
+                            esc(x.memo)
+                          :''
+                      }
+                    </div>
+
                   </div>
 
-                  <div class="meta">
-                    ${when}
-                    ${
-                      x.place
-                        ?'｜'+esc(x.place)
-                        :''
-                    }
-                    ${
-                      x.memo
-                        ?'｜'+esc(x.memo)
-                        :''
-                    }
-                  </div>
+                  <button
+                    class="btn danger"
+                    data-sdel="${x.id}"
+                  >
+                    削除
+                  </button>
+
                 </div>
-
-                <button
-                  class="btn danger"
-                  data-sdel="${x.id}"
-                >
-                  削除
-                </button>
-
-              </div>
-            `;
-          }).join('')
+              `;
+            })
+            .join('')
           :'<div class="empty">まだありません</div>'
       }
 
-      <label class="fieldLabel">
+      <label
+        class="fieldLabel"
+      >
         日付
       </label>
 
@@ -1168,7 +1572,9 @@ function calR(){
         type="date"
       >
 
-      <label class="fieldLabel">
+      <label
+        class="fieldLabel"
+      >
         開始時刻
       </label>
 
@@ -1203,68 +1609,110 @@ function calR(){
     </div>
   `;
 
-  $('refreshS').onclick=async()=>{
-    await load();
-    go('cal');
-  };
+  $('refreshS').onclick=
+    async()=>{
+      await load();
+      go('cal');
+    };
 
-  $('addS').onclick=async()=>{
-    const date=$('sdate').value;
-    const time=$('stime').value||'09:00';
-    const title=$('ttl').value.trim();
+  $('addS').onclick=
+    async()=>{
+      const date=
+        $('sdate').value;
 
-    if(!date){
-      alert('日付を選んでください');
-      return;
-    }
+      const time=
+        $('stime').value||
+        '09:00';
 
-    if(!title){
-      alert('予定名を入力してください');
-      return;
-    }
+      const title=
+        $('ttl')
+          .value
+          .trim();
 
-    await api('POST',{
-      action:'schedule',
-      title,
-      starts_at:`${date}T${time}:00+09:00`,
-      ends_at:null,
-      place:$('pl').value,
-      memo:$('sm').value,
-      by:N
-    });
+      if(!date){
+        alert(
+          '日付を選んでください'
+        );
+        return;
+      }
 
-    await load();
-    go('cal');
+      if(!title){
+        alert(
+          '予定名を入力してください'
+        );
+        return;
+      }
 
-    say('予定を保存しました');
-  };
+      await api(
+        'POST',
+        {
+          action:
+            'schedule',
+
+          title,
+
+          starts_at:
+            `${date}T${time}:00+09:00`,
+
+          ends_at:null,
+
+          place:
+            $('pl').value,
+
+          memo:
+            $('sm').value,
+
+          by:N
+        }
+      );
+
+      await load();
+      go('cal');
+
+      say(
+        '予定を保存しました'
+      );
+    };
 
   document
-    .querySelectorAll('[data-sdel]')
+    .querySelectorAll(
+      '[data-sdel]'
+    )
     .forEach(b=>{
-      b.onclick=async()=>{
-        if(
-          !confirm(
-            '予定を削除しますか？'
-          )
-        ){
-          return;
-        }
 
-        await api('POST',{
-          action:'schedule_delete',
-          id:b.dataset.sdel
-        });
+      b.onclick=
+        async()=>{
 
-        await load();
-        go('cal');
-      };
+          if(
+            !confirm(
+              '予定を削除しますか？'
+            )
+          ){
+            return;
+          }
+
+          await api(
+            'POST',
+            {
+              action:
+                'schedule_delete',
+
+              id:
+                b.dataset.sdel,
+
+              by:N
+            }
+          );
+
+          await load();
+          go('cal');
+        };
     });
 }
 
 
 /* =================================
-   議事録など
+   議事録等
 ================================= */
 
 function rec(x,k){
@@ -1278,7 +1726,9 @@ function rec(x,k){
   return `
     <div class="item row">
 
-      <div style="flex:1">
+      <div
+        style="flex:1"
+      >
 
         <div class="title">
           ${esc(x.title)}
@@ -1289,7 +1739,10 @@ function rec(x,k){
         </div>
 
         <div class="meta">
-          更新：${esc(x.updated_by||'')}
+          更新：
+          ${esc(
+            x.updated_by||''
+          )}
         </div>
 
       </div>
@@ -1320,9 +1773,14 @@ function moreR(){
 
       ${
         state.minutes.length
-          ?state.minutes.map(
-              x=>rec(x,'minute')
-            ).join('')
+          ?state.minutes
+            .map(
+              x=>rec(
+                x,
+                'minute'
+              )
+            )
+            .join('')
           :'<div class="empty">まだありません</div>'
       }
 
@@ -1363,9 +1821,14 @@ function moreR(){
 
       ${
         state.reviews.length
-          ?state.reviews.map(
-              x=>rec(x,'review')
-            ).join('')
+          ?state.reviews
+            .map(
+              x=>rec(
+                x,
+                'review'
+              )
+            )
+            .join('')
           :'<div class="empty">まだありません</div>'
       }
 
@@ -1403,207 +1866,12 @@ function moreR(){
 
       ${
         state.permits.length
-          ?state.permits.map(
-              x=>rec(x,'permit')
-            ).join('')
-          :'<div class="empty">まだありません</div>'
-      }
-
-      <input
-        id="pt"
-        placeholder="申請名"
-      >
-
-      <input
-        id="po"
-        placeholder="申請先・組織"
-      >
-
-      <input
-        id="pc"
-        placeholder="連絡先"
-      >
-
-      <textarea
-        id="pb"
-        placeholder="内容・期限・進捗"
-      ></textarea>
-
-      <button
-        class="btn"
-        id="addP"
-      >
-        保存
-      </button>
-
-    </div>
-
-    <div class="panel">
-
-      <div class="title">
-        🎪 苫小牧 年間行事
-      </div>
-
-      <div class="item">
-        <span class="pill">冬</span>
-        スケート・冬季イベント
-      </div>
-
-      <div class="item">
-        <span class="pill">春</span>
-        地域行事・新年度イベント
-      </div>
-
-      <div class="item">
-        <span class="pill">夏</span>
-        港まつり・地域フェス・屋外イベント
-      </div>
-
-      <div class="item">
-        <span class="pill">秋</span>
-        文化・スポーツ・地域イベント
-      </div>
-
-    </div>
-  `;
-
-  $('addM').onclick=async()=>{
-    if(!$('mt').value.trim()){
-      return;
-    }
-
-    await api('POST',{
-      action:'minute',
-      title:$('mt').value,
-      meeting_date:$('md').value||null,
-      body:$('mb').value,
-      action_items:$('ma').value,
-      by:N
-    });
-
-    await load();
-    go('more');
-  };
-
-  $('addR').onclick=async()=>{
-    if(!$('rt').value.trim()){
-      return;
-    }
-
-    await api('POST',{
-      action:'review',
-      title:$('rt').value,
-      category:$('rc').value,
-      body:$('rb').value,
-      by:N
-    });
-
-    await load();
-    go('more');
-  };
-
-  $('addP').onclick=async()=>{
-    if(!$('pt').value.trim()){
-      return;
-    }
-
-    await api('POST',{
-      action:'permit',
-      title:$('pt').value,
-      organization:$('po').value,
-      contact:$('pc').value,
-      body:$('pb').value,
-      by:N
-    });
-
-    await load();
-    go('more');
-  };
-
-  document
-    .querySelectorAll('[data-rdel]')
-    .forEach(b=>{
-      b.onclick=async()=>{
-        if(
-          !confirm(
-            '削除しますか？'
-          )
-        ){
-          return;
-        }
-
-        await api('POST',{
-          action:'record_delete',
-          kind:b.dataset.kind,
-          id:b.dataset.rdel
-        });
-
-        await load();
-        go('more');
-      };
-    });
-}
-
-
-/* =================================
-   画面切替
-================================= */
-
-function render(){
-  if(cur==='home'){
-    homeR();
-  }
-
-  if(cur==='drive'){
-    driveR();
-  }
-
-  if(cur==='chat'){
-    chatR();
-  }
-
-  if(cur==='cal'){
-    calR();
-  }
-
-  if(cur==='more'){
-    moreR();
-  }
-}
-
-function go(p){
-  cur=p;
-
-  document
-    .querySelectorAll('main>section')
-    .forEach(s=>{
-      s.classList.add('hidden');
-    });
-
-  const target=$(p);
-
-  if(target){
-    target.classList.remove('hidden');
-  }
-
-  document
-    .querySelectorAll('.nav')
-    .forEach(n=>{
-      n.classList.toggle(
-        'on',
-        n.dataset.p===p
-      );
-    });
-
-  render();
-}
-
-document
-  .querySelectorAll('.nav')
-  .forEach(n=>{
-    n.onclick=()=>{
-      go(n.dataset.p);
-    };
-  });
-
-})();
+          ?state.permits
+            .map(
+              x=>rec(
+                x,
+                'permit'
+              )
+            )
+            .join('')
+          :'<div class="empty">まだ
