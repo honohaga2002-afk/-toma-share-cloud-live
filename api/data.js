@@ -11,11 +11,6 @@ function send(res, status, obj) {
   return res.status(status).json(obj);
 }
 
-
-/* ========================================
-   Google Drive
-======================================== */
-
 function driveClient() {
   const auth = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -27,9 +22,7 @@ function driveClient() {
   ).replace(/\s+/g, '');
 
   if (!refreshToken) {
-    throw new Error(
-      'GOOGLE_REFRESH_TOKEN が未設定です'
-    );
+    throw new Error('GOOGLE_REFRESH_TOKEN が未設定です');
   }
 
   auth.setCredentials({
@@ -41,11 +34,6 @@ function driveClient() {
     auth
   });
 }
-
-
-/* ========================================
-   Office → Google形式
-======================================== */
 
 function googleMime(name = '') {
   const n = name.toLowerCase();
@@ -75,11 +63,6 @@ function googleMime(name = '') {
   return null;
 }
 
-
-/* ========================================
-   contentを安全に取得
-======================================== */
-
 function parseContent(value) {
   if (!value) return {};
 
@@ -89,15 +72,10 @@ function parseContent(value) {
 
   try {
     return JSON.parse(value);
-  } catch (e) {
+  } catch {
     return {};
   }
 }
-
-
-/* ========================================
-   Google Driveフォルダ作成
-======================================== */
 
 async function createDriveFolder(name) {
   const drive = driveClient();
@@ -105,31 +83,20 @@ async function createDriveFolder(name) {
   const result = await drive.files.create({
     requestBody: {
       name,
-      mimeType:
-        'application/vnd.google-apps.folder'
+      mimeType: 'application/vnd.google-apps.folder'
     },
-
-    fields:
-      'id,name,mimeType,webViewLink'
+    fields: 'id,name,mimeType,webViewLink'
   });
 
   return result.data;
 }
-
-
-/* ========================================
-   TOMA SHAREフォルダ取得
-   古いフォルダならDrive側も自動作成
-======================================== */
 
 async function getDriveFolder(
   workspaceId,
   parentId,
   by
 ) {
-  if (!parentId) {
-    return null;
-  }
+  if (!parentId) return null;
 
   const q = await pool.query(
     `select *
@@ -139,42 +106,29 @@ async function getDriveFolder(
        and item_type='folder'
        and trashed=false
      limit 1`,
-    [
-      parentId,
-      workspaceId
-    ]
+    [parentId, workspaceId]
   );
 
   const folder = q.rows[0];
 
   if (!folder) {
-    throw new Error(
-      '保存先フォルダが見つかりません'
-    );
+    throw new Error('保存先フォルダが見つかりません');
   }
 
-  const content =
-    parseContent(folder.content);
+  const content = parseContent(folder.content);
 
   if (content.driveFolderId) {
     return content.driveFolderId;
   }
 
-  /*
-   * 以前作成したTOMA SHAREフォルダには
-   * DriveフォルダIDが無いので
-   * 初回使用時にGoogle Drive側へ作る
-   */
   const driveFolder =
     await createDriveFolder(folder.name);
 
   const newContent = {
     ...content,
     driveFolderId: driveFolder.id,
-    webViewLink:
-      driveFolder.webViewLink || null,
-    googleMimeType:
-      driveFolder.mimeType
+    webViewLink: driveFolder.webViewLink || null,
+    googleMimeType: driveFolder.mimeType
   };
 
   await pool.query(
@@ -197,11 +151,6 @@ async function getDriveFolder(
   return driveFolder.id;
 }
 
-
-/* ========================================
-   Google Driveへファイル保存
-======================================== */
-
 async function uploadToDrive(
   name,
   mimeType,
@@ -213,9 +162,7 @@ async function uploadToDrive(
   );
 
   if (!match) {
-    throw new Error(
-      'ファイルデータを読み込めません'
-    );
+    throw new Error('ファイルデータを読み込めません');
   }
 
   const buffer =
@@ -231,18 +178,11 @@ async function uploadToDrive(
     name
   };
 
-  /*
-   * Excel / Word / PowerPointは
-   * Google形式へ変換
-   */
   if (targetMime) {
     requestBody.mimeType =
       targetMime;
   }
 
-  /*
-   * 保存先Google Driveフォルダ
-   */
   if (driveFolderId) {
     requestBody.parents = [
       driveFolderId
@@ -270,15 +210,8 @@ async function uploadToDrive(
   return result.data;
 }
 
-
-/* ========================================
-   ワークスペース
-======================================== */
-
 async function workspace(code) {
-  if (!code) {
-    return null;
-  }
+  if (!code) return null;
 
   const q = await pool.query(
     `select id,name,invite_code
@@ -291,63 +224,103 @@ async function workspace(code) {
   return q.rows[0] || null;
 }
 
+/*
+ * オンライン情報用テーブルを自動作成。
+ * 既存DBを壊さず追加する。
+ */
+async function ensurePresenceTable() {
+  await pool.query(`
+    create table if not exists workspace_presence (
+      workspace_id uuid not null,
+      member_name text not null,
+      last_seen timestamptz not null default now(),
+      primary key (workspace_id, member_name)
+    )
+  `);
+}
 
-/* ========================================
-   API
-======================================== */
+async function touchPresence(workspaceId, memberName) {
+  const name =
+    String(memberName || '').trim();
+
+  if (!name) return;
+
+  await ensurePresenceTable();
+
+  await pool.query(
+    `insert into workspace_presence
+      (workspace_id,member_name,last_seen)
+     values($1,$2,now())
+     on conflict (workspace_id,member_name)
+     do update
+     set last_seen=now()`,
+    [workspaceId, name]
+  );
+}
+
+async function getOnlineMembers(workspaceId) {
+  await ensurePresenceTable();
+
+  const q = await pool.query(
+    `select member_name,last_seen
+     from workspace_presence
+     where workspace_id=$1
+       and last_seen >
+         now() - interval '2 minutes'
+     order by member_name`,
+    [workspaceId]
+  );
+
+  return q.rows;
+}
 
 module.exports = async (req, res) => {
-
   res.setHeader(
     'Cache-Control',
     'no-store'
   );
 
   if (!process.env.DATABASE_URL) {
-    return send(
-      res,
-      500,
-      {
-        error:
-          'DATABASE_URL が未設定です'
-      }
-    );
+    return send(res, 500, {
+      error: 'DATABASE_URL が未設定です'
+    });
   }
 
   const code =
     req.headers['x-workspace-code'];
 
   try {
-
     const ws =
       await workspace(code);
 
     if (!ws) {
-      return send(
-        res,
-        401,
-        {
-          error:
-            '共有コードが正しくありません'
-        }
-      );
+      return send(res, 401, {
+        error: '共有コードが正しくありません'
+      });
     }
 
-
-    /* =====================================
-       読み込み
-    ===================================== */
-
+    /*
+     * GET
+     */
     if (req.method === 'GET') {
+      const memberName =
+        req.headers['x-member-name'];
+
+      if (memberName) {
+        await touchPresence(
+          ws.id,
+          memberName
+        );
+      }
 
       const [
         schedules,
         items,
         minutes,
         reviews,
-        permits
+        permits,
+        online
       ] = await Promise.all([
-
         pool.query(
           `select *
            from schedules
@@ -389,100 +362,66 @@ module.exports = async (req, res) => {
            where workspace_id=$1
            order by created_at desc`,
           [ws.id]
-        )
+        ),
 
+        getOnlineMembers(ws.id)
       ]);
 
       const messages =
         items.rows.filter(
-          x =>
-            x.item_type ===
-            'message'
+          x => x.item_type === 'message'
         );
 
-      return send(
-        res,
-        200,
-        {
-          workspace: ws,
+      return send(res, 200, {
+        workspace: ws,
+        schedules: schedules.rows,
 
-          schedules:
-            schedules.rows,
+        items:
+          items.rows.filter(
+            x => x.item_type !== 'message'
+          ),
 
-          items:
-            items.rows.filter(
-              x =>
-                x.item_type !==
-                'message'
-            ),
-
-          messages,
-
-          minutes:
-            minutes.rows,
-
-          reviews:
-            reviews.rows,
-
-          permits:
-            permits.rows
-        }
-      );
+        messages,
+        minutes: minutes.rows,
+        reviews: reviews.rows,
+        permits: permits.rows,
+        onlineMembers: online
+      });
     }
-
 
     if (req.method !== 'POST') {
-      return send(
-        res,
-        405,
-        {
-          error:
-            'Method not allowed'
-        }
-      );
+      return send(res, 405, {
+        error: 'Method not allowed'
+      });
     }
 
+    const b = req.body || {};
+    const by = b.by || 'メンバー';
 
-    const b =
-      req.body || {};
-
-    const by =
-      b.by || 'メンバー';
-
-
-    /* =====================================
-       操作
-    ===================================== */
+    /*
+     * 操作した人はオンラインとして更新
+     */
+    await touchPresence(
+      ws.id,
+      by
+    );
 
     switch (b.action) {
 
+      case 'presence':
+        break;
 
-      /* ===================================
-         フォルダ作成
-      =================================== */
 
       case 'folder': {
-
         const name =
-          String(
-            b.name || ''
-          ).trim();
+          String(b.name || '').trim();
 
         if (!name) {
-          return send(
-            res,
-            400,
-            {
-              error:
-                'フォルダ名を入力してください'
-            }
-          );
+          return send(res, 400, {
+            error: 'フォルダ名を入力してください'
+          });
         }
 
-        /*
-         * Google Driveにも
-         * 実フォルダを作成
-         */
         const driveFolder =
           await createDriveFolder(name);
 
@@ -491,16 +430,12 @@ module.exports = async (req, res) => {
             driveFolder.id,
 
           webViewLink:
-            driveFolder.webViewLink ||
-            null,
+            driveFolder.webViewLink || null,
 
           googleMimeType:
             driveFolder.mimeType
         };
 
-        /*
-         * TOMA SHAREにも登録
-         */
         await pool.query(
           `insert into shared_items
           (
@@ -524,14 +459,9 @@ module.exports = async (req, res) => {
           [
             ws.id,
             name,
-
             'application/vnd.google-apps.folder',
-
-            driveFolder.webViewLink ||
-              null,
-
+            driveFolder.webViewLink || null,
             JSON.stringify(content),
-
             by
           ]
         );
@@ -540,30 +470,7 @@ module.exports = async (req, res) => {
       }
 
 
-      /* ===================================
-         新規ファイル
-      =================================== */
-
       case 'file': {
-
-        if (
-          !process.env
-            .GOOGLE_REFRESH_TOKEN
-        ) {
-          return send(
-            res,
-            500,
-            {
-              error:
-                'GOOGLE_REFRESH_TOKEN が未設定です'
-            }
-          );
-        }
-
-        /*
-         * 選択されたTOMA SHAREフォルダから
-         * Google DriveフォルダIDを取得
-         */
         const driveFolderId =
           await getDriveFolder(
             ws.id,
@@ -571,9 +478,6 @@ module.exports = async (req, res) => {
             by
           );
 
-        /*
-         * Google Driveへ保存
-         */
         const driveFile =
           await uploadToDrive(
             b.name,
@@ -583,27 +487,16 @@ module.exports = async (req, res) => {
           );
 
         const content = {
-          size:
-            b.size || null,
-
-          driveFileId:
-            driveFile.id,
-
+          size: b.size || null,
+          driveFileId: driveFile.id,
           webViewLink:
-            driveFile.webViewLink ||
-            null,
-
+            driveFile.webViewLink || null,
           googleMimeType:
             driveFile.mimeType,
-
           driveFolderId:
-            driveFolderId ||
-            null
+            driveFolderId || null
         };
 
-        /*
-         * parent_idも保存
-         */
         await pool.query(
           `insert into shared_items
           (
@@ -617,31 +510,15 @@ module.exports = async (req, res) => {
             updated_by
           )
           values(
-            $1,
-            $2,
-            'file',
-            $3,
-            $4,
-            $5,
-            $6,
-            $7
+            $1,$2,'file',$3,$4,$5,$6,$7
           )`,
           [
             ws.id,
-
-            b.parent_id ||
-              null,
-
+            b.parent_id || null,
             b.name,
-
-            b.mime_type ||
-              null,
-
-            driveFile.webViewLink ||
-              null,
-
+            b.mime_type || null,
+            driveFile.webViewLink || null,
             JSON.stringify(content),
-
             by
           ]
         );
@@ -650,12 +527,7 @@ module.exports = async (req, res) => {
       }
 
 
-      /* ===================================
-         更新版
-      =================================== */
-
       case 'version': {
-
         const old =
           await pool.query(
             `select *
@@ -664,29 +536,17 @@ module.exports = async (req, res) => {
                and workspace_id=$2
                and item_type='file'
              limit 1`,
-            [
-              b.id,
-              ws.id
-            ]
+            [b.id, ws.id]
           );
 
         if (!old.rows[0]) {
-          return send(
-            res,
-            404,
-            {
-              error:
-                'ファイルが見つかりません'
-            }
-          );
+          return send(res, 404, {
+            error: 'ファイルが見つかりません'
+          });
         }
 
-        const x =
-          old.rows[0];
+        const x = old.rows[0];
 
-        /*
-         * 古いバージョンを履歴保存
-         */
         await pool.query(
           `insert into item_versions
           (
@@ -696,13 +556,7 @@ module.exports = async (req, res) => {
             content,
             updated_by
           )
-          values(
-            $1,
-            $2,
-            $3,
-            $4,
-            $5
-          )`,
+          values($1,$2,$3,$4,$5)`,
           [
             x.id,
             x.version,
@@ -712,14 +566,10 @@ module.exports = async (req, res) => {
           ]
         );
 
-        /*
-         * 更新版は基本的に
-         * 今までと同じフォルダへ保存
-         */
         const parentId =
           b.parent_id !== undefined
-            ?b.parent_id
-            :x.parent_id;
+            ? b.parent_id
+            : x.parent_id;
 
         const driveFolderId =
           await getDriveFolder(
@@ -737,22 +587,15 @@ module.exports = async (req, res) => {
           );
 
         const content = {
-          size:
-            b.size || null,
-
+          size: b.size || null,
           driveFileId:
             driveFile.id,
-
           webViewLink:
-            driveFile.webViewLink ||
-            null,
-
+            driveFile.webViewLink || null,
           googleMimeType:
             driveFile.mimeType,
-
           driveFolderId:
-            driveFolderId ||
-            null
+            driveFolderId || null
         };
 
         await pool.query(
@@ -769,21 +612,12 @@ module.exports = async (req, res) => {
              and workspace_id=$8`,
           [
             parentId || null,
-
             b.name,
-
-            b.mime_type ||
-              null,
-
-            driveFile.webViewLink ||
-              null,
-
+            b.mime_type || null,
+            driveFile.webViewLink || null,
             JSON.stringify(content),
-
             by,
-
             b.id,
-
             ws.id
           ]
         );
@@ -792,12 +626,7 @@ module.exports = async (req, res) => {
       }
 
 
-      /* ===================================
-         ファイル / フォルダ削除
-      =================================== */
-
-      case 'item_delete': {
-
+      case 'item_delete':
         await pool.query(
           `update shared_items
            set trashed=true,
@@ -805,23 +634,12 @@ module.exports = async (req, res) => {
                updated_at=now()
            where id=$2
              and workspace_id=$3`,
-          [
-            by,
-            b.id,
-            ws.id
-          ]
+          [by, b.id, ws.id]
         );
-
         break;
-      }
 
 
-      /* ===================================
-         メッセージ
-      =================================== */
-
-      case 'message': {
-
+      case 'message':
         await pool.query(
           `insert into shared_items
           (
@@ -842,17 +660,54 @@ module.exports = async (req, res) => {
             by
           ]
         );
+        break;
+
+
+      /*
+       * メッセージ取消
+       *
+       * 同じ名前で送った本人のみ取消可能。
+       */
+      case 'message_delete': {
+        const q = await pool.query(
+          `select id,updated_by
+           from shared_items
+           where id=$1
+             and workspace_id=$2
+             and item_type='message'
+             and trashed=false
+           limit 1`,
+          [b.id, ws.id]
+        );
+
+        if (!q.rows[0]) {
+          return send(res, 404, {
+            error: 'メッセージが見つかりません'
+          });
+        }
+
+        if (
+          q.rows[0].updated_by !== by
+        ) {
+          return send(res, 403, {
+            error: '自分のメッセージだけ取り消せます'
+          });
+        }
+
+        await pool.query(
+          `update shared_items
+           set trashed=true,
+               updated_at=now()
+           where id=$1
+             and workspace_id=$2`,
+          [b.id, ws.id]
+        );
 
         break;
       }
 
 
-      /* ===================================
-         スケジュール
-      =================================== */
-
-      case 'schedule': {
-
+      case 'schedule':
         await pool.query(
           `insert into schedules
           (
@@ -864,9 +719,7 @@ module.exports = async (req, res) => {
             memo,
             updated_by
           )
-          values(
-            $1,$2,$3,$4,$5,$6,$7
-          )`,
+          values($1,$2,$3,$4,$5,$6,$7)`,
           [
             ws.id,
             b.title,
@@ -877,33 +730,20 @@ module.exports = async (req, res) => {
             by
           ]
         );
-
         break;
-      }
 
 
-      case 'schedule_delete': {
-
+      case 'schedule_delete':
         await pool.query(
           `delete from schedules
            where id=$1
              and workspace_id=$2`,
-          [
-            b.id,
-            ws.id
-          ]
+          [b.id, ws.id]
         );
-
         break;
-      }
 
 
-      /* ===================================
-         議事録
-      =================================== */
-
-      case 'minute': {
-
+      case 'minute':
         await pool.query(
           `insert into minutes
           (
@@ -914,31 +754,20 @@ module.exports = async (req, res) => {
             action_items,
             updated_by
           )
-          values(
-            $1,$2,$3,$4,$5,$6
-          )`,
+          values($1,$2,$3,$4,$5,$6)`,
           [
             ws.id,
             b.title,
-            b.meeting_date ||
-              null,
+            b.meeting_date || null,
             b.body || null,
-            b.action_items ||
-              null,
+            b.action_items || null,
             by
           ]
         );
-
         break;
-      }
 
 
-      /* ===================================
-         反省点
-      =================================== */
-
-      case 'review': {
-
+      case 'review':
         await pool.query(
           `insert into reviews
           (
@@ -948,9 +777,7 @@ module.exports = async (req, res) => {
             body,
             updated_by
           )
-          values(
-            $1,$2,$3,$4,$5
-          )`,
+          values($1,$2,$3,$4,$5)`,
           [
             ws.id,
             b.title,
@@ -959,17 +786,10 @@ module.exports = async (req, res) => {
             by
           ]
         );
-
         break;
-      }
 
 
-      /* ===================================
-         許可・申請
-      =================================== */
-
-      case 'permit': {
-
+      case 'permit':
         await pool.query(
           `insert into permits
           (
@@ -980,62 +800,37 @@ module.exports = async (req, res) => {
             body,
             updated_by
           )
-          values(
-            $1,$2,$3,$4,$5,$6
-          )`,
+          values($1,$2,$3,$4,$5,$6)`,
           [
             ws.id,
             b.title,
-            b.organization ||
-              null,
-            b.contact ||
-              null,
-            b.body ||
-              null,
+            b.organization || null,
+            b.contact || null,
+            b.body || null,
             by
           ]
         );
-
         break;
-      }
 
-
-      /* ===================================
-         各種記録削除
-      =================================== */
 
       case 'record_delete': {
-
         const table = {
-          minute:
-            'minutes',
-
-          review:
-            'reviews',
-
-          permit:
-            'permits'
+          minute: 'minutes',
+          review: 'reviews',
+          permit: 'permits'
         }[b.kind];
 
         if (!table) {
-          return send(
-            res,
-            400,
-            {
-              error:
-                '種類が不正です'
-            }
-          );
+          return send(res, 400, {
+            error: '種類が不正です'
+          });
         }
 
         await pool.query(
           `delete from ${table}
            where id=$1
              and workspace_id=$2`,
-          [
-            b.id,
-            ws.id
-          ]
+          [b.id, ws.id]
         );
 
         break;
@@ -1043,32 +838,16 @@ module.exports = async (req, res) => {
 
 
       default:
-        return send(
-          res,
-          400,
-          {
-            error:
-              '操作が不正です'
-          }
-        );
+        return send(res, 400, {
+          error: '操作が不正です'
+        });
     }
 
-
-    return send(
-      res,
-      200,
-      {
-        ok: true
-      }
-    );
-
+    return send(res, 200, {
+      ok: true
+    });
 
   } catch (e) {
-
-    /*
-     * Refresh Tokenなどの秘密情報が
-     * Vercelログに大量表示されないようにする
-     */
     console.error(
       'TOMA SHARE API error:',
       e?.response?.data ||
@@ -1076,18 +855,14 @@ module.exports = async (req, res) => {
       'unknown'
     );
 
-    return send(
-      res,
-      500,
-      {
-        error:
-          'サーバーエラー: ' +
-          (
-            e?.response?.data?.error_description ||
-            e?.message ||
-            '不明なエラー'
-          )
-      }
-    );
+    return send(res, 500, {
+      error:
+        'サーバーエラー: ' +
+        (
+          e?.response?.data?.error_description ||
+          e?.message ||
+          '不明なエラー'
+        )
+    });
   }
 };
