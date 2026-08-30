@@ -25,15 +25,25 @@
 
   <title>TOMA SHARE</title>
 
-  <link rel="stylesheet" href="/style.css">
+  <link
+    rel="stylesheet"
+    href="/style.css"
+  >
 </head>
 
 <body>
 
-  <!-- TOMA SHAREの描画先 -->
+  <!-- =========================================
+       TOMA SHARE 描画先
+  ========================================== -->
+
   <div id="app"></div>
 
-  <!-- ファイル選択 -->
+
+  <!-- =========================================
+       ファイル選択
+  ========================================== -->
+
   <input
     id="fileInput"
     type="file"
@@ -42,25 +52,322 @@
     accept=".xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.pdf,image/*,text/plain"
   >
 
-  <!-- TOMA SHARE本体 -->
-  <script src="/app.js"></script>
 
-  <!-- Excel / CSV編集機能 -->
-  <script src="/editor.js"></script>
+  <!-- =========================================
+       共有コード完全固定
+       利用者による入力不要
+  ========================================== -->
 
-  <!--
-    共有コードを固定。
-    初回でもTOMA-2026を使用する。
-  -->
   <script>
     (function () {
+      'use strict';
+
+      const FIXED_CODE = 'TOMA-2026';
+
       try {
-        if (!localStorage.getItem('tomaCode')) {
-          localStorage.setItem('tomaCode', 'TOMA-2026');
-        }
-      } catch (e) {
-        console.error(e);
+        localStorage.setItem(
+          'tomaCode',
+          FIXED_CODE
+        );
+      } catch (error) {
+        console.error(
+          '共有コード保存エラー',
+          error
+        );
       }
+
+      /*
+       * app.js が共有コード入力欄を生成した場合も
+       * 自動で TOMA-2026 をセットする。
+       */
+      function fixWorkspaceCode() {
+
+        const selectors = [
+          '#workspaceCode',
+          '#code',
+          'input[name="workspaceCode"]',
+          'input[name="code"]',
+          'input[data-workspace-code]'
+        ];
+
+        let input = null;
+
+        for (const selector of selectors) {
+
+          input =
+            document.querySelector(
+              selector
+            );
+
+          if (input) {
+            break;
+          }
+        }
+
+        if (!input) {
+          return;
+        }
+
+        input.value =
+          FIXED_CODE;
+
+        /*
+         * 共有コード欄を利用者には表示しない。
+         */
+        const wrapper =
+          input.closest(
+            '.field, .form-group, label'
+          );
+
+        if (wrapper) {
+
+          wrapper.style.display =
+            'none';
+
+        } else {
+
+          input.style.display =
+            'none';
+        }
+
+        try {
+
+          localStorage.setItem(
+            'tomaCode',
+            FIXED_CODE
+          );
+
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+
+      /*
+       * app.js が後からログイン画面を描画するため監視
+       */
+      const observer =
+        new MutationObserver(
+          function () {
+
+            fixWorkspaceCode();
+
+          }
+        );
+
+
+      document.addEventListener(
+        'DOMContentLoaded',
+        function () {
+
+          fixWorkspaceCode();
+
+          observer.observe(
+            document.body,
+            {
+              childList:true,
+              subtree:true
+            }
+          );
+
+        }
+      );
+
+
+      /*
+       * ログインボタンを押した瞬間にも
+       * 必ずコードを固定
+       */
+      document.addEventListener(
+        'click',
+        function (event) {
+
+          const button =
+            event.target.closest(
+              'button'
+            );
+
+          if (!button) {
+            return;
+          }
+
+          const text =
+            String(
+              button.textContent || ''
+            ).trim();
+
+
+          if (
+            text.includes('ログイン') ||
+            button.id === 'loginBtn'
+          ) {
+
+            try {
+
+              localStorage.setItem(
+                'tomaCode',
+                FIXED_CODE
+              );
+
+            } catch (error) {
+              console.error(error);
+            }
+
+
+            const codeInput =
+              document.querySelector(
+                '#workspaceCode, #code, input[name="workspaceCode"], input[name="code"]'
+              );
+
+
+            if (codeInput) {
+
+              codeInput.value =
+                FIXED_CODE;
+
+              /*
+               * app.js 側の入力監視にも値変更を通知
+               */
+              codeInput.dispatchEvent(
+                new Event(
+                  'input',
+                  {
+                    bubbles:true
+                  }
+                )
+              );
+
+              codeInput.dispatchEvent(
+                new Event(
+                  'change',
+                  {
+                    bubbles:true
+                  }
+                )
+              );
+            }
+          }
+        },
+        true
+      );
+
+    })();
+  </script>
+
+
+  <!-- =========================================
+       TOMA SHARE 本体
+  ========================================== -->
+
+  <script src="/app.js"></script>
+
+
+  <!-- =========================================
+       Excel / CSV 編集
+  ========================================== -->
+
+  <script src="/editor.js"></script>
+
+
+  <!-- =========================================
+       app.js 読込後にも共有コードを再固定
+  ========================================== -->
+
+  <script>
+    (function () {
+
+      const FIXED_CODE =
+        'TOMA-2026';
+
+
+      function applyFixedCode() {
+
+        try {
+
+          localStorage.setItem(
+            'tomaCode',
+            FIXED_CODE
+          );
+
+        } catch (error) {
+          console.error(error);
+        }
+
+
+        const input =
+          document.querySelector(
+            '#workspaceCode, #code, input[name="workspaceCode"], input[name="code"]'
+          );
+
+
+        if (!input) {
+          return;
+        }
+
+
+        input.value =
+          FIXED_CODE;
+
+
+        input.dispatchEvent(
+          new Event(
+            'input',
+            {
+              bubbles:true
+            }
+          )
+        );
+
+
+        input.dispatchEvent(
+          new Event(
+            'change',
+            {
+              bubbles:true
+            }
+          )
+        );
+
+
+        const parent =
+          input.closest(
+            '.field, .form-group'
+          );
+
+
+        if (parent) {
+
+          parent.style.display =
+            'none';
+
+        } else {
+
+          input.style.display =
+            'none';
+        }
+      }
+
+
+      applyFixedCode();
+
+
+      setTimeout(
+        applyFixedCode,
+        100
+      );
+
+
+      setTimeout(
+        applyFixedCode,
+        500
+      );
+
+
+      setTimeout(
+        applyFixedCode,
+        1000
+      );
+
     })();
   </script>
 
