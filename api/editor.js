@@ -70,6 +70,7 @@ async function api(
   };
 
   if(body){
+
     options.body =
       JSON.stringify(
         body
@@ -88,10 +89,12 @@ async function api(
   let json = {};
 
   try{
+
     json =
       text
         ? JSON.parse(text)
         : {};
+
   }catch(e){}
 
   if(!response.ok){
@@ -130,7 +133,7 @@ function isSpreadsheet(
 
 
 /* =========================================================
-   SheetJS読込
+   SheetJS 読み込み
 ========================================================= */
 
 async function loadXLSX(){
@@ -1341,7 +1344,7 @@ async function openEditor(
 
 /* =========================================================
    編集ボタン追加
-   APIを使わず、画面表示だけで判定
+   親要素を最大6階層まで探す
 ========================================================= */
 
 function addEditButtons(){
@@ -1372,9 +1375,6 @@ function addEditButtons(){
         return;
       }
 
-      /*
-       * すでに編集ボタンがあれば追加しない
-       */
       if(
         actionArea.querySelector(
           `[data-toma-edit="${id}"]`
@@ -1383,33 +1383,44 @@ function addEditButtons(){
         return;
       }
 
-      /*
-       * ファイル行全体を取得
-       */
       let row =
-        actionArea.parentElement;
+        actionArea;
 
-      if(!row){
+      let spreadsheetFound =
+        false;
+
+      for(
+        let i=0;
+        i<6 && row;
+        i++
+      ){
+
+        const rowText =
+          String(
+            row.textContent || ''
+          )
+          .trim()
+          .toLowerCase();
+
+        if(
+          rowText.includes('.xlsx') ||
+          rowText.includes('.xls') ||
+          rowText.includes('.csv')
+        ){
+
+          spreadsheetFound =
+            true;
+
+          break;
+        }
+
         row =
-          actionArea;
+          row.parentElement;
       }
 
-      /*
-       * 画面上のファイル名を含む文字列で判定
-       */
-      const rowText =
-        String(
-          row.textContent || ''
-        )
-        .trim()
-        .toLowerCase();
-
-      const isExcel =
-        rowText.includes('.xlsx') ||
-        rowText.includes('.xls') ||
-        rowText.includes('.csv');
-
-      if(!isExcel){
+      if(
+        !spreadsheetFound
+      ){
         return;
       }
 
@@ -1430,10 +1441,17 @@ function addEditButtons(){
       button.textContent =
         '編集';
 
+      button.style.background =
+        '#16864f';
+
+      button.style.color =
+        '#ffffff';
+
       button.onclick =
         function(event){
 
           event.preventDefault();
+
           event.stopPropagation();
 
           openEditor(
@@ -1441,31 +1459,17 @@ function addEditButtons(){
           );
         };
 
-      /*
-       * 開くボタンの直後に追加
-       */
-      if(
-        openButton.nextSibling
-      ){
-
-        actionArea.insertBefore(
-          button,
-          openButton.nextSibling
-        );
-
-      }else{
-
-        actionArea.appendChild(
-          button
-        );
-      }
+      openButton.insertAdjacentElement(
+        'afterend',
+        button
+      );
     }
   );
 }
 
 
 /* =========================================================
-   app.jsの再描画監視
+   app.js再描画監視
 ========================================================= */
 
 let timer = null;
