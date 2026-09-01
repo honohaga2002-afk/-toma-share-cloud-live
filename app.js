@@ -22,8 +22,15 @@ let selectedUploadFile=null;
 let selectedVersionId=null;
 let selectedFolderId='';
 
+let xlsxPromise=null;
+let editorCurrent=null;
+
+const XLSX_URL=
+'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+
 const SHEET_URL=
 'https://docs.google.com/spreadsheets/d/1wi2FQ7crs8pXmu-43Gu-XdEnyJ_J6SI19N8eDxVSd68/edit';
+
 
 const esc=s=>String(s??'').replace(
   /[&<>"']/g,
@@ -36,46 +43,18 @@ const esc=s=>String(s??'').replace(
   }[c])
 );
 
+
 function idStr(v){
-  return v===null||v===undefined?'':String(v);
+  return v===null||v===undefined
+    ?''
+    :String(v);
 }
+
 
 function sameId(a,b){
   return idStr(a)===idStr(b);
 }
 
-function isEditableSpreadsheet(file){
-
-  const name=
-    String(
-      file?.name||''
-    ).toLowerCase();
-
-  return (
-    name.endsWith('.xlsx')||
-    name.endsWith('.xls')||
-    name.endsWith('.csv')
-  );
-}
-
-function openExternal(url){
-
-  if(!url)return false;
-
-  const a=
-    document.createElement('a');
-
-  a.href=url;
-  a.target='_blank';
-  a.rel='noopener noreferrer';
-  a.style.display='none';
-
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  return true;
-}
 
 function say(t){
 
@@ -84,17 +63,55 @@ function say(t){
   if(!el)return;
 
   el.textContent=t;
-  el.classList.remove('hidden');
 
-  setTimeout(()=>{
-    el.classList.add('hidden');
-  },1800);
+  el.classList.remove(
+    'hidden'
+  );
+
+  setTimeout(
+    ()=>{
+      el.classList.add(
+        'hidden'
+      );
+    },
+    1800
+  );
 }
 
 
-/* ==============================
+function openExternal(url){
+
+  if(!url)return false;
+
+  const a=
+    document.createElement(
+      'a'
+    );
+
+  a.href=url;
+
+  a.target='_blank';
+
+  a.rel=
+    'noopener noreferrer';
+
+  a.style.display=
+    'none';
+
+  document.body
+    .appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+  return true;
+}
+
+
+/* =========================================================
    API
-============================== */
+========================================================= */
 
 async function api(
   method='GET',
@@ -102,12 +119,18 @@ async function api(
 ){
 
   const headers={
-    'Content-Type':'application/json',
-    'x-workspace-code':C
+    'Content-Type':
+      'application/json',
+
+    'x-workspace-code':
+      C||'TOMA-2026'
   };
 
   if(N){
-    headers['x-member-name']=
+
+    headers[
+      'x-member-name'
+    ]=
       encodeURIComponent(N);
   }
 
@@ -119,6 +142,7 @@ async function api(
   };
 
   if(body){
+
     options.body=
       JSON.stringify(body);
   }
@@ -188,27 +212,47 @@ async function load(){
     await api();
 
   state={
-    schedules:d.schedules||[],
-    messages:d.messages||[],
-    items:d.items||[],
-    minutes:d.minutes||[],
-    reviews:d.reviews||[],
-    permits:d.permits||[],
-    onlineMembers:d.onlineMembers||[]
+    schedules:
+      d.schedules||[],
+
+    messages:
+      d.messages||[],
+
+    items:
+      d.items||[],
+
+    minutes:
+      d.minutes||[],
+
+    reviews:
+      d.reviews||[],
+
+    permits:
+      d.permits||[],
+
+    onlineMembers:
+      d.onlineMembers||[]
   };
 }
 
 
-/* ==============================
+/* =========================================================
    ログイン
-============================== */
+========================================================= */
 
 async function doLogin(){
 
-  const codeEl=$('code');
-  const nameEl=$('memberName');
-  const btn=$('enter');
-  const status=$('loginStatus');
+  const codeEl=
+    $('code');
+
+  const nameEl=
+    $('memberName');
+
+  const btn=
+    $('enter');
+
+  const status=
+    $('loginStatus');
 
   if(
     !codeEl||
@@ -222,13 +266,9 @@ async function doLogin(){
     return;
   }
 
-  C=
-    (
-      codeEl.value||
-      'TOMA-2026'
-    )
-    .trim()
-    .toUpperCase();
+  C='TOMA-2026';
+
+  codeEl.value=C;
 
   N=
     nameEl
@@ -236,27 +276,16 @@ async function doLogin(){
       :'';
 
   if(!N){
+
     N='メンバー';
-  }
-
-  if(!C){
-
-    if(status){
-
-      status.className='err';
-
-      status.textContent=
-        '共有コードを入力してください。';
-    }
-
-    return;
   }
 
   btn.disabled=true;
 
   if(status){
 
-    status.className='meta';
+    status.className=
+      'meta';
 
     status.textContent=
       '接続中…';
@@ -276,16 +305,17 @@ async function doLogin(){
       N
     );
 
-    const login=$('login');
-    const nav=$('nav');
+    $('login')
+      ?.classList
+      .add(
+        'hidden'
+      );
 
-    if(login){
-      login.classList.add('hidden');
-    }
-
-    if(nav){
-      nav.classList.remove('hidden');
-    }
+    $('nav')
+      ?.classList
+      .remove(
+        'hidden'
+      );
 
     go('home');
 
@@ -301,7 +331,8 @@ async function doLogin(){
 
     if(status){
 
-      status.className='err';
+      status.className=
+        'err';
 
       status.textContent=
         'ログインできません：'+
@@ -322,13 +353,14 @@ async function doLogin(){
 }
 
 
-/* ==============================
+/* =========================================================
    オンライン
-============================== */
+========================================================= */
 
 function startPresence(){
 
   if(presenceTimer){
+
     clearInterval(
       presenceTimer
     );
@@ -365,16 +397,16 @@ function onlineNames(){
   return (
     state.onlineMembers||[]
   )
-    .map(
-      x=>x.member_name
-    )
-    .filter(Boolean);
+  .map(
+    x=>x.member_name
+  )
+  .filter(Boolean);
 }
 
 
-/* ==============================
-   ファイル
-============================== */
+/* =========================================================
+   ファイル基本
+========================================================= */
 
 function dataUrlToBlob(
   dataUrl
@@ -416,9 +448,9 @@ function dataUrlToBlob(
 
     bytes=
       new TextEncoder()
-        .encode(
-          decodeURIComponent(raw)
-        );
+      .encode(
+        decodeURIComponent(raw)
+      );
   }
 
   return new Blob(
@@ -445,9 +477,36 @@ function isPreviewable(f){
     ).toLowerCase();
 
   return (
-    mime.startsWith('image/')||
-    mime==='application/pdf'||
-    name.endsWith('.pdf')
+    mime.startsWith(
+      'image/'
+    )||
+    mime===
+      'application/pdf'||
+    name.endsWith(
+      '.pdf'
+    )
+  );
+}
+
+
+function isSpreadsheet(f){
+
+  const name=
+    String(
+      f?.name||
+      ''
+    ).toLowerCase();
+
+  return (
+    name.endsWith(
+      '.xlsx'
+    )||
+    name.endsWith(
+      '.xls'
+    )||
+    name.endsWith(
+      '.csv'
+    )
   );
 }
 
@@ -457,7 +516,8 @@ function driveUrl(f){
   if(!f)return null;
 
   if(
-    typeof f.file_data==='string' &&
+    typeof f.file_data===
+      'string' &&
     /^https?:\/\//i.test(
       f.file_data
     )
@@ -471,20 +531,23 @@ function driveUrl(f){
 
   if(
     typeof content===
-    'string'
+      'string'
   ){
 
     try{
+
       content=
         JSON.parse(
           content
         );
+
     }catch(e){}
   }
 
   if(
     content &&
-    typeof content==='object' &&
+    typeof content===
+      'object' &&
     content.webViewLink
   ){
 
@@ -513,9 +576,7 @@ function openFile(f){
 
     if(url){
 
-      openExternal(
-        url
-      );
+      openExternal(url);
 
       return;
     }
@@ -552,6 +613,7 @@ function openFile(f){
     ){
 
       a.target='_blank';
+
       a.rel=
         'noopener noreferrer';
 
@@ -591,57 +653,1117 @@ function openFile(f){
 }
 
 
-/* ==============================
-   Excel編集
-============================== */
+/* =========================================================
+   SheetJS
+========================================================= */
 
-function editFile(file){
+async function loadXLSX(){
 
-  if(!file){
+  if(window.XLSX){
 
-    alert(
-      'ファイルが見つかりません'
-    );
-
-    return;
+    return window.XLSX;
   }
 
+  if(xlsxPromise){
+
+    return xlsxPromise;
+  }
+
+  xlsxPromise=
+    new Promise(
+      (
+        resolve,
+        reject
+      )=>{
+
+        const s=
+          document.createElement(
+            'script'
+          );
+
+        s.src=
+          XLSX_URL;
+
+        s.async=true;
+
+        s.onload=
+          ()=>{
+
+            if(window.XLSX){
+
+              resolve(
+                window.XLSX
+              );
+
+            }else{
+
+              reject(
+                new Error(
+                  'Excel編集機能を読み込めませんでした'
+                )
+              );
+            }
+          };
+
+        s.onerror=
+          ()=>{
+
+            reject(
+              new Error(
+                'Excel編集機能を読み込めませんでした'
+              )
+            );
+          };
+
+        document.head
+          .appendChild(s);
+      }
+    );
+
+  return xlsxPromise;
+}
+
+
+/* =========================================================
+   Excel編集 CSS
+========================================================= */
+
+function ensureEditorStyle(){
+
   if(
-    !isEditableSpreadsheet(
-      file
+    document.getElementById(
+      'tomaEditorStyle'
     )
-  ){
+  )return;
 
-    alert(
-      '現在はExcel・CSVファイルを編集できます'
+  const style=
+    document.createElement(
+      'style'
     );
 
-    return;
-  }
+  style.id=
+    'tomaEditorStyle';
 
-  if(
-    !window.TomaEditor ||
-    typeof window.TomaEditor.openFile!==
-      'function'
-  ){
+  style.textContent=`
 
-    alert(
-      '編集機能を読み込めませんでした。\nページを更新してもう一度お試しください。'
-    );
+#tomaEditor{
+ position:fixed;
+ inset:0;
+ z-index:9999999;
+ background:#f5f7fa;
+ display:flex;
+ flex-direction:column;
+ color:#111;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
 
-    return;
-  }
+#tomaEditor .teTop{
+ display:flex;
+ align-items:center;
+ gap:8px;
+ padding:max(10px,env(safe-area-inset-top)) 10px 10px;
+ background:#fff;
+ border-bottom:1px solid #ddd;
+}
 
-  window.TomaEditor
-    .openFile(
-      file
+#tomaEditor .teTitle{
+ flex:1;
+ min-width:0;
+ font-size:14px;
+ font-weight:700;
+ overflow:hidden;
+ text-overflow:ellipsis;
+ white-space:nowrap;
+}
+
+#tomaEditor button{
+ border:0;
+ border-radius:10px;
+ padding:10px 14px;
+ font-size:14px;
+ font-weight:700;
+}
+
+#tomaEditor .teBack{
+ background:#e9eef3;
+ color:#111;
+}
+
+#tomaEditor .teSave{
+ background:#0879d1;
+ color:#fff;
+}
+
+#tomaEditor .teTabs{
+ display:flex;
+ gap:6px;
+ padding:8px;
+ overflow-x:auto;
+ background:#fff;
+ border-bottom:1px solid #ddd;
+}
+
+#tomaEditor .teTabs button{
+ white-space:nowrap;
+ background:#edf2f7;
+ color:#222;
+}
+
+#tomaEditor .teTabs button.on{
+ background:#0879d1;
+ color:#fff;
+}
+
+#tomaEditor .teGrid{
+ flex:1;
+ overflow:auto;
+ background:#fff;
+ -webkit-overflow-scrolling:touch;
+}
+
+#tomaEditor table{
+ border-collapse:collapse;
+ table-layout:fixed;
+ min-width:max-content;
+}
+
+#tomaEditor th{
+ border:1px solid #ccd3da;
+ background:#f0f3f6;
+ min-width:100px;
+ height:32px;
+ text-align:center;
+ font-size:12px;
+ position:sticky;
+ top:0;
+ z-index:3;
+}
+
+#tomaEditor th.rowHead{
+ width:44px;
+ min-width:44px;
+ left:0;
+ z-index:4;
+}
+
+#tomaEditor tbody th.rowHead{
+ top:auto;
+}
+
+#tomaEditor td{
+ border:1px solid #d6dce2;
+ width:100px;
+ min-width:100px;
+ height:36px;
+ padding:0;
+}
+
+#tomaEditor input{
+ box-sizing:border-box;
+ width:100%;
+ height:36px;
+ border:0;
+ border-radius:0;
+ outline:none;
+ padding:5px 7px;
+ font-size:16px;
+ background:#fff;
+}
+
+#tomaEditor input:focus{
+ box-shadow:inset 0 0 0 2px #0879d1;
+}
+
+#tomaEditor .teStatus{
+ padding:8px 10px max(8px,env(safe-area-inset-bottom));
+ background:#fff;
+ border-top:1px solid #ddd;
+ color:#555;
+ font-size:12px;
+}
+
+`;
+
+  document.head
+    .appendChild(
+      style
     );
 }
 
 
-/* ==============================
-   ファイル選択
-============================== */
+/* =========================================================
+   Excelセル
+========================================================= */
+
+function columnName(index){
+
+  let result='';
+
+  let number=
+    index+1;
+
+  while(number>0){
+
+    const r=
+      (
+        number-1
+      )%26;
+
+    result=
+      String.fromCharCode(
+        65+r
+      )+
+      result;
+
+    number=
+      Math.floor(
+        (
+          number-1
+        )/26
+      );
+  }
+
+  return result;
+}
+
+
+function editorCellText(cell){
+
+  if(!cell)return '';
+
+  if(cell.f){
+
+    return '='+cell.f;
+  }
+
+  if(
+    cell.v===null||
+    cell.v===undefined
+  ){
+
+    return '';
+  }
+
+  return String(
+    cell.v
+  );
+}
+
+
+function setEditorCell(
+  sheet,
+  address,
+  value
+){
+
+  const XLSX=
+    window.XLSX;
+
+  const text=
+    String(
+      value??''
+    );
+
+  if(text===''){
+
+    delete sheet[
+      address
+    ];
+
+  }else if(
+    text.startsWith('=')
+  ){
+
+    sheet[address]={
+      t:'n',
+      f:text.slice(1)
+    };
+
+  }else if(
+    /^[-+]?\d+(?:\.\d+)?$/
+      .test(
+        text.trim()
+      )
+  ){
+
+    sheet[address]={
+      t:'n',
+      v:Number(
+        text.trim()
+      )
+    };
+
+  }else{
+
+    sheet[address]={
+      t:'s',
+      v:text
+    };
+  }
+
+  const p=
+    XLSX.utils
+    .decode_cell(
+      address
+    );
+
+  let range;
+
+  if(
+    sheet['!ref']
+  ){
+
+    range=
+      XLSX.utils
+      .decode_range(
+        sheet['!ref']
+      );
+
+  }else{
+
+    range={
+      s:{
+        r:0,
+        c:0
+      },
+      e:{
+        r:0,
+        c:0
+      }
+    };
+  }
+
+  range.e.r=
+    Math.max(
+      range.e.r,
+      p.r
+    );
+
+  range.e.c=
+    Math.max(
+      range.e.c,
+      p.c
+    );
+
+  sheet['!ref']=
+    XLSX.utils
+    .encode_range(
+      range
+    );
+}
+
+
+function editorStatus(
+  text=''
+){
+
+  const el=
+    document.querySelector(
+      '#tomaEditor .teStatus'
+    );
+
+  if(!el)return;
+
+  if(text){
+
+    el.textContent=text;
+
+    return;
+  }
+
+  el.textContent=
+    editorCurrent?.dirty
+      ?'未保存の変更があります'
+      :'保存済み';
+}
+
+
+/* =========================================================
+   Excelシート描画
+========================================================= */
+
+function renderEditorGrid(){
+
+  if(!editorCurrent)return;
+
+  const XLSX=
+    window.XLSX;
+
+  const sheet=
+    editorCurrent.workbook
+    .Sheets[
+      editorCurrent.sheetName
+    ];
+
+  let range={
+    s:{
+      r:0,
+      c:0
+    },
+    e:{
+      r:0,
+      c:0
+    }
+  };
+
+  if(
+    sheet['!ref']
+  ){
+
+    range=
+      XLSX.utils
+      .decode_range(
+        sheet['!ref']
+      );
+  }
+
+  const rows=
+    Math.min(
+      Math.max(
+        range.e.r+1,
+        30
+      ),
+      200
+    );
+
+  const cols=
+    Math.min(
+      Math.max(
+        range.e.c+1,
+        10
+      ),
+      50
+    );
+
+  const wrap=
+    document.querySelector(
+      '#tomaEditor .teGrid'
+    );
+
+  if(!wrap)return;
+
+  wrap.innerHTML='';
+
+  const table=
+    document.createElement(
+      'table'
+    );
+
+  const thead=
+    document.createElement(
+      'thead'
+    );
+
+  const hr=
+    document.createElement(
+      'tr'
+    );
+
+  const corner=
+    document.createElement(
+      'th'
+    );
+
+  corner.className=
+    'rowHead';
+
+  hr.appendChild(
+    corner
+  );
+
+  for(
+    let c=0;
+    c<cols;
+    c++
+  ){
+
+    const th=
+      document.createElement(
+        'th'
+      );
+
+    th.textContent=
+      columnName(c);
+
+    hr.appendChild(
+      th
+    );
+  }
+
+  thead.appendChild(
+    hr
+  );
+
+  table.appendChild(
+    thead
+  );
+
+  const tbody=
+    document.createElement(
+      'tbody'
+    );
+
+  for(
+    let r=0;
+    r<rows;
+    r++
+  ){
+
+    const tr=
+      document.createElement(
+        'tr'
+      );
+
+    const rh=
+      document.createElement(
+        'th'
+      );
+
+    rh.className=
+      'rowHead';
+
+    rh.textContent=
+      String(r+1);
+
+    tr.appendChild(
+      rh
+    );
+
+    for(
+      let c=0;
+      c<cols;
+      c++
+    ){
+
+      const td=
+        document.createElement(
+          'td'
+        );
+
+      const input=
+        document.createElement(
+          'input'
+        );
+
+      const address=
+        XLSX.utils
+        .encode_cell({
+          r,
+          c
+        });
+
+      input.value=
+        editorCellText(
+          sheet[address]
+        );
+
+      input.autocomplete=
+        'off';
+
+      input.spellcheck=
+        false;
+
+      input.oninput=
+        ()=>{
+
+          setEditorCell(
+            sheet,
+            address,
+            input.value
+          );
+
+          editorCurrent.dirty=
+            true;
+
+          editorStatus();
+        };
+
+      td.appendChild(
+        input
+      );
+
+      tr.appendChild(
+        td
+      );
+    }
+
+    tbody.appendChild(
+      tr
+    );
+  }
+
+  table.appendChild(
+    tbody
+  );
+
+  wrap.appendChild(
+    table
+  );
+
+  editorStatus();
+}
+
+
+function renderEditorTabs(){
+
+  const wrap=
+    document.querySelector(
+      '#tomaEditor .teTabs'
+    );
+
+  if(
+    !wrap||
+    !editorCurrent
+  )return;
+
+  wrap.innerHTML='';
+
+  editorCurrent.workbook
+    .SheetNames
+    .forEach(
+      name=>{
+
+        const b=
+          document.createElement(
+            'button'
+          );
+
+        b.type=
+          'button';
+
+        b.textContent=
+          name;
+
+        if(
+          name===
+          editorCurrent.sheetName
+        ){
+
+          b.className=
+            'on';
+        }
+
+        b.onclick=
+          ()=>{
+
+            editorCurrent.sheetName=
+              name;
+
+            renderEditorTabs();
+
+            renderEditorGrid();
+          };
+
+        wrap.appendChild(
+          b
+        );
+      }
+    );
+}
+
+
+/* =========================================================
+   Excel保存
+========================================================= */
+
+function bytesToBase64(
+  bytes
+){
+
+  let binary='';
+
+  const step=
+    0x8000;
+
+  for(
+    let i=0;
+    i<bytes.length;
+    i+=step
+  ){
+
+    binary+=
+      String.fromCharCode(
+        ...bytes.subarray(
+          i,
+          Math.min(
+            i+step,
+            bytes.length
+          )
+        )
+      );
+  }
+
+  return btoa(
+    binary
+  );
+}
+
+
+async function saveEditor(){
+
+  if(!editorCurrent)return;
+
+  try{
+
+    editorStatus(
+      '保存中…'
+    );
+
+    const XLSX=
+      window.XLSX;
+
+    const filename=
+      editorCurrent.file.name;
+
+    const lower=
+      filename.toLowerCase();
+
+    let output;
+    let mime;
+
+    if(
+      lower.endsWith(
+        '.csv'
+      )
+    ){
+
+      const csv=
+        XLSX.utils
+        .sheet_to_csv(
+          editorCurrent.workbook
+          .Sheets[
+            editorCurrent.sheetName
+          ]
+        );
+
+      output=
+        new TextEncoder()
+        .encode(csv);
+
+      mime=
+        'text/csv';
+
+    }else if(
+      lower.endsWith(
+        '.xls'
+      )
+    ){
+
+      output=
+        new Uint8Array(
+          XLSX.write(
+            editorCurrent.workbook,
+            {
+              type:'array',
+              bookType:'xls'
+            }
+          )
+        );
+
+      mime=
+        'application/vnd.ms-excel';
+
+    }else{
+
+      output=
+        new Uint8Array(
+          XLSX.write(
+            editorCurrent.workbook,
+            {
+              type:'array',
+              bookType:'xlsx'
+            }
+          )
+        );
+
+      mime=
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+
+    if(
+      output.byteLength>
+      2500000
+    ){
+
+      throw new Error(
+        '編集後のファイルが大きすぎます。現在は約2.5MBまで保存できます。'
+      );
+    }
+
+    await api(
+      'POST',
+      {
+        action:
+          'version',
+
+        id:
+          editorCurrent.file.id,
+
+        parent_id:
+          editorCurrent.file.parent_id||
+          null,
+
+        name:
+          filename,
+
+        mime_type:
+          mime,
+
+        size:
+          output.byteLength,
+
+        data:
+          `data:${mime};base64,${bytesToBase64(output)}`,
+
+        by:N
+      }
+    );
+
+    editorCurrent.dirty=
+      false;
+
+    editorStatus(
+      '保存しました'
+    );
+
+    setTimeout(
+      async()=>{
+
+        document
+          .getElementById(
+            'tomaEditor'
+          )
+          ?.remove();
+
+        editorCurrent=null;
+
+        await load();
+
+        go('drive');
+
+        say(
+          'Excelを保存しました'
+        );
+
+      },
+      600
+    );
+
+  }catch(e){
+
+    console.error(e);
+
+    editorStatus(
+      '保存に失敗しました'
+    );
+
+    alert(
+      '保存できませんでした。\n\n'+
+      e.message
+    );
+  }
+}
+
+
+function closeEditor(){
+
+  if(
+    editorCurrent?.dirty
+  ){
+
+    if(
+      !confirm(
+        '保存していない変更があります。\n閉じてもよろしいですか？'
+      )
+    ){
+
+      return;
+    }
+  }
+
+  document
+    .getElementById(
+      'tomaEditor'
+    )
+    ?.remove();
+
+  editorCurrent=null;
+}
+
+
+/* =========================================================
+   Excelを編集で開く
+========================================================= */
+
+async function editFile(
+  file
+){
+
+  try{
+
+    if(!file){
+
+      throw new Error(
+        'ファイルが見つかりません'
+      );
+    }
+
+    if(
+      !isSpreadsheet(file)
+    ){
+
+      throw new Error(
+        '現在はExcel・CSVファイルを編集できます'
+      );
+    }
+
+    await loadXLSX();
+
+    const response=
+      await fetch(
+        `/api/data?file=${encodeURIComponent(file.id)}`,
+        {
+          method:'GET',
+
+          headers:{
+            'x-workspace-code':
+              C||'TOMA-2026'
+          },
+
+          cache:'no-store',
+
+          credentials:
+            'same-origin'
+        }
+      );
+
+    if(!response.ok){
+
+      throw new Error(
+        `ファイルを取得できませんでした (${response.status})`
+      );
+    }
+
+    const buffer=
+      await response
+      .arrayBuffer();
+
+    const workbook=
+      window.XLSX.read(
+        buffer,
+        {
+          type:'array',
+          cellDates:true
+        }
+      );
+
+    if(
+      !workbook.SheetNames||
+      !workbook.SheetNames.length
+    ){
+
+      throw new Error(
+        'シートがありません'
+      );
+    }
+
+    ensureEditorStyle();
+
+    document
+      .getElementById(
+        'tomaEditor'
+      )
+      ?.remove();
+
+    editorCurrent={
+      file,
+      workbook,
+      sheetName:
+        workbook.SheetNames[0],
+      dirty:false
+    };
+
+    const editor=
+      document.createElement(
+        'div'
+      );
+
+    editor.id=
+      'tomaEditor';
+
+    editor.innerHTML=`
+
+      <div class="teTop">
+
+        <button
+          type="button"
+          class="teBack"
+          id="teBack"
+        >
+          ← 戻る
+        </button>
+
+        <div
+          class="teTitle"
+        ></div>
+
+        <button
+          type="button"
+          class="teSave"
+          id="teSave"
+        >
+          保存
+        </button>
+
+      </div>
+
+      <div class="teTabs"></div>
+
+      <div class="teGrid"></div>
+
+      <div class="teStatus">
+        読み込み完了
+      </div>
+    `;
+
+    document.body
+      .appendChild(
+        editor
+      );
+
+    editor
+      .querySelector(
+        '.teTitle'
+      )
+      .textContent=
+        '✏️ '+
+        file.name;
+
+    $('teBack').onclick=
+      closeEditor;
+
+    $('teSave').onclick=
+      saveEditor;
+
+    renderEditorTabs();
+
+    renderEditorGrid();
+
+  }catch(e){
+
+    console.error(e);
+
+    alert(
+      '編集画面を開けません。\n\n'+
+      e.message
+    );
+  }
+}
+
+
+/* =========================================================
+   アップロード
+========================================================= */
 
 function pickFile(
   id=null
@@ -664,101 +1786,69 @@ function pickFile(
   input.style.left=
     '-9999px';
 
-  input.style.top=
-    '0';
-
-  input.style.opacity=
-    '0';
-
-  input.style.width=
-    '1px';
-
-  input.style.height=
-    '1px';
-
   document.body
     .appendChild(
       input
     );
 
-  const cleanup=()=>{
+  input.onchange=
+    ()=>{
 
-    setTimeout(
-      ()=>{
+      const f=
+        input.files?.[0];
 
-        if(
-          input.parentNode
-        ){
+      if(!f){
 
-          input.remove();
-        }
+        input.remove();
 
-      },
-      0
-    );
-  };
+        return;
+      }
 
-  input.onchange=()=>{
+      if(
+        f.size>
+        2500000
+      ){
 
-    const f=
-      input.files &&
-      input.files[0];
-
-    if(!f){
-
-      cleanup();
-
-      return;
-    }
-
-    if(
-      f.size>
-      2500000
-    ){
-
-      alert(
-        '現在は1ファイル2.5MB以下でアップロードしてください'
-      );
-
-      cleanup();
-
-      return;
-    }
-
-    selectedUploadFile=
-      f;
-
-    selectedVersionId=
-      id||
-      null;
-
-    if(id){
-
-      const old=
-        state.items.find(
-          x=>sameId(
-            x.id,
-            id
-          )
+        alert(
+          '現在は1ファイル2.5MB以下でアップロードしてください'
         );
 
-      selectedFolderId=
-        old&&old.parent_id
-          ?idStr(
-              old.parent_id
+        input.remove();
+
+        return;
+      }
+
+      selectedUploadFile=f;
+
+      selectedVersionId=
+        id||null;
+
+      if(id){
+
+        const old=
+          state.items.find(
+            x=>sameId(
+              x.id,
+              id
             )
-          :'';
+          );
 
-    }else{
+        selectedFolderId=
+          old?.parent_id
+            ?idStr(
+                old.parent_id
+              )
+            :'';
 
-      selectedFolderId=
-        '';
-    }
+      }else{
 
-    go('drive');
+        selectedFolderId='';
+      }
 
-    cleanup();
-  };
+      go('drive');
+
+      input.remove();
+    };
 
   input.click();
 }
@@ -785,16 +1875,11 @@ async function saveSelectedFile(){
 
     if(btn){
 
-      btn.disabled=
-        true;
+      btn.disabled=true;
 
       btn.textContent=
         '保存中…';
     }
-
-    say(
-      'Google Driveへ保存中…'
-    );
 
     const data=
       await new Promise(
@@ -807,25 +1892,18 @@ async function saveSelectedFile(){
             new FileReader();
 
           fr.onload=
-            ()=>{
-              resolve(
-                fr.result
-              );
-            };
+            ()=>resolve(
+              fr.result
+            );
 
           fr.onerror=
-            ()=>{
+            ()=>reject(
+              new Error(
+                'ファイルを読み込めませんでした'
+              )
+            );
 
-              reject(
-                new Error(
-                  'ファイルを読み込めませんでした'
-                )
-              );
-            };
-
-          fr.readAsDataURL(
-            f
-          );
+          fr.readAsDataURL(f);
         }
       );
 
@@ -861,14 +1939,9 @@ async function saveSelectedFile(){
       }
     );
 
-    selectedUploadFile=
-      null;
-
-    selectedVersionId=
-      null;
-
-    selectedFolderId=
-      '';
+    selectedUploadFile=null;
+    selectedVersionId=null;
+    selectedFolderId='';
 
     await load();
 
@@ -887,8 +1960,7 @@ async function saveSelectedFile(){
 
     if(btn){
 
-      btn.disabled=
-        false;
+      btn.disabled=false;
 
       btn.textContent=
         '保存';
@@ -899,22 +1971,17 @@ async function saveSelectedFile(){
 
 function cancelSelectedFile(){
 
-  selectedUploadFile=
-    null;
-
-  selectedVersionId=
-    null;
-
-  selectedFolderId=
-    '';
+  selectedUploadFile=null;
+  selectedVersionId=null;
+  selectedFolderId='';
 
   go('drive');
 }
 
 
-/* ==============================
+/* =========================================================
    ホーム
-============================== */
+========================================================= */
 
 function homeR(){
 
@@ -927,13 +1994,17 @@ function homeR(){
     onlineNames();
 
   el.innerHTML=`
+
     <div class="panel">
 
       <div class="ok">
         🟢 クラウド接続中｜${esc(N)}
       </div>
 
-      <div class="item" style="margin-top:12px">
+      <div
+        class="item"
+        style="margin-top:12px"
+      >
 
         <div class="title">
           👥 オンライン ${online.length}人
@@ -959,70 +2030,36 @@ function homeR(){
 
     <div class="grid">
 
-      <button class="card" data-go="drive">
+      <button
+        class="card"
+        data-go="drive"
+      >
         <div class="ico">📁</div>
         <div class="ct">共有ドライブ</div>
-        <div class="meta">
-          ${
-            state.items.filter(
-              x=>x.item_type==='file'
-            ).length
-          }資料
-        </div>
       </button>
 
-      <button class="card" data-go="chat">
+      <button
+        class="card"
+        data-go="chat"
+      >
         <div class="ico">💬</div>
         <div class="ct">メッセージ</div>
-        <div class="meta">
-          ${state.messages.length}件
-        </div>
       </button>
 
-      <button class="card" data-go="cal">
+      <button
+        class="card"
+        data-go="cal"
+      >
         <div class="ico">📅</div>
         <div class="ct">スケジュール</div>
-        <div class="meta">
-          ${state.schedules.length}件
-        </div>
       </button>
 
-      <button class="card" data-go="more">
+      <button
+        class="card"
+        data-go="more"
+      >
         <div class="ico">📝</div>
         <div class="ct">議事録</div>
-        <div class="meta">
-          ${state.minutes.length}件
-        </div>
-      </button>
-
-      <button class="card" data-go="more">
-        <div class="ico">💡</div>
-        <div class="ct">反省点・改善</div>
-        <div class="meta">
-          ${state.reviews.length}件
-        </div>
-      </button>
-
-      <button class="card" data-go="more">
-        <div class="ico">✅</div>
-        <div class="ct">許可・申請</div>
-        <div class="meta">
-          ${state.permits.length}件
-        </div>
-      </button>
-
-      <button class="card" data-go="more">
-        <div class="ico">🎪</div>
-        <div class="ct">苫小牧イベント</div>
-        <div class="meta">年間行事</div>
-      </button>
-
-      <button class="card" data-go="home">
-        <div class="ico">👥</div>
-        <div class="ct">共有メンバー</div>
-        <div class="meta">
-          オンライン ${online.length}人
-        </div>
       </button>
 
     </div>
@@ -1036,35 +2073,28 @@ function homeR(){
       b=>{
 
         b.onclick=
-          ()=>{
-            go(
-              b.dataset.go
-            );
-          };
+          ()=>go(
+            b.dataset.go
+          );
       }
     );
 }
 
 
-/* ==============================
+/* =========================================================
    ファイル行
-============================== */
+========================================================= */
 
-function fileRow(
-  file
-){
+function fileRow(file){
 
   const isDrive=
-    !!driveUrl(
-      file
-    );
+    !!driveUrl(file);
 
   const editable=
-    isEditableSpreadsheet(
-      file
-    );
+    isSpreadsheet(file);
 
   return `
+
     <div class="item">
 
       <div class="row">
@@ -1077,19 +2107,10 @@ function fileRow(
           </div>
 
           <div class="meta">
-
             Ver.${file.version||1}
-
             ｜
-
             ${esc(file.updated_by||'')}
-
-            ${
-              isDrive
-                ?'｜Google Drive'
-                :''
-            }
-
+            ${isDrive?'｜Google Drive':''}
           </div>
 
         </div>
@@ -1109,7 +2130,7 @@ function fileRow(
                 data-edit="${esc(file.id)}"
                 style="
                   background:#16864f;
-                  color:#fff;
+                  color:#fff
                 "
               >
                 編集
@@ -1139,9 +2160,9 @@ function fileRow(
 }
 
 
-/* ==============================
-   共有ドライブ
-============================== */
+/* =========================================================
+   ドライブ
+========================================================= */
 
 function driveR(){
 
@@ -1164,41 +2185,35 @@ function driveR(){
         'file'
     );
 
-  let uploadBox=
-    '';
+  let uploadBox='';
 
   if(
     selectedUploadFile
   ){
 
-    const kb=
-      (
-        selectedUploadFile.size/
-        1024
-      ).toFixed(1);
-
     const folderOptions=
       folders
-        .map(
-          f=>`
-            <option
-              value="${esc(f.id)}"
-              ${
-                sameId(
-                  selectedFolderId,
-                  f.id
-                )
-                  ?'selected'
-                  :''
-              }
-            >
-              ${esc(f.name)}
-            </option>
-          `
-        )
-        .join('');
+      .map(
+        f=>`
+          <option
+            value="${esc(f.id)}"
+            ${
+              sameId(
+                selectedFolderId,
+                f.id
+              )
+                ?'selected'
+                :''
+            }
+          >
+            ${esc(f.name)}
+          </option>
+        `
+      )
+      .join('');
 
     uploadBox=`
+
       <div class="panel">
 
         <div class="title">
@@ -1206,20 +2221,8 @@ function driveR(){
         </div>
 
         <div class="item">
-
-          <div class="title">
-            ${esc(selectedUploadFile.name)}
-          </div>
-
-          <div class="meta">
-            ${kb} KB
-          </div>
-
+          ${esc(selectedUploadFile.name)}
         </div>
-
-        <label class="fieldLabel">
-          保存先フォルダ
-        </label>
 
         <select id="folderSelect">
 
@@ -1256,58 +2259,57 @@ function driveR(){
   const folderHtml=
     folders.length
       ?folders
-        .map(
-          folder=>{
+      .map(
+        folder=>{
 
-            const folderFiles=
-              files.filter(
-                f=>sameId(
-                  f.parent_id,
-                  folder.id
-                )
-              );
+          const folderFiles=
+            files.filter(
+              f=>sameId(
+                f.parent_id,
+                folder.id
+              )
+            );
 
-            return `
-              <div class="item">
+          return `
 
-                <div class="row">
+            <div class="item">
 
-                  <div style="flex:1">
+              <div class="row">
 
-                    <div class="title">
-                      📂 ${esc(folder.name)}
-                    </div>
+                <div style="flex:1">
 
-                    <div class="meta">
-                      ${folderFiles.length}ファイル
-                    </div>
-
+                  <div class="title">
+                    📂 ${esc(folder.name)}
                   </div>
 
-                  <button
-                    class="btn danger"
-                    data-del="${esc(folder.id)}"
-                  >
-                    削除
-                  </button>
+                  <div class="meta">
+                    ${folderFiles.length}ファイル
+                  </div>
 
                 </div>
 
-                ${
-                  folderFiles.length
-                    ?folderFiles
-                      .map(
-                        fileRow
-                      )
-                      .join('')
-                    :'<div class="empty">このフォルダは空です</div>'
-                }
+                <button
+                  class="btn danger"
+                  data-del="${esc(folder.id)}"
+                >
+                  削除
+                </button>
 
               </div>
-            `;
-          }
-        )
-        .join('')
+
+              ${
+                folderFiles.length
+                  ?folderFiles
+                    .map(fileRow)
+                    .join('')
+                  :'<div class="empty">このフォルダは空です</div>'
+              }
+
+            </div>
+          `;
+        }
+      )
+      .join('')
       :'<div class="empty">まだフォルダがありません</div>';
 
   const rootFiles=
@@ -1316,6 +2318,7 @@ function driveR(){
     );
 
   el.innerHTML=`
+
     <div class="panel">
 
       <div class="sectionTitle">
@@ -1359,9 +2362,7 @@ function driveR(){
       </button>
 
       <div class="meta">
-        ファイルを選んだあと、
-        保存先フォルダを選択して
-        「保存」を押します。
+        Excel・CSVは「編集」から直接編集できます。
       </div>
 
     </div>
@@ -1387,9 +2388,7 @@ function driveR(){
       ${
         rootFiles.length
           ?rootFiles
-            .map(
-              fileRow
-            )
+            .map(fileRow)
             .join('')
           :'<div class="empty">ファイルはありません</div>'
       }
@@ -1397,119 +2396,70 @@ function driveR(){
     </div>
   `;
 
-  const refresh=
-    $('refreshD');
+  $('refreshD').onclick=
+    async()=>{
 
-  if(refresh){
+      await load();
 
-    refresh.onclick=
-      async()=>{
+      go('drive');
+    };
 
-        await load();
+  $('up').onclick=
+    ()=>pickFile();
 
-        go('drive');
-      };
-  }
+  $('newF').onclick=
+    async()=>{
 
-  const up=
-    $('up');
-
-  if(up){
-
-    up.onclick=
-      ()=>{
-        pickFile();
-      };
-  }
-
-  const newF=
-    $('newF');
-
-  if(newF){
-
-    newF.onclick=
-      async()=>{
-
-        const name=
-          prompt(
-            'フォルダ名'
-          );
-
-        if(!name)return;
-
-        try{
-
-          await api(
-            'POST',
-            {
-              action:
-                'folder',
-
-              name:
-                name.trim(),
-
-              by:N
-            }
-          );
-
-          await load();
-
-          go('drive');
-
-          say(
-            'フォルダを作成しました'
-          );
-
-        }catch(e){
-
-          alert(
-            'フォルダを作成できません：'+
-            e.message
-          );
-        }
-      };
-  }
-
-  const sheet=
-    $('openSheet');
-
-  if(sheet){
-
-    sheet.onclick=
-      ()=>{
-        openExternal(
-          SHEET_URL
+      const name=
+        prompt(
+          'フォルダ名'
         );
-      };
-  }
 
-  const folderSelect=
-    $('folderSelect');
+      if(!name)return;
 
-  if(folderSelect){
+      await api(
+        'POST',
+        {
+          action:'folder',
+          name:name.trim(),
+          by:N
+        }
+      );
 
-    folderSelect.onchange=
+      await load();
+
+      go('drive');
+    };
+
+  $('openSheet').onclick=
+    ()=>openExternal(
+      SHEET_URL
+    );
+
+  if(
+    $('folderSelect')
+  ){
+
+    $('folderSelect').onchange=
       ()=>{
         selectedFolderId=
-          folderSelect.value;
+          $('folderSelect').value;
       };
   }
 
-  const saveBtn=
-    $('saveSelectedFile');
+  if(
+    $('saveSelectedFile')
+  ){
 
-  if(saveBtn){
-
-    saveBtn.onclick=
+    $('saveSelectedFile').onclick=
       saveSelectedFile;
   }
 
-  const cancelBtn=
-    $('cancelSelectedFile');
+  if(
+    $('cancelSelectedFile')
+  ){
 
-  if(cancelBtn){
-
-    cancelBtn.onclick=
+    $('cancelSelectedFile').onclick=
       cancelSelectedFile;
   }
 
@@ -1531,9 +2481,7 @@ function driveR(){
                 )
               );
 
-            openFile(
-              f
-            );
+            openFile(f);
           };
       }
     );
@@ -1556,9 +2504,7 @@ function driveR(){
                 )
               );
 
-            editFile(
-              f
-            );
+            editFile(f);
           };
       }
     );
@@ -1571,11 +2517,9 @@ function driveR(){
       b=>{
 
         b.onclick=
-          ()=>{
-            pickFile(
-              b.dataset.ver
-            );
-          };
+          ()=>pickFile(
+            b.dataset.ver
+          );
       }
     );
 
@@ -1593,126 +2537,66 @@ function driveR(){
               !confirm(
                 '削除しますか？'
               )
-            ){
+            )return;
 
-              return;
-            }
+            await api(
+              'POST',
+              {
+                action:
+                  'item_delete',
 
-            try{
+                id:
+                  b.dataset.del,
 
-              await api(
-                'POST',
-                {
-                  action:
-                    'item_delete',
+                by:N
+              }
+            );
 
-                  id:
-                    b.dataset.del,
+            await load();
 
-                  by:N
-                }
-              );
-
-              await load();
-
-              go('drive');
-
-            }catch(e){
-
-              alert(
-                '削除できません：'+
-                e.message
-              );
-            }
+            go('drive');
           };
       }
     );
 }
 
 
-/* ==============================
+/* =========================================================
    メッセージ
-============================== */
+========================================================= */
 
 function chatR(){
 
-  const el=$('chat');
+  const el=
+    $('chat');
 
   if(!el)return;
 
   const messages=
     state.messages
-      .map(
-        x=>{
+    .map(
+      x=>`
+        <div class="item">
 
-          const mine=
-            x.updated_by===N;
+          <div>
+            ${esc(x.name)}
+          </div>
 
-          return `
-            <div class="item">
+          <div class="meta">
+            ${esc(x.updated_by||'')}
+          </div>
 
-              <div class="row">
-
-                <div style="flex:1">
-
-                  <div>
-                    ${esc(x.name)}
-                  </div>
-
-                  <div class="meta">
-                    ${esc(x.updated_by||'')}
-                    ｜
-                    ${
-                      x.created_at
-                        ?new Date(
-                            x.created_at
-                          )
-                          .toLocaleString(
-                            'ja-JP'
-                          )
-                        :''
-                    }
-                  </div>
-
-                </div>
-
-                ${
-                  mine
-                    ?`
-                      <button
-                        class="btn danger"
-                        data-msgdel="${esc(x.id)}"
-                      >
-                        取消
-                      </button>
-                    `
-                    :''
-                }
-
-              </div>
-
-            </div>
-          `;
-        }
-      )
-      .join('');
+        </div>
+      `
+    )
+    .join('');
 
   el.innerHTML=`
+
     <div class="panel">
 
-      <div class="sectionTitle">
-
-        <div class="title">
-          💬 メッセージ
-        </div>
-
-        <button
-          class="btn light"
-          id="refreshC"
-        >
-          ↻更新
-        </button>
-
+      <div class="title">
+        💬 メッセージ
       </div>
 
       ${
@@ -1735,128 +2619,33 @@ function chatR(){
     </div>
   `;
 
-  const refresh=
-    $('refreshC');
+  $('send').onclick=
+    async()=>{
 
-  if(refresh){
+      const text=
+        $('msg').value.trim();
 
-    refresh.onclick=
-      async()=>{
+      if(!text)return;
 
-        await load();
-
-        go('chat');
-      };
-  }
-
-  const send=
-    $('send');
-
-  if(send){
-
-    send.onclick=
-      async()=>{
-
-        const msg=
-          $('msg');
-
-        if(!msg)return;
-
-        const text=
-          msg.value.trim();
-
-        if(!text)return;
-
-        try{
-
-          await api(
-            'POST',
-            {
-              action:
-                'message',
-
-              text,
-
-              by:N
-            }
-          );
-
-          await load();
-
-          go('chat');
-
-          say(
-            '送信しました'
-          );
-
-        }catch(e){
-
-          alert(
-            '送信できません：'+
-            e.message
-          );
+      await api(
+        'POST',
+        {
+          action:'message',
+          text,
+          by:N
         }
-      };
-  }
+      );
 
-  document
-    .querySelectorAll(
-      '[data-msgdel]'
-    )
-    .forEach(
-      b=>{
+      await load();
 
-        b.onclick=
-          async()=>{
-
-            if(
-              !confirm(
-                'このメッセージを取り消しますか？'
-              )
-            ){
-
-              return;
-            }
-
-            try{
-
-              await api(
-                'POST',
-                {
-                  action:
-                    'message_delete',
-
-                  id:
-                    b.dataset.msgdel,
-
-                  by:N
-                }
-              );
-
-              await load();
-
-              go('chat');
-
-              say(
-                'メッセージを取り消しました'
-              );
-
-            }catch(e){
-
-              alert(
-                '取り消せません：'+
-                e.message
-              );
-            }
-          };
-      }
-    );
+      go('chat');
+    };
 }
 
 
-/* ==============================
+/* =========================================================
    スケジュール
-============================== */
+========================================================= */
 
 function calR(){
 
@@ -1867,85 +2656,39 @@ function calR(){
 
   const list=
     state.schedules
-      .map(
-        x=>{
+    .map(
+      x=>`
 
-          const d=
-            x.starts_at
-              ?new Date(
-                  x.starts_at
-                )
-              :null;
+        <div class="item">
 
-          const when=
-            d
-              ?d.toLocaleDateString(
-                  'ja-JP'
-                )+
-                ' '+
-                d.toLocaleTimeString(
-                  'ja-JP',
-                  {
-                    hour:'2-digit',
-                    minute:'2-digit'
-                  }
-                )
-              :'';
+          <div class="title">
+            ${esc(x.title)}
+          </div>
 
-          return `
-            <div class="item row">
+          <div class="meta">
+            ${
+              x.starts_at
+                ?new Date(
+                    x.starts_at
+                  )
+                  .toLocaleString(
+                    'ja-JP'
+                  )
+                :''
+            }
+          </div>
 
-              <div style="flex:1">
-
-                <div class="title">
-                  ${esc(x.title)}
-                </div>
-
-                <div class="meta">
-                  ${when}
-                  ${
-                    x.place
-                      ?'｜'+esc(x.place)
-                      :''
-                  }
-                  ${
-                    x.memo
-                      ?'｜'+esc(x.memo)
-                      :''
-                  }
-                </div>
-
-              </div>
-
-              <button
-                class="btn danger"
-                data-sdel="${esc(x.id)}"
-              >
-                削除
-              </button>
-
-            </div>
-          `;
-        }
-      )
-      .join('');
+        </div>
+      `
+    )
+    .join('');
 
   el.innerHTML=`
+
     <div class="panel">
 
-      <div class="sectionTitle">
-
-        <div class="title">
-          📅 スケジュール
-        </div>
-
-        <button
-          class="btn light"
-          id="refreshS"
-        >
-          ↻更新
-        </button>
-
+      <div class="title">
+        📅 スケジュール
       </div>
 
       ${
@@ -1953,18 +2696,10 @@ function calR(){
         '<div class="empty">まだありません</div>'
       }
 
-      <label class="fieldLabel">
-        日付
-      </label>
-
       <input
         id="sdate"
         type="date"
       >
-
-      <label class="fieldLabel">
-        開始時刻
-      </label>
 
       <input
         id="stime"
@@ -1977,16 +2712,6 @@ function calR(){
         placeholder="予定名"
       >
 
-      <input
-        id="pl"
-        placeholder="場所"
-      >
-
-      <textarea
-        id="sm"
-        placeholder="メモ"
-      ></textarea>
-
       <button
         class="btn"
         id="addS"
@@ -1996,14 +2721,6 @@ function calR(){
 
     </div>
   `;
-
-  $('refreshS').onclick=
-    async()=>{
-
-      await load();
-
-      go('cal');
-    };
 
   $('addS').onclick=
     async()=>{
@@ -2018,171 +2735,35 @@ function calR(){
       const title=
         $('ttl').value.trim();
 
-      if(!date){
+      if(
+        !date||
+        !title
+      )return;
 
-        alert(
-          '日付を選んでください'
-        );
+      await api(
+        'POST',
+        {
+          action:'schedule',
+          title,
+          starts_at:
+            `${date}T${time}:00+09:00`,
+          ends_at:null,
+          place:'',
+          memo:'',
+          by:N
+        }
+      );
 
-        return;
-      }
+      await load();
 
-      if(!title){
-
-        alert(
-          '予定名を入力してください'
-        );
-
-        return;
-      }
-
-      try{
-
-        await api(
-          'POST',
-          {
-            action:
-              'schedule',
-
-            title,
-
-            starts_at:
-              `${date}T${time}:00+09:00`,
-
-            ends_at:
-              null,
-
-            place:
-              $('pl').value,
-
-            memo:
-              $('sm').value,
-
-            by:N
-          }
-        );
-
-        await load();
-
-        go('cal');
-
-        say(
-          '予定を保存しました'
-        );
-
-      }catch(e){
-
-        alert(
-          '予定を保存できません：'+
-          e.message
-        );
-      }
+      go('cal');
     };
-
-  document
-    .querySelectorAll(
-      '[data-sdel]'
-    )
-    .forEach(
-      b=>{
-
-        b.onclick=
-          async()=>{
-
-            if(
-              !confirm(
-                '予定を削除しますか？'
-              )
-            ){
-
-              return;
-            }
-
-            await api(
-              'POST',
-              {
-                action:
-                  'schedule_delete',
-
-                id:
-                  b.dataset.sdel,
-
-                by:N
-              }
-            );
-
-            await load();
-
-            go('cal');
-          };
-      }
-    );
 }
 
 
-/* ==============================
-   議事録・改善・申請
-============================== */
-
-function rec(
-  x,
-  k
-){
-
-  let detail=
-    '';
-
-  if(
-    k==='minute'
-  ){
-
-    detail=
-      `${x.meeting_date||''} ${x.body||''} ${x.action_items||''}`;
-
-  }else if(
-    k==='review'
-  ){
-
-    detail=
-      `${x.category||''} ${x.body||''}`;
-
-  }else{
-
-    detail=
-      `${x.organization||''} ${x.contact||''} ${x.body||''}`;
-  }
-
-  return `
-    <div class="item row">
-
-      <div style="flex:1">
-
-        <div class="title">
-          ${esc(x.title)}
-        </div>
-
-        <div class="meta">
-          ${esc(detail)}
-        </div>
-
-        <div class="meta">
-          更新：${esc(x.updated_by||'')}
-        </div>
-
-      </div>
-
-      <button
-        class="btn danger"
-        data-rdel="${esc(x.id)}"
-        data-kind="${esc(k)}"
-      >
-        削除
-      </button>
-
-    </div>
-  `;
-}
-
+/* =========================================================
+   その他
+========================================================= */
 
 function moreR(){
 
@@ -2192,51 +2773,16 @@ function moreR(){
   if(!el)return;
 
   el.innerHTML=`
+
     <div class="panel">
 
       <div class="title">
         📝 議事録
       </div>
 
-      ${
-        state.minutes.length
-          ?state.minutes
-            .map(
-              x=>rec(
-                x,
-                'minute'
-              )
-            )
-            .join('')
-          :'<div class="empty">まだありません</div>'
-      }
-
-      <input
-        id="mt"
-        placeholder="会議名"
-      >
-
-      <input
-        id="md"
-        type="date"
-      >
-
-      <textarea
-        id="mb"
-        placeholder="議事内容"
-      ></textarea>
-
-      <textarea
-        id="ma"
-        placeholder="決定事項・担当"
-      ></textarea>
-
-      <button
-        class="btn"
-        id="addM"
-      >
-        保存
-      </button>
+      <div class="meta">
+        ${state.minutes.length}件
+      </div>
 
     </div>
 
@@ -2246,42 +2792,9 @@ function moreR(){
         💡 反省点・改善
       </div>
 
-      ${
-        state.reviews.length
-          ?state.reviews
-            .map(
-              x=>rec(
-                x,
-                'review'
-              )
-            )
-            .join('')
-          :'<div class="empty">まだありません</div>'
-      }
-
-      <input
-        id="rt"
-        placeholder="タイトル"
-      >
-
-      <select id="rc">
-        <option>改善</option>
-        <option>反省</option>
-        <option>良かった点</option>
-        <option>次回対応</option>
-      </select>
-
-      <textarea
-        id="rb"
-        placeholder="内容"
-      ></textarea>
-
-      <button
-        class="btn"
-        id="addR"
-      >
-        保存
-      </button>
+      <div class="meta">
+        ${state.reviews.length}件
+      </div>
 
     </div>
 
@@ -2291,45 +2804,9 @@ function moreR(){
         ✅ 許可・申請先
       </div>
 
-      ${
-        state.permits.length
-          ?state.permits
-            .map(
-              x=>rec(
-                x,
-                'permit'
-              )
-            )
-            .join('')
-          :'<div class="empty">まだありません</div>'
-      }
-
-      <input
-        id="pt"
-        placeholder="申請名"
-      >
-
-      <input
-        id="po"
-        placeholder="申請先・組織"
-      >
-
-      <input
-        id="pc"
-        placeholder="連絡先"
-      >
-
-      <textarea
-        id="pb"
-        placeholder="内容・期限・進捗"
-      ></textarea>
-
-      <button
-        class="btn"
-        id="addP"
-      >
-        保存
-      </button>
+      <div class="meta">
+        ${state.permits.length}件
+      </div>
 
     </div>
 
@@ -2340,216 +2817,51 @@ function moreR(){
       </div>
 
       <div class="item">
-        <span class="pill">冬</span>
-        スケート・冬季イベント
+        冬：スケート・冬季イベント
       </div>
 
       <div class="item">
-        <span class="pill">春</span>
-        地域行事・新年度イベント
+        春：地域行事
       </div>
 
       <div class="item">
-        <span class="pill">夏</span>
-        港まつり・地域フェス・屋外イベント
+        夏：港まつり・地域フェス
       </div>
 
       <div class="item">
-        <span class="pill">秋</span>
-        文化・スポーツ・地域イベント
+        秋：文化・スポーツイベント
       </div>
 
     </div>
   `;
-
-  $('addM').onclick=
-    async()=>{
-
-      if(
-        !$('mt').value.trim()
-      ){
-
-        return;
-      }
-
-      await api(
-        'POST',
-        {
-          action:
-            'minute',
-
-          title:
-            $('mt').value,
-
-          meeting_date:
-            $('md').value||
-            null,
-
-          body:
-            $('mb').value,
-
-          action_items:
-            $('ma').value,
-
-          by:N
-        }
-      );
-
-      await load();
-
-      go('more');
-    };
-
-  $('addR').onclick=
-    async()=>{
-
-      if(
-        !$('rt').value.trim()
-      ){
-
-        return;
-      }
-
-      await api(
-        'POST',
-        {
-          action:
-            'review',
-
-          title:
-            $('rt').value,
-
-          category:
-            $('rc').value,
-
-          body:
-            $('rb').value,
-
-          by:N
-        }
-      );
-
-      await load();
-
-      go('more');
-    };
-
-  $('addP').onclick=
-    async()=>{
-
-      if(
-        !$('pt').value.trim()
-      ){
-
-        return;
-      }
-
-      await api(
-        'POST',
-        {
-          action:
-            'permit',
-
-          title:
-            $('pt').value,
-
-          organization:
-            $('po').value,
-
-          contact:
-            $('pc').value,
-
-          body:
-            $('pb').value,
-
-          by:N
-        }
-      );
-
-      await load();
-
-      go('more');
-    };
-
-  document
-    .querySelectorAll(
-      '[data-rdel]'
-    )
-    .forEach(
-      b=>{
-
-        b.onclick=
-          async()=>{
-
-            if(
-              !confirm(
-                '削除しますか？'
-              )
-            ){
-
-              return;
-            }
-
-            await api(
-              'POST',
-              {
-                action:
-                  'record_delete',
-
-                kind:
-                  b.dataset.kind,
-
-                id:
-                  b.dataset.rdel,
-
-                by:N
-              }
-            );
-
-            await load();
-
-            go('more');
-          };
-      }
-    );
 }
 
 
-/* ==============================
-   画面切替
-============================== */
+/* =========================================================
+   画面
+========================================================= */
 
 function render(){
 
   if(
     cur==='home'
-  ){
-    homeR();
-  }
+  )homeR();
 
   if(
     cur==='drive'
-  ){
-    driveR();
-  }
+  )driveR();
 
   if(
     cur==='chat'
-  ){
-    chatR();
-  }
+  )chatR();
 
   if(
     cur==='cal'
-  ){
-    calR();
-  }
+  )calR();
 
   if(
     cur==='more'
-  ){
-    moreR();
-  }
+  )moreR();
 }
 
 
@@ -2562,22 +2874,16 @@ function go(p){
       'main>section'
     )
     .forEach(
-      s=>{
-        s.classList.add(
-          'hidden'
-        );
-      }
+      s=>s.classList.add(
+        'hidden'
+      )
     );
 
-  const target=
-    $(p);
-
-  if(target){
-
-    target.classList.remove(
+  $(p)
+    ?.classList
+    .remove(
       'hidden'
     );
-  }
 
   document
     .querySelectorAll(
@@ -2597,31 +2903,29 @@ function go(p){
 }
 
 
-/* ==============================
+/* =========================================================
    起動
-============================== */
+========================================================= */
 
 function init(){
+
+  C='TOMA-2026';
+
+  localStorage.setItem(
+    'tomaCode',
+    C
+  );
 
   const codeEl=
     $('code');
 
-  const nameEl=
-    $('memberName');
-
-  const enterEl=
-    $('enter');
-
   if(codeEl){
 
-    codeEl.value=
-      'TOMA-2026';
-
-    localStorage.setItem(
-      'tomaCode',
-      'TOMA-2026'
-    );
+    codeEl.value=C;
   }
+
+  const nameEl=
+    $('memberName');
 
   if(nameEl){
 
@@ -2630,27 +2934,25 @@ function init(){
         'tomaName'
       )||
       '';
-  }
-
-  if(enterEl){
-
-    enterEl.onclick=
-      doLogin;
-  }
-
-  if(nameEl){
 
     nameEl.onkeydown=
       e=>{
 
         if(
-          e.key===
-          'Enter'
+          e.key==='Enter'
         ){
 
           doLogin();
         }
       };
+  }
+
+  if(
+    $('enter')
+  ){
+
+    $('enter').onclick=
+      doLogin;
   }
 
   document
@@ -2661,11 +2963,9 @@ function init(){
       n=>{
 
         n.onclick=
-          ()=>{
-            go(
-              n.dataset.p
-            );
-          };
+          ()=>go(
+            n.dataset.p
+          );
       }
     );
 }
