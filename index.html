@@ -38,10 +38,6 @@
 
   <main>
 
-    <!-- ================================
-         ログイン
-    ================================= -->
-
     <section id="login">
 
       <div class="card">
@@ -87,49 +83,25 @@
     </section>
 
 
-    <!-- ================================
-         ホーム
-    ================================= -->
-
     <section
       id="home"
       class="hidden"
     ></section>
-
-
-    <!-- ================================
-         共有ドライブ
-    ================================= -->
 
     <section
       id="drive"
       class="hidden"
     ></section>
 
-
-    <!-- ================================
-         連絡
-    ================================= -->
-
     <section
       id="chat"
       class="hidden"
     ></section>
 
-
-    <!-- ================================
-         予定
-    ================================= -->
-
     <section
       id="cal"
       class="hidden"
     ></section>
-
-
-    <!-- ================================
-         その他
-    ================================= -->
 
     <section
       id="more"
@@ -138,10 +110,6 @@
 
   </main>
 
-
-  <!-- ================================
-       下部メニュー
-  ================================= -->
 
   <nav
     class="bottom hidden"
@@ -196,89 +164,24 @@
   </nav>
 
 
-  <!-- ================================
-       通知
-  ================================= -->
-
   <div
     id="toast"
     class="toast hidden"
   ></div>
 
 
-  <!-- ================================
-       TOMA-2026 固定
-  ================================= -->
-
   <script>
-    (function () {
-      'use strict';
-
-      const FIXED_CODE = 'TOMA-2026';
-
-      try {
-        localStorage.setItem(
-          'tomaCode',
-          FIXED_CODE
-        );
-      } catch (e) {
-        console.error(e);
-      }
-
-      function applyFixedCode() {
-
-        const code =
-          document.getElementById(
-            'code'
-          );
-
-        if (code) {
-          code.value =
-            FIXED_CODE;
-        }
-
-        try {
-          localStorage.setItem(
-            'tomaCode',
-            FIXED_CODE
-          );
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      if (
-        document.readyState ===
-        'loading'
-      ) {
-
-        document.addEventListener(
-          'DOMContentLoaded',
-          applyFixedCode
-        );
-
-      } else {
-
-        applyFixedCode();
-      }
-
-    })();
+    try {
+      localStorage.setItem(
+        'tomaCode',
+        'TOMA-2026'
+      );
+    } catch(e) {}
   </script>
 
 
-  <!-- ================================
-       TOMA SHARE 本体
-  ================================= -->
-
-  <script src="/app.js?v=20260830-1"></script>
-
-
-  <!-- ================================
-       Excel / CSV 編集
-       キャッシュ回避
-  ================================= -->
-
-  <script src="/editor.js?v=20260830-3"></script>
+  <!-- editor.jsはもう読み込まない -->
+  <script src="/app.js?v=20260901-1"></script>
 
 </body>
 </html>
