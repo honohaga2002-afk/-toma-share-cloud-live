@@ -586,6 +586,28 @@ function driveUrl(f){
 }
 
 
+function googleEditUrl(f){
+
+  if(!f)return null;
+
+  let content=f.content;
+
+  if(typeof content==='string'){
+    try{
+      content=JSON.parse(content);
+    }catch(e){
+      return null;
+    }
+  }
+
+  const url=content?.googleEditLink;
+
+  return typeof url==='string' && /^https?:\/\//i.test(url)
+    ?url
+    :null;
+}
+
+
 function openFile(f){
 
   try{
@@ -2183,7 +2205,8 @@ function fileRow(file){
     !!driveUrl(file);
 
   const editable=
-    isSpreadsheet(file);
+    isSpreadsheet(file) &&
+    !!googleEditUrl(file);
 
   return `
 
@@ -2225,7 +2248,7 @@ function fileRow(file){
                   color:#fff
                 "
               >
-                編集
+                Googleで編集
               </button>
             `
             :''
@@ -2603,7 +2626,15 @@ function driveR(){
                 )
               );
 
-            editFile(f);
+            const url=
+              googleEditUrl(f);
+
+            if(!url){
+              alert('Googleドライブの編集リンクが見つかりません');
+              return;
+            }
+
+            openExternal(url);
           };
       }
     );

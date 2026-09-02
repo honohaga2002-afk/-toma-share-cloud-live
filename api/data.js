@@ -1383,6 +1383,15 @@ async(req,res)=>{
 
                   ...content,
 
+                  /*
+                    「編集」は元のGoogle Drive画面を開く。
+                    「開く」はTOMA SHARE経由で閲覧する。
+                  */
+                  googleEditLink:
+                    content.googleEditLink ||
+                    content.webViewLink ||
+                    null,
+
                   webViewLink:
                     proxyUrl
                 })
