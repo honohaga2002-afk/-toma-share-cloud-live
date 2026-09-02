@@ -109,6 +109,28 @@ function openExternal(url){
 }
 
 
+function isIOS(){
+
+  return /iPad|iPhone|iPod/.test(
+    navigator.userAgent
+  ) || (
+    navigator.platform==='MacIntel' &&
+    navigator.maxTouchPoints>1
+  );
+}
+
+
+function formatBytes(value){
+
+  const bytes=Number(value)||0;
+
+  if(bytes<1024)return `${bytes} B`;
+  if(bytes<1024*1024)return `${(bytes/1024).toFixed(1)} KB`;
+
+  return `${(bytes/1024/1024).toFixed(1)} MB`;
+}
+
+
 /* =========================================================
    API
 ========================================================= */
@@ -277,7 +299,13 @@ async function doLogin(){
 
   if(!N){
 
-    N='メンバー';
+    if(status){
+      status.className='err';
+      status.textContent='名前を入力してください。';
+    }
+
+    nameEl?.focus();
+    return;
   }
 
   btn.disabled=true;
@@ -1777,6 +1805,14 @@ function pickFile(
   input.type=
     'file';
 
+  input.name=
+    'toma-share-file';
+
+  input.setAttribute(
+    'aria-label',
+    '共有するファイルを選択'
+  );
+
   input.accept=
     '.xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.pdf,image/*';
 
@@ -1791,15 +1827,43 @@ function pickFile(
       input
     );
 
+  let picked=false;
+
+  const cleanup=()=>{
+    setTimeout(
+      ()=>input.remove(),
+      0
+    );
+  };
+
+  const onReturn=()=>{
+    setTimeout(
+      ()=>{
+        if(!picked && !input.files?.length){
+          input.remove();
+        }
+      },
+      800
+    );
+  };
+
+  window.addEventListener(
+    'focus',
+    onReturn,
+    {once:true}
+  );
+
   input.onchange=
     ()=>{
+
+      picked=true;
 
       const f=
         input.files?.[0];
 
       if(!f){
 
-        input.remove();
+        cleanup();
 
         return;
       }
@@ -1813,7 +1877,7 @@ function pickFile(
           '現在は1ファイル2.5MB以下でアップロードしてください'
         );
 
-        input.remove();
+        cleanup();
 
         return;
       }
@@ -1847,7 +1911,7 @@ function pickFile(
 
       go('drive');
 
-      input.remove();
+      cleanup();
     };
 
   input.click();
@@ -2221,7 +2285,8 @@ function driveR(){
         </div>
 
         <div class="item">
-          ${esc(selectedUploadFile.name)}
+          <div class="title">${esc(selectedUploadFile.name)}</div>
+          <div class="meta">${formatBytes(selectedUploadFile.size)}</div>
         </div>
 
         <select id="folderSelect">
@@ -2362,8 +2427,14 @@ function driveR(){
       </button>
 
       <div class="meta">
-        Excel・CSVは「編集」から直接編集できます。
+        Excel・CSVは「編集」から直接編集できます。1ファイル2.5MBまで。
       </div>
+
+      ${
+        isIOS()
+          ?'<div class="iosHint">iPhoneでは「開く」のあと、共有ボタンから“ファイルに保存”もできます。</div>'
+          :''
+      }
 
     </div>
 
@@ -2773,6 +2844,22 @@ function moreR(){
   if(!el)return;
 
   el.innerHTML=`
+
+    <div class="panel installHelp">
+
+      <div class="title">
+        📱 ホーム画面に追加
+      </div>
+
+      <div class="meta">
+        ${
+          isIOS()
+            ?'Safariの共有ボタン →「ホーム画面に追加」で、アプリのように起動できます。'
+            :'ブラウザのメニューから「ホーム画面に追加」または「アプリをインストール」を選べます。'
+        }
+      </div>
+
+    </div>
 
     <div class="panel">
 
