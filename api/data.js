@@ -1068,7 +1068,11 @@ async function streamFile(
   res.setHeader(
     'Content-Disposition',
 
-    `inline; filename="${filename.ascii}"; filename*=UTF-8''${filename.utf8}`
+    `${
+      req.query?.download==='1'
+        ?'attachment'
+        :'inline'
+    }; filename="${filename.ascii}"; filename*=UTF-8''${filename.utf8}`
   );
 
 

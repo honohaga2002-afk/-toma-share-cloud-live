@@ -655,7 +655,16 @@ function openFile(f){
 
     if(url){
 
-      openExternal(url);
+      const finalUrl=
+        isPreviewable(f)
+          ?url
+          :url+(
+            url.includes('?')
+              ?'&download=1'
+              :'?download=1'
+          );
+
+      openExternal(finalUrl);
 
       return;
     }
@@ -2237,6 +2246,11 @@ function fileRow(file){
     isSpreadsheet(file) &&
     !!googleEditUrl(file);
 
+  const openLabel=
+    isPreviewable(file)
+      ?'表示'
+      :'保存して開く';
+
   return `
 
     <div class="item fileItem">
@@ -2263,7 +2277,7 @@ function fileRow(file){
           class="btn light"
           data-open="${esc(file.id)}"
         >
-          開く
+          ${openLabel}
         </button>
 
         ${
