@@ -2100,6 +2100,7 @@ function homeR(){
       >
         <div class="ico">📁</div>
         <div class="ct">共有ドライブ</div>
+        <div class="meta">${state.items.filter(x=>x.item_type==='file').length}資料</div>
       </button>
 
       <button
@@ -2108,6 +2109,7 @@ function homeR(){
       >
         <div class="ico">💬</div>
         <div class="ct">メッセージ</div>
+        <div class="meta">${state.messages.length}件</div>
       </button>
 
       <button
@@ -2116,6 +2118,7 @@ function homeR(){
       >
         <div class="ico">📅</div>
         <div class="ct">スケジュール</div>
+        <div class="meta">${state.schedules.length}件</div>
       </button>
 
       <button
@@ -2124,6 +2127,31 @@ function homeR(){
       >
         <div class="ico">📝</div>
         <div class="ct">議事録</div>
+        <div class="meta">${state.minutes.length}件</div>
+      </button>
+
+      <button class="card" data-go="more">
+        <div class="ico">💡</div>
+        <div class="ct">反省点・改善</div>
+        <div class="meta">${state.reviews.length}件</div>
+      </button>
+
+      <button class="card" data-go="more">
+        <div class="ico">✅</div>
+        <div class="ct">許可・申請</div>
+        <div class="meta">${state.permits.length}件</div>
+      </button>
+
+      <button class="card" data-go="more">
+        <div class="ico">🎪</div>
+        <div class="ct">苫小牧イベント</div>
+        <div class="meta">年間行事</div>
+      </button>
+
+      <button class="card" data-go="home">
+        <div class="ico">👥</div>
+        <div class="ct">共有メンバー</div>
+        <div class="meta">オンライン ${online.length}人</div>
       </button>
 
     </div>
@@ -2836,6 +2864,30 @@ function calR(){
    その他
 ========================================================= */
 
+function recordRow(x,kind){
+
+  let detail='';
+
+  if(kind==='minute'){
+    detail=`${x.meeting_date||''} ${x.body||''} ${x.action_items||''}`;
+  }else if(kind==='review'){
+    detail=`${x.category||''} ${x.body||''}`;
+  }else{
+    detail=`${x.organization||''} ${x.contact||''} ${x.body||''}`;
+  }
+
+  return `
+    <div class="item recordItem">
+      <div class="recordBody">
+        <div class="title">${esc(x.title)}</div>
+        <div class="meta">${esc(detail)}</div>
+        <div class="meta">更新：${esc(x.updated_by||'')}</div>
+      </div>
+      <button class="btn danger" data-rdel="${esc(x.id)}" data-kind="${esc(kind)}">削除</button>
+    </div>
+  `;
+}
+
 function moreR(){
 
   const el=
@@ -2845,56 +2897,33 @@ function moreR(){
 
   el.innerHTML=`
 
-    <div class="panel installHelp">
-
-      <div class="title">
-        📱 ホーム画面に追加
-      </div>
-
-      <div class="meta">
-        ${
-          isIOS()
-            ?'Safariの共有ボタン →「ホーム画面に追加」で、アプリのように起動できます。'
-            :'ブラウザのメニューから「ホーム画面に追加」または「アプリをインストール」を選べます。'
-        }
-      </div>
-
+    <div class="panel">
+      <div class="panelHeading">📝 議事録</div>
+      ${state.minutes.length?state.minutes.map(x=>recordRow(x,'minute')).join(''):'<div class="empty">まだありません</div>'}
+      <input id="mt" placeholder="会議名">
+      <input id="md" type="date">
+      <textarea id="mb" placeholder="議事内容"></textarea>
+      <textarea id="ma" placeholder="決定事項・担当"></textarea>
+      <button class="btn wide" id="addM">議事録を保存</button>
     </div>
 
     <div class="panel">
-
-      <div class="title">
-        📝 議事録
-      </div>
-
-      <div class="meta">
-        ${state.minutes.length}件
-      </div>
-
+      <div class="panelHeading">💡 反省点・改善</div>
+      ${state.reviews.length?state.reviews.map(x=>recordRow(x,'review')).join(''):'<div class="empty">まだありません</div>'}
+      <input id="rt" placeholder="タイトル">
+      <select id="rc"><option>改善</option><option>反省</option><option>良かった点</option><option>次回対応</option></select>
+      <textarea id="rb" placeholder="内容"></textarea>
+      <button class="btn wide" id="addR">改善内容を保存</button>
     </div>
 
     <div class="panel">
-
-      <div class="title">
-        💡 反省点・改善
-      </div>
-
-      <div class="meta">
-        ${state.reviews.length}件
-      </div>
-
-    </div>
-
-    <div class="panel">
-
-      <div class="title">
-        ✅ 許可・申請先
-      </div>
-
-      <div class="meta">
-        ${state.permits.length}件
-      </div>
-
+      <div class="panelHeading">✅ 許可・申請先</div>
+      ${state.permits.length?state.permits.map(x=>recordRow(x,'permit')).join(''):'<div class="empty">まだありません</div>'}
+      <input id="pt" placeholder="申請名">
+      <input id="po" placeholder="申請先・組織">
+      <input id="pc" placeholder="連絡先">
+      <textarea id="pb" placeholder="内容・期限・進捗"></textarea>
+      <button class="btn wide" id="addP">申請情報を保存</button>
     </div>
 
     <div class="panel">
@@ -2904,23 +2933,54 @@ function moreR(){
       </div>
 
       <div class="item">
-        冬：スケート・冬季イベント
+        <span class="pill">冬</span>スケート・冬季イベント
       </div>
 
       <div class="item">
-        春：地域行事
+        <span class="pill">春</span>地域行事・新年度イベント
       </div>
 
       <div class="item">
-        夏：港まつり・地域フェス
+        <span class="pill">夏</span>港まつり・地域フェス・屋外イベント
       </div>
 
       <div class="item">
-        秋：文化・スポーツイベント
+        <span class="pill">秋</span>文化・スポーツ・地域イベント
       </div>
 
     </div>
+
+    <div class="panel installHelp">
+      <div class="panelHeading">📱 ホーム画面に追加</div>
+      <div class="meta">${isIOS()?'Safariの共有ボタン →「ホーム画面に追加」で、アプリのように起動できます。':'ブラウザのメニューから「ホーム画面に追加」または「アプリをインストール」を選べます。'}</div>
+    </div>
   `;
+
+  $('addM').onclick=async()=>{
+    if(!$('mt').value.trim())return alert('会議名を入力してください');
+    await api('POST',{action:'minute',title:$('mt').value,meeting_date:$('md').value||null,body:$('mb').value,action_items:$('ma').value,by:N});
+    await load(); go('more'); say('議事録を保存しました');
+  };
+
+  $('addR').onclick=async()=>{
+    if(!$('rt').value.trim())return alert('タイトルを入力してください');
+    await api('POST',{action:'review',title:$('rt').value,category:$('rc').value,body:$('rb').value,by:N});
+    await load(); go('more'); say('改善内容を保存しました');
+  };
+
+  $('addP').onclick=async()=>{
+    if(!$('pt').value.trim())return alert('申請名を入力してください');
+    await api('POST',{action:'permit',title:$('pt').value,organization:$('po').value,contact:$('pc').value,body:$('pb').value,by:N});
+    await load(); go('more'); say('申請情報を保存しました');
+  };
+
+  document.querySelectorAll('[data-rdel]').forEach(b=>{
+    b.onclick=async()=>{
+      if(!confirm('削除しますか？'))return;
+      await api('POST',{action:'record_delete',kind:b.dataset.kind,id:b.dataset.rdel,by:N});
+      await load(); go('more');
+    };
+  });
 }
 
 
