@@ -2,219 +2,27 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover"
-  >
-
-  <meta
-    name="theme-color"
-    content="#0b76d1"
-  >
-
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b76d1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="TOMA SHARE">
-
   <title>TOMA SHARE</title>
-
-  <link
-    rel="stylesheet"
-    href="/style.css"
-  >
-
+  <link rel="stylesheet" href="/style.css">
   <style>
-    .fileItem{padding:16px 0}
-    .fileInfo{width:100%;min-width:0;margin-bottom:12px}
-    .fileInfo .title{font-size:17px;line-height:1.45;word-break:break-word}
-    .fileInfo .meta{margin-top:4px}
-    .fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
-    .fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}
-    .permitNotice{background:#f0f9ff;border-radius:10px;padding:10px;margin-bottom:6px}
-    .officialPermitList{display:grid}
-    .officialPermit{display:flex;align-items:center;gap:11px;padding:14px 2px;border-bottom:1px solid #e3edf2;color:#17364d;text-decoration:none}
-    .officialPermit:last-child{border-bottom:0}
-    .officialPermit:active{background:#f0f9ff}
-    .officialPermitIcon{font-size:25px;flex:0 0 32px;text-align:center}
-    .officialPermitBody{flex:1;min-width:0}
-    .officialPermitBody .meta{margin-top:5px}
-    .officialPermitBody .pill{margin-bottom:3px}
-    .officialPermitArrow{font-size:30px;color:#78a2ba;line-height:1}
-    @media(max-width:520px){
-      .officialPermit{padding:14px 0}
-      .officialPermitBody .title{font-size:16px}
-      .officialPermitBody .meta{font-size:12px}
-    }
-    @media(min-width:700px){
-      .fileActions{grid-template-columns:repeat(4,minmax(120px,auto));justify-content:end}
-      .officialPermitList{grid-template-columns:1fr 1fr;column-gap:20px}
-    }
+    .fileItem{padding:16px 0}.fileInfo{width:100%;min-width:0;margin-bottom:12px}.fileInfo .title{font-size:17px;line-height:1.45;word-break:break-word}.fileInfo .meta{margin-top:4px}.fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}.fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}.permitNotice{background:#f0f9ff;border-radius:10px;padding:10px;margin-bottom:6px}.officialPermitList{display:grid}.officialPermit{display:flex;align-items:center;gap:11px;padding:14px 2px;border-bottom:1px solid #e3edf2;color:#17364d;text-decoration:none}.officialPermit:last-child{border-bottom:0}.officialPermit:active{background:#f0f9ff}.officialPermitIcon{font-size:25px;flex:0 0 32px;text-align:center}.officialPermitBody{flex:1;min-width:0}.officialPermitBody .meta{margin-top:5px}.officialPermitBody .pill{margin-bottom:3px}.officialPermitArrow{font-size:30px;color:#78a2ba;line-height:1}@media(max-width:520px){.officialPermit{padding:14px 0}.officialPermitBody .title{font-size:16px}.officialPermitBody .meta{font-size:12px}}@media(min-width:700px){.fileActions{grid-template-columns:repeat(4,minmax(120px,auto));justify-content:end}.officialPermitList{grid-template-columns:1fr 1fr;column-gap:20px}}
   </style>
 </head>
-
 <body>
-
-  <header class="top">
-    <div>
-      <div class="brand">
-        TOMA SHARE
-      </div>
-
-      <div class="meta">
-        情報共有ワークスペース
-      </div>
-    </div>
-  </header>
-
-
+  <header class="top"><div><div class="brand">TOMA SHARE</div><div class="meta">情報共有ワークスペース</div></div></header>
   <main>
-
-    <section id="login">
-
-      <div class="card">
-
-        <h2>
-          TOMA SHARE
-        </h2>
-
-        <div class="meta">
-          名前を入力して共有スペースに入る
-        </div>
-
-        <input
-          id="code"
-          type="hidden"
-          value="TOMA-2026"
-          autocomplete="off"
-        >
-
-        <input
-          id="memberName"
-          placeholder="あなたの名前"
-          autocomplete="name"
-          enterkeyhint="go"
-        >
-
-        <button
-          class="btn"
-          id="enter"
-          type="button"
-        >
-          ログイン
-        </button>
-
-        <div
-          id="loginStatus"
-          class="meta"
-        >
-          同じ共有コードの端末は同じデータを表示します。
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <section
-      id="home"
-      class="hidden"
-    ></section>
-
-    <section
-      id="drive"
-      class="hidden"
-    ></section>
-
-    <section
-      id="chat"
-      class="hidden"
-    ></section>
-
-    <section
-      id="cal"
-      class="hidden"
-    ></section>
-
-    <section
-      id="more"
-      class="hidden"
-    ></section>
-
+    <section id="login"><div class="card"><h2>TOMA SHARE</h2><div class="meta">名前を入力して共有スペースに入る</div><input id="code" type="hidden" value="TOMA-2026" autocomplete="off"><input id="memberName" placeholder="あなたの名前" autocomplete="name" enterkeyhint="go"><button class="btn" id="enter" type="button">ログイン</button><div id="loginStatus" class="meta">同じ共有コードの端末は同じデータを表示します。</div></div></section>
+    <section id="home" class="hidden"></section><section id="drive" class="hidden"></section><section id="chat" class="hidden"></section><section id="cal" class="hidden"></section><section id="more" class="hidden"></section>
   </main>
-
-
-  <nav
-    class="bottom hidden"
-    id="nav"
-  >
-
-    <button
-      class="nav on"
-      data-p="home"
-      type="button"
-    >
-      <span>🏠</span>
-      ホーム
-    </button>
-
-    <button
-      class="nav"
-      data-p="drive"
-      type="button"
-    >
-      <span>📁</span>
-      ドライブ
-    </button>
-
-    <button
-      class="nav"
-      data-p="chat"
-      type="button"
-    >
-      <span>💬</span>
-      連絡
-    </button>
-
-    <button
-      class="nav"
-      data-p="cal"
-      type="button"
-    >
-      <span>📅</span>
-      予定
-    </button>
-
-    <button
-      class="nav"
-      data-p="more"
-      type="button"
-    >
-      <span>≡</span>
-      その他
-    </button>
-
-  </nav>
-
-
-  <div
-    id="toast"
-    class="toast hidden"
-  ></div>
-
-
-  <script>
-    try {
-      localStorage.setItem(
-        'tomaCode',
-        'TOMA-2026'
-      );
-    } catch(e) {}
-  </script>
-
-
-  <!-- editor.jsはもう読み込まない -->
+  <nav class="bottom hidden" id="nav"><button class="nav on" data-p="home" type="button"><span>🏠</span>ホーム</button><button class="nav" data-p="drive" type="button"><span>📁</span>ドライブ</button><button class="nav" data-p="chat" type="button"><span>💬</span>連絡</button><button class="nav" data-p="cal" type="button"><span>📅</span>予定</button><button class="nav" data-p="more" type="button"><span>≡</span>その他</button></nav>
+  <div id="toast" class="toast hidden"></div>
+  <script>try{localStorage.setItem('tomaCode','TOMA-2026');}catch(e){}</script>
   <script src="/app.js?v=20260902-5"></script>
-
+  <script src="/events.js?v=20260902-1"></script>
 </body>
 </html>
