@@ -40,7 +40,14 @@ const TOMAKOMAI_PERMIT_LINKS=[
   {icon:'📱',title:'消防の電子申請（HARP）',category:'消防',detail:'電子申請に対応している消防関係届出の案内',url:'https://www.city.tomakomai.hokkaido.jp/kurashi/shobo/kasaiyobo/dennsisinnsei.html'},
   {icon:'🚚',title:'公園キッチンカー等の出店募集',category:'イベント',detail:'市内公園での移動販売車等の募集条件・申込案内',url:'https://www.city.tomakomai.hokkaido.jp/shizen/koen/midorigaoka.html'},
   {icon:'🏗️',title:'開発行為等の許可申請',category:'事業・建築',detail:'開発許可、変更許可、工事着手届などの申請書類',url:'https://www.city.tomakomai.hokkaido.jp/shisei/toshikensetsu/kaihatsu/kyokashinsei.html'},
-  {icon:'🏢',title:'土地取引に必要な届出',category:'事業・土地',detail:'国土利用計画法に基づく土地取引の届出案内',url:'https://www.city.tomakomai.hokkaido.jp/shisei/toshikensetsu/kaihatsu/tochitorihiki.html'}
+  {icon:'🏢',title:'土地取引に必要な届出',category:'事業・土地',detail:'国土利用計画法に基づく土地取引の届出案内',url:'https://www.city.tomakomai.hokkaido.jp/shisei/toshikensetsu/kaihatsu/tochitorihiki.html'},
+  {icon:'🏥',title:'苫小牧保健所｜営業許可・営業届出',category:'保健所・食品',detail:'飲食店・食品営業の申請方法、必要書類、各種様式の総合案内',url:'https://www.iburi.pref.hokkaido.lg.jp/hk/tth/155565.html'},
+  {icon:'🍜',title:'短期の臨時営業許可申請書（PDF）',category:'保健所・イベント',detail:'イベント等で短期間、飲食物を調理・提供する場合の許可申請書',url:'https://www.iburi.pref.hokkaido.lg.jp/fs/1/3/1/5/0/0/4/5/_/%E8%87%A8%E6%99%82%E5%96%B6%E6%A5%AD%E8%A8%B1%E5%8F%AF%E7%94%B3%E8%AB%8B%E6%9B%B8.pdf'},
+  {icon:'📊',title:'短期の臨時営業許可申請書（Excel）',category:'保健所・イベント',detail:'入力して使えるExcel版の申請書',url:'https://www.iburi.pref.hokkaido.lg.jp/fs/1/3/1/5/0/0/3/3/_/%E8%87%A8%E6%99%82%E5%96%B6%E6%A5%AD%E8%A8%B1%E5%8F%AF%E7%94%B3%E8%AB%8B%E6%9B%B8.xlsx'},
+  {icon:'📐',title:'臨時営業｜平面図・調理販売方法',category:'保健所・イベント',detail:'会場レイアウト、設備、調理・販売方法を記載する添付様式',url:'https://www.iburi.pref.hokkaido.lg.jp/fs/1/3/1/5/0/0/6/4/_/%E5%B9%B3%E9%9D%A2%E5%9B%B3%E3%80%81%E8%AA%BF%E7%90%86%E8%B2%A9%E5%A3%B2%E6%96%B9%E6%B3%95.pdf'},
+  {icon:'🏫',title:'学校祭・バザーの開設届',category:'保健所・イベント',detail:'学校祭やバザーで食品を提供する場合の届出様式',url:'https://www.iburi.pref.hokkaido.lg.jp/fs/1/0/4/5/9/1/0/6/_/%E3%83%90%E3%82%B6%E3%83%BC%E3%81%AE%E9%96%8B%E8%A8%AD%E5%B1%8A.doc'},
+  {icon:'🏘️',title:'町内会行事｜飲食物提供施設の開設届',category:'保健所・イベント',detail:'町内会などの地域行事で飲食物を提供する場合の届出様式',url:'https://www.iburi.pref.hokkaido.lg.jp/fs/8/7/4/3/7/1/7/_/%E9%A3%B2%E9%A3%9F%E7%89%A9%E3%82%92%E6%8F%90%E4%BE%9B%E3%81%99%E3%82%8B%E6%96%BD%E8%A8%AD%E3%81%AE%E9%96%8B%E8%A8%AD%E5%B1%8A%28%E7%94%BA%E5%86%85%E4%BC%9A%E5%90%91%E3%81%91%29%E8%8B%AB%E5%B0%8F%E7%89%A7.doc'},
+  {icon:'🧪',title:'食品衛生検査の依頼',category:'保健所・検査',detail:'食品・水などの衛生検査を依頼するときの案内と様式',url:'https://www.iburi.pref.hokkaido.lg.jp/hk/tth/155565.html'}
 ];
 
 
@@ -3151,8 +3158,8 @@ function moreR(){
     </div>
 
     <div class="panel">
-      <div class="panelHeading">🏛️ 苫小牧市の許可・申請一覧</div>
-      <div class="meta permitNotice">苫小牧市公式ページの最新様式・申請方法を確認できます。</div>
+      <div class="panelHeading">🏛️ 苫小牧の許可・申請一覧</div>
+      <div class="meta permitNotice">苫小牧市・北海道（苫小牧保健所）の公式様式と申請方法を確認できます。保健所：若草町2丁目2-21／0144-34-4168</div>
       <div class="officialPermitList">${officialPermitRows()}</div>
     </div>
 
