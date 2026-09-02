@@ -637,7 +637,73 @@ function googleEditUrl(f){
 }
 
 
-function openFile(f){
+function closeFilePreview(){
+
+  const viewer=
+    document.getElementById(
+      'tomaFilePreview'
+    );
+
+  if(!viewer)return;
+
+  const blobUrl=
+    viewer.dataset.blobUrl;
+
+  viewer.remove();
+
+  if(blobUrl){
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+
+function showFilePreview(f,blob){
+
+  closeFilePreview();
+
+  const blobUrl=
+    URL.createObjectURL(blob);
+
+  const viewer=
+    document.createElement('div');
+
+  viewer.id='tomaFilePreview';
+  viewer.dataset.blobUrl=blobUrl;
+  viewer.style.cssText=`
+    position:fixed;
+    inset:0;
+    z-index:10000;
+    background:#f4f8fb;
+    display:flex;
+    flex-direction:column;
+  `;
+
+  const mime=
+    String(f.mime_type||blob.type||'')
+      .toLowerCase();
+
+  const content=
+    mime.startsWith('image/')
+      ?`<img src="${blobUrl}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto">`
+      :`<iframe src="${blobUrl}" title="${esc(f.name||'ファイル')}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
+
+  viewer.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(12px,env(safe-area-inset-top))">
+      <button type="button" data-close-preview class="btn light">閉じる</button>
+      <strong style="min-width:0;overflow-wrap:anywhere">${esc(f.name||'ファイル')}</strong>
+    </div>
+    <div style="flex:1;min-height:0;display:flex">${content}</div>
+  `;
+
+  viewer
+    .querySelector('[data-close-preview]')
+    .onclick=closeFilePreview;
+
+  document.body.appendChild(viewer);
+}
+
+
+async function openFile(f){
 
   try{
 
@@ -655,16 +721,47 @@ function openFile(f){
 
     if(url){
 
-      const finalUrl=
-        isPreviewable(f)
-          ?url
-          :url+(
-            url.includes('?')
-              ?'&download=1'
-              :'?download=1'
-          );
+      if(isSpreadsheet(f)){
+        await editFile(f);
+        return;
+      }
 
-      openExternal(finalUrl);
+      const response=
+        await fetch(url,{
+          credentials:'same-origin',
+          cache:'no-store'
+        });
+
+      if(!response.ok){
+        throw new Error(
+          `取得エラー（${response.status}）`
+        );
+      }
+
+      const blob=
+        await response.blob();
+
+      if(isPreviewable(f)){
+        showFilePreview(f,blob);
+        return;
+      }
+
+      const blobUrl=
+        URL.createObjectURL(blob);
+
+      const a=
+        document.createElement('a');
+
+      a.href=blobUrl;
+      a.download=f.name||'download';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(
+        ()=>URL.revokeObjectURL(blobUrl),
+        120000
+      );
 
       return;
     }
