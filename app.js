@@ -32,6 +32,17 @@ const XLSX_URL=
 const SHEET_URL=
 'https://docs.google.com/spreadsheets/d/1wi2FQ7crs8pXmu-43Gu-XdEnyJ_J6SI19N8eDxVSd68/edit';
 
+const TOMAKOMAI_PERMIT_LINKS=[
+  {icon:'📝',title:'申請書ダウンロード・電子申請',category:'総合',detail:'苫小牧市の申請書・HARP・マイナポータル手続き一覧',url:'https://www.city.tomakomai.hokkaido.jp/kurashi/sonota/shinseisho-dl/denshishinsei.html'},
+  {icon:'🌳',title:'公園の使用・占用許可',category:'イベント',detail:'催し・販売等は5日前、テントやステージ等の占用は10日前まで',url:'https://www.city.tomakomai.hokkaido.jp/shizen/koen/senyo.html'},
+  {icon:'🛣️',title:'道路・河川・緑地の使用・占用',category:'イベント',detail:'市管理の道路、河川、行政財産（緑地等）の使用・占用許可',url:'https://www.city.tomakomai.hokkaido.jp/shisei/toshikensetsu/dorokaishu/kyoninka.html'},
+  {icon:'🚒',title:'消防の申請書・届出様式',category:'消防',detail:'火災予防、防火管理、消防用設備、危険物などの様式一覧',url:'https://www.city.tomakomai.hokkaido.jp/kurashi/shobo/download/sinnseitodokede.html'},
+  {icon:'📱',title:'消防の電子申請（HARP）',category:'消防',detail:'電子申請に対応している消防関係届出の案内',url:'https://www.city.tomakomai.hokkaido.jp/kurashi/shobo/kasaiyobo/dennsisinnsei.html'},
+  {icon:'🚚',title:'公園キッチンカー等の出店募集',category:'イベント',detail:'市内公園での移動販売車等の募集条件・申込案内',url:'https://www.city.tomakomai.hokkaido.jp/shizen/koen/midorigaoka.html'},
+  {icon:'🏗️',title:'開発行為等の許可申請',category:'事業・建築',detail:'開発許可、変更許可、工事着手届などの申請書類',url:'https://www.city.tomakomai.hokkaido.jp/shisei/toshikensetsu/kaihatsu/kyokashinsei.html'},
+  {icon:'🏢',title:'土地取引に必要な届出',category:'事業・土地',detail:'国土利用計画法に基づく土地取引の届出案内',url:'https://www.city.tomakomai.hokkaido.jp/shisei/toshikensetsu/kaihatsu/tochitorihiki.html'}
+];
+
 
 const esc=s=>String(s??'').replace(
   /[&<>"']/g,
@@ -3098,6 +3109,19 @@ function recordRow(x,kind){
   `;
 }
 
+function officialPermitRows(){
+  return TOMAKOMAI_PERMIT_LINKS.map(x=>`
+    <a class="officialPermit" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">
+      <div class="officialPermitIcon">${x.icon}</div>
+      <div class="officialPermitBody">
+        <div class="title">${esc(x.title)}</div>
+        <div class="meta"><span class="pill">${esc(x.category)}</span>${esc(x.detail)}</div>
+      </div>
+      <div class="officialPermitArrow">›</div>
+    </a>
+  `).join('');
+}
+
 function moreR(){
 
   const el=
@@ -3127,7 +3151,13 @@ function moreR(){
     </div>
 
     <div class="panel">
-      <div class="panelHeading">✅ 許可・申請先</div>
+      <div class="panelHeading">🏛️ 苫小牧市の許可・申請一覧</div>
+      <div class="meta permitNotice">苫小牧市公式ページの最新様式・申請方法を確認できます。</div>
+      <div class="officialPermitList">${officialPermitRows()}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panelHeading">✅ 自分たちの申請・進捗</div>
       ${state.permits.length?state.permits.map(x=>recordRow(x,'permit')).join(''):'<div class="empty">まだありません</div>'}
       <input id="pt" placeholder="申請名">
       <input id="po" placeholder="申請先・組織">

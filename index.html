@@ -31,8 +31,24 @@
     .fileInfo .meta{margin-top:4px}
     .fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
     .fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}
+    .permitNotice{background:#f0f9ff;border-radius:10px;padding:10px;margin-bottom:6px}
+    .officialPermitList{display:grid}
+    .officialPermit{display:flex;align-items:center;gap:11px;padding:14px 2px;border-bottom:1px solid #e3edf2;color:#17364d;text-decoration:none}
+    .officialPermit:last-child{border-bottom:0}
+    .officialPermit:active{background:#f0f9ff}
+    .officialPermitIcon{font-size:25px;flex:0 0 32px;text-align:center}
+    .officialPermitBody{flex:1;min-width:0}
+    .officialPermitBody .meta{margin-top:5px}
+    .officialPermitBody .pill{margin-bottom:3px}
+    .officialPermitArrow{font-size:30px;color:#78a2ba;line-height:1}
+    @media(max-width:520px){
+      .officialPermit{padding:14px 0}
+      .officialPermitBody .title{font-size:16px}
+      .officialPermitBody .meta{font-size:12px}
+    }
     @media(min-width:700px){
       .fileActions{grid-template-columns:repeat(4,minmax(120px,auto));justify-content:end}
+      .officialPermitList{grid-template-columns:1fr 1fr;column-gap:20px}
     }
   </style>
 </head>
