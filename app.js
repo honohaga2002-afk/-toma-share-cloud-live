@@ -7,6 +7,7 @@ let C='';
 let N='';
 let cur='home';
 let presenceTimer=null;
+let driveSyncing=false;
 
 let state={
   schedules:[],
@@ -255,6 +256,34 @@ async function load(){
     onlineMembers:
       d.onlineMembers||[]
   };
+}
+
+
+async function syncDriveChanges(showMessage=false){
+
+  if(driveSyncing)return 0;
+
+  driveSyncing=true;
+
+  try{
+    const result=await api(
+      'POST',
+      {
+        action:'drive_sync',
+        by:N||'Google Drive'
+      }
+    );
+
+    const count=Number(result.updated||0);
+
+    if(showMessage){
+      say(count?`${count}件を最新版に更新しました`:'最新の状態です');
+    }
+
+    return count;
+  }finally{
+    driveSyncing=false;
+  }
 }
 
 
@@ -2521,6 +2550,13 @@ function driveR(){
   $('refreshD').onclick=
     async()=>{
 
+      const button=$('refreshD');
+      if(button){
+        button.disabled=true;
+        button.textContent='確認中…';
+      }
+
+      await syncDriveChanges(true);
       await load();
 
       go('drive');
@@ -2635,6 +2671,10 @@ function driveR(){
             }
 
             openExternal(url);
+
+            /* 編集開始時点のDrive更新日時を記録 */
+            syncDriveChanges(false)
+              .catch(e=>console.error(e));
           };
       }
     );
@@ -3146,6 +3186,26 @@ function init(){
           );
       }
     );
+
+  document.addEventListener(
+    'visibilitychange',
+    async()=>{
+      if(
+        document.visibilityState!=='visible'||
+        cur!=='drive'||
+        !C||
+        !N
+      )return;
+
+      try{
+        await syncDriveChanges(false);
+        await load();
+        go('drive');
+      }catch(e){
+        console.error(e);
+      }
+    }
+  );
 }
 
 

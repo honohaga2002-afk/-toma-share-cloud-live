@@ -746,13 +746,78 @@ async function uploadToDrive(
       },
 
       fields:
-        'id,name,mimeType,webViewLink,parents'
+        'id,name,mimeType,webViewLink,parents,modifiedTime'
     });
 
 
   return (
     result.data
   );
+}
+
+
+/* ==============================
+   Google Drive編集 → バージョン同期
+============================== */
+
+async function syncDriveVersions(workspaceId,by){
+
+  const q=await pool.query(
+    `select id,content from shared_items
+     where workspace_id=$1
+       and item_type='file'
+       and trashed=false`,
+    [workspaceId]
+  );
+
+  const drive=driveClient();
+  let updated=0;
+
+  for(const item of q.rows){
+
+    const content=parseContent(item.content);
+    if(!content.driveFileId)continue;
+
+    try{
+      const result=await drive.files.get({
+        fileId:content.driveFileId,
+        fields:'id,modifiedTime'
+      });
+
+      const modifiedTime=result.data?.modifiedTime||null;
+      if(!modifiedTime)continue;
+
+      const previous=content.driveModifiedTime||null;
+      const changed=Boolean(
+        previous &&
+        new Date(modifiedTime).getTime()>
+          new Date(previous).getTime()
+      );
+
+      await pool.query(
+        `update shared_items
+         set content=$1,
+             version=version+$2,
+             updated_by=case when $2=1 then $3 else updated_by end,
+             updated_at=case when $2=1 then now() else updated_at end
+         where id=$4 and workspace_id=$5`,
+        [
+          JSON.stringify({...content,driveModifiedTime:modifiedTime}),
+          changed?1:0,
+          by||'Google Drive',
+          item.id,
+          workspaceId
+        ]
+      );
+
+      if(changed)updated++;
+
+    }catch(e){
+      console.error('Drive version sync:',item.id,e.message);
+    }
+  }
+
+  return updated;
 }
 
 
@@ -1502,6 +1567,29 @@ async(req,res)=>{
 
 
       /* ==============================
+         Google Drive変更同期
+      ============================== */
+
+      case 'drive_sync':{
+
+        const updated=
+          await syncDriveVersions(
+            ws.id,
+            by
+          );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true,
+            updated
+          }
+        );
+      }
+
+
+      /* ==============================
          フォルダ
       ============================== */
 
@@ -1657,6 +1745,10 @@ async(req,res)=>{
 
           googleMimeType:
             driveFile.mimeType,
+
+          driveModifiedTime:
+            driveFile.modifiedTime ||
+            null,
 
           driveFolderId:
             driveFolderId ||
@@ -1871,6 +1963,10 @@ async(req,res)=>{
 
           googleMimeType:
             driveFile.mimeType,
+
+          driveModifiedTime:
+            driveFile.modifiedTime ||
+            null,
 
           driveFolderId:
             driveFolderId ||
