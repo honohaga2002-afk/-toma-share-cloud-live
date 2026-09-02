@@ -1586,7 +1586,25 @@ function bytesToBase64(
 
 async function saveEditor(){
 
-  if(!editorCurrent)return;
+  if(
+    !editorCurrent ||
+    editorCurrent.saving
+  )return;
+
+  const current=
+    editorCurrent;
+
+  current.saving=true;
+
+  const saveButton=
+    document.getElementById(
+      'teSave'
+    );
+
+  if(saveButton){
+    saveButton.disabled=true;
+    saveButton.textContent='保存中…';
+  }
 
   try{
 
@@ -1598,7 +1616,7 @@ async function saveEditor(){
       window.XLSX;
 
     const filename=
-      editorCurrent.file.name;
+      current.file.name;
 
     const lower=
       filename.toLowerCase();
@@ -1615,9 +1633,9 @@ async function saveEditor(){
       const csv=
         XLSX.utils
         .sheet_to_csv(
-          editorCurrent.workbook
+          current.workbook
           .Sheets[
-            editorCurrent.sheetName
+            current.sheetName
           ]
         );
 
@@ -1637,7 +1655,7 @@ async function saveEditor(){
       output=
         new Uint8Array(
           XLSX.write(
-            editorCurrent.workbook,
+            current.workbook,
             {
               type:'array',
               bookType:'xls'
@@ -1653,7 +1671,7 @@ async function saveEditor(){
       output=
         new Uint8Array(
           XLSX.write(
-            editorCurrent.workbook,
+            current.workbook,
             {
               type:'array',
               bookType:'xlsx'
@@ -1682,10 +1700,10 @@ async function saveEditor(){
           'version',
 
         id:
-          editorCurrent.file.id,
+          current.file.id,
 
         parent_id:
-          editorCurrent.file.parent_id||
+          current.file.parent_id||
           null,
 
         name:
@@ -1704,7 +1722,7 @@ async function saveEditor(){
       }
     );
 
-    editorCurrent.dirty=
+    current.dirty=
       false;
 
     editorStatus(
@@ -1713,6 +1731,10 @@ async function saveEditor(){
 
     setTimeout(
       async()=>{
+
+        if(editorCurrent!==current){
+          return;
+        }
 
         document
           .getElementById(
@@ -1735,6 +1757,13 @@ async function saveEditor(){
     );
 
   }catch(e){
+
+    current.saving=false;
+
+    if(saveButton){
+      saveButton.disabled=false;
+      saveButton.textContent='保存';
+    }
 
     console.error(e);
 
