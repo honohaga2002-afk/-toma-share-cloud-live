@@ -2239,11 +2239,9 @@ function fileRow(file){
 
   return `
 
-    <div class="item">
+    <div class="item fileItem">
 
-      <div class="row">
-
-        <div style="flex:1">
+      <div class="fileInfo">
 
           <div class="title">
             ${isDrive?'☁️':'📎'}
@@ -2257,7 +2255,9 @@ function fileRow(file){
             ${isDrive?'｜Google Drive':''}
           </div>
 
-        </div>
+      </div>
+
+      <div class="fileActions">
 
         <button
           class="btn light"
@@ -2298,7 +2298,6 @@ function fileRow(file){
         </button>
 
       </div>
-
     </div>
   `;
 }

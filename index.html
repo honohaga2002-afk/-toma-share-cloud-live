@@ -23,6 +23,18 @@
     rel="stylesheet"
     href="/style.css"
   >
+
+  <style>
+    .fileItem{padding:16px 0}
+    .fileInfo{width:100%;min-width:0;margin-bottom:12px}
+    .fileInfo .title{font-size:17px;line-height:1.45;word-break:break-word}
+    .fileInfo .meta{margin-top:4px}
+    .fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+    .fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}
+    @media(min-width:700px){
+      .fileActions{grid-template-columns:repeat(4,minmax(120px,auto));justify-content:end}
+    }
+  </style>
 </head>
 
 <body>
@@ -186,7 +198,7 @@
 
 
   <!-- editor.jsはもう読み込まない -->
-  <script src="/app.js?v=20260902-4"></script>
+  <script src="/app.js?v=20260902-5"></script>
 
 </body>
 </html>
