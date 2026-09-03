@@ -45,12 +45,14 @@ const EVENTS=[
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function renderEvents(){
-  const cal=document.getElementById('cal');
-  if(!cal || cal.classList.contains('hidden')) return;
-  const old=cal.querySelector('#tomakomaiEventList'); if(old) old.remove();
-  const box=document.createElement('div'); box.id='tomakomaiEventList'; box.className='card'; box.style.marginTop='14px';
+  const page=document.getElementById('events');
+  if(!page || page.classList.contains('hidden')) return;
+  const mount=page.querySelector('#tomakomaiEventsMount');
+  if(!mount) return;
+  const old=page.querySelector('#tomakomaiEventList'); if(old) old.remove();
+  const box=document.createElement('div'); box.id='tomakomaiEventList';
   box.innerHTML=`<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px"><div><div class="title" style="font-size:19px">🎪 苫小牧イベント情報</div><div class="meta">小規模な地域行事・教室・展示も掲載／2027年3月まで公開済み情報を掲載</div></div><span class="pill">${EVENTS.length}件</span></div><div style="display:grid;gap:9px">${EVENTS.map(e=>`<a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit;border:1px solid #dbe8ef;border-radius:12px;padding:12px;background:#fff"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><strong style="font-size:15px;line-height:1.4">${esc(e.title)}</strong><span class="pill" style="white-space:nowrap">${esc(e.tag)}</span></div><div style="margin-top:7px;font-weight:800;color:#0b76a8">📅 ${esc(e.date)}　⏰ ${esc(e.time)}</div><div class="meta" style="margin-top:5px">📍 ${esc(e.place)}　› 公式情報</div></a>`).join('')}</div><a class="btn" href="https://www.city.tomakomai.hokkaido.jp/calendar/" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;margin-top:12px;text-decoration:none">苫小牧市 行事カレンダーを確認</a>`;
-  cal.appendChild(box);
+  mount.replaceChildren(box);
 }
 const observer=new MutationObserver(()=>setTimeout(renderEvents,0)); observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']}); document.addEventListener('click',()=>setTimeout(renderEvents,0)); window.addEventListener('load',()=>setTimeout(renderEvents,300));
 })();
