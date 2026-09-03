@@ -551,6 +551,37 @@ async function shareWorkspaceDriveFiles(workspaceId){
   return {shared,failed:failed.length};
 }
 
+let fiscalYearReady=null;
+
+function ensureFiscalYearColumns(){
+  if(!fiscalYearReady){
+    fiscalYearReady=(async()=>{
+      const tables=[
+        'shared_items',
+        'schedules',
+        'minutes',
+        'reviews',
+        'permits',
+        'workspace_tasks',
+        'workspace_activity'
+      ];
+
+      for(const table of tables){
+        await pool.query(
+          `alter table ${table}
+           add column if not exists fiscal_year integer not null default 2026`
+        );
+      }
+    })().catch(error=>{
+      fiscalYearReady=null;
+      throw error;
+    });
+  }
+
+  return fiscalYearReady;
+}
+
+
 /* ==============================
    やることリスト
 ============================== */
@@ -1501,6 +1532,10 @@ async(req,res)=>{
       );
     }
 
+    await ensureTasksTable();
+    await ensureActivityTable();
+    await ensureFiscalYearColumns();
+
 
     /*
       TOMA SHAREログイン済み情報
@@ -1993,6 +2028,13 @@ async(req,res)=>{
       b.by ||
       'メンバー';
 
+    const fiscalYear=
+      [2026,2027].includes(
+        Number(b.year)
+      )
+        ?Number(b.year)
+        :2026;
+
 
     await touchPresence(
       ws.id,
@@ -2264,7 +2306,9 @@ async(req,res)=>{
 
             content,
 
-            updated_by
+            updated_by,
+
+            fiscal_year
           )
 
           values
@@ -2281,7 +2325,9 @@ async(req,res)=>{
 
             $5,
 
-            $6
+            $6,
+
+            $7
           )
           `,
           [
@@ -2299,7 +2345,9 @@ async(req,res)=>{
               content
             ),
 
-            by
+            by,
+
+            fiscalYear
           ]
         );
 
@@ -2386,7 +2434,9 @@ async(req,res)=>{
 
             content,
 
-            updated_by
+            updated_by,
+
+            fiscal_year
           )
 
           values
@@ -2405,7 +2455,9 @@ async(req,res)=>{
 
             $6,
 
-            $7
+            $7,
+
+            $8
           )
           `,
           [
@@ -2427,7 +2479,9 @@ async(req,res)=>{
               content
             ),
 
-            by
+            by,
+
+            fiscalYear
           ]
         );
 
@@ -2707,14 +2761,15 @@ async(req,res)=>{
 
         await pool.query(
           `insert into shared_items
-           (workspace_id,item_type,name,mime_type,file_data,updated_by)
-           values($1,'message',$2,$3,$4,$5)`,
+           (workspace_id,item_type,name,mime_type,file_data,updated_by,fiscal_year)
+           values($1,'message',$2,$3,$4,$5,$6)`,
           [
             ws.id,
             text||'画像',
             imageData?(imageData.match(/^data:([^;]+)/)?.[1]||'image/jpeg'):null,
             imageData||null,
-            by
+            by,
+            fiscalYear
           ]
         );
         break;
@@ -2840,7 +2895,9 @@ async(req,res)=>{
 
             memo,
 
-            updated_by
+            updated_by,
+
+            fiscal_year
           )
 
           values
@@ -2851,7 +2908,8 @@ async(req,res)=>{
             $4,
             $5,
             $6,
-            $7
+            $7,
+            $8
           )
           `,
           [
@@ -2872,7 +2930,9 @@ async(req,res)=>{
             b.memo ||
             null,
 
-            by
+            by,
+
+            fiscalYear
           ]
         );
 
@@ -2925,7 +2985,9 @@ async(req,res)=>{
 
             action_items,
 
-            updated_by
+            updated_by,
+
+            fiscal_year
           )
 
           values
@@ -2935,7 +2997,8 @@ async(req,res)=>{
             $3,
             $4,
             $5,
-            $6
+            $6,
+            $7
           )
           `,
           [
@@ -2953,7 +3016,9 @@ async(req,res)=>{
             b.action_items ||
             null,
 
-            by
+            by,
+
+            fiscalYear
           ]
         );
 
@@ -2980,7 +3045,9 @@ async(req,res)=>{
 
             body,
 
-            updated_by
+            updated_by,
+
+            fiscal_year
           )
 
           values
@@ -2989,7 +3056,8 @@ async(req,res)=>{
             $2,
             $3,
             $4,
-            $5
+            $5,
+            $6
           )
           `,
           [
@@ -3004,7 +3072,9 @@ async(req,res)=>{
             b.body ||
             null,
 
-            by
+            by,
+
+            fiscalYear
           ]
         );
 
@@ -3033,7 +3103,9 @@ async(req,res)=>{
 
             body,
 
-            updated_by
+            updated_by,
+
+            fiscal_year
           )
 
           values
@@ -3043,7 +3115,8 @@ async(req,res)=>{
             $3,
             $4,
             $5,
-            $6
+            $6,
+            $7
           )
           `,
           [
@@ -3061,7 +3134,9 @@ async(req,res)=>{
             b.body ||
             null,
 
-            by
+            by,
+
+            fiscalYear
           ]
         );
 
@@ -3079,15 +3154,16 @@ async(req,res)=>{
         await ensureTasksTable();
         await pool.query(
           `insert into workspace_tasks
-           (workspace_id,title,due_at,assignee,notes,created_by)
-           values($1,$2,$3,$4,$5,$6)`,
+           (workspace_id,title,due_at,assignee,notes,created_by,fiscal_year)
+           values($1,$2,$3,$4,$5,$6,$7)`,
           [
             ws.id,
             title,
             b.due_at||null,
             String(b.assignee||'').trim()||null,
             String(b.notes||'').trim()||null,
-            by
+            by,
+            fiscalYear
           ]
         );
         break;
@@ -3237,15 +3313,16 @@ async(req,res)=>{
 
       await pool.query(
         `insert into workspace_activity
-         (workspace_id,action,item_kind,item_id,detail,member_name)
-         values($1,$2,$3,$4,$5,$6)`,
+         (workspace_id,action,item_kind,item_id,detail,member_name,fiscal_year)
+         values($1,$2,$3,$4,$5,$6,$7)`,
         [
           ws.id,
           b.action,
           b.kind||null,
           b.id?String(b.id):null,
           detail,
-          by
+          by,
+          fiscalYear
         ]
       );
     }
