@@ -3965,6 +3965,12 @@ function chatR(){
 
   const messages=
     state.messages
+    .slice()
+    .sort(
+      (a,b)=>
+        new Date(a.created_at||0)-
+        new Date(b.created_at||0)
+    )
     .map(
       x=>{
 
@@ -4000,7 +4006,12 @@ function chatR(){
   el.innerHTML=`
     <div class="panel">
       <div class="title">💬 メッセージ</div>
-      ${messages||'<div class="empty">まだありません</div>'}
+      <div
+        id="messageScroll"
+        style="height:min(52vh,520px);min-height:260px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-right:3px;margin:10px 0 14px"
+      >
+        ${messages||'<div class="empty">まだありません</div>'}
+      </div>
 
       <textarea
         id="msg"
@@ -4033,6 +4044,17 @@ function chatR(){
       >送信</button>
     </div>
   `;
+
+  const messageScroll=$('messageScroll');
+
+  if(messageScroll){
+    requestAnimationFrame(
+      ()=>{
+        messageScroll.scrollTop=
+          messageScroll.scrollHeight;
+      }
+    );
+  }
 
   $('msgImage').onchange=
     event=>{
