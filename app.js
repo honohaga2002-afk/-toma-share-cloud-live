@@ -959,6 +959,296 @@ function dataUrlToBlob(
 }
 
 
+function isImageFile(file){
+  const mime=
+    String(
+      file?.mime_type||
+      ''
+    ).toLowerCase();
+
+  const name=
+    String(
+      file?.name||
+      ''
+    ).toLowerCase();
+
+  return (
+    mime.startsWith('image/')||
+    /\.(?:jpe?g|png|webp|gif|heic|heif)$/i
+      .test(name)
+  );
+}
+
+
+async function ensureImageFolder(){
+  let folder=
+    state.items.find(
+      item=>
+        item.item_type==='folder'&&
+        item.name==='画像'
+    );
+
+  if(folder){
+    return folder.id;
+  }
+
+  await api(
+    'POST',
+    {
+      action:'folder',
+      name:'画像',
+      by:N
+    }
+  );
+
+  await load();
+
+  folder=
+    state.items.find(
+      item=>
+        item.item_type==='folder'&&
+        item.name==='画像'
+    );
+
+  if(!folder){
+    throw new Error(
+      '画像フォルダを作成できませんでした'
+    );
+  }
+
+  return folder.id;
+}
+
+
+function closeImageGallery(){
+  const gallery=
+    document.getElementById(
+      'tomaImageGallery'
+    );
+
+  if(!gallery)return;
+
+  const blobUrl=
+    gallery.dataset.blobUrl;
+
+  if(blobUrl){
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  gallery.remove();
+}
+
+
+function showImageGallery(startId){
+  closeImageGallery();
+
+  const images=
+    state.items.filter(
+      item=>
+        item.item_type==='file'&&
+        isImageFile(item)
+    );
+
+  if(!images.length){
+    alert(
+      '画像はまだありません'
+    );
+    return;
+  }
+
+  let index=Math.max(
+    0,
+    images.findIndex(
+      item=>sameId(
+        item.id,
+        startId
+      )
+    )
+  );
+
+  const gallery=
+    document.createElement('div');
+
+  gallery.id='tomaImageGallery';
+  gallery.style.cssText=`
+    position:fixed;
+    inset:0;
+    z-index:10001;
+    background:#000;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    touch-action:pan-y;
+  `;
+
+  gallery.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;padding:max(12px,env(safe-area-inset-top)) 14px 12px;background:rgba(0,0,0,.92)">
+      <button type="button" data-gallery-close style="border:0;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:10px 16px;font-size:16px;font-weight:800">閉じる</button>
+      <strong data-gallery-title style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></strong>
+      <span data-gallery-count style="font-size:14px;color:#ddd"></span>
+    </div>
+    <div data-gallery-stage style="position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
+      <div data-gallery-loading style="color:#bbb;font-weight:700">読み込み中…</div>
+      <img data-gallery-image alt="" style="display:none;width:100%;height:100%;object-fit:contain">
+      <button type="button" data-gallery-prev aria-label="前の画像" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:0;border-radius:999px;background:rgba(0,0,0,.48);color:#fff;font-size:30px">‹</button>
+      <button type="button" data-gallery-next aria-label="次の画像" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:0;border-radius:999px;background:rgba(0,0,0,.48);color:#fff;font-size:30px">›</button>
+    </div>
+    <div style="padding:10px 16px max(10px,env(safe-area-inset-bottom));text-align:center;background:rgba(0,0,0,.92);font-size:14px;color:#ddd">左右にスワイプして画像を切り替え</div>
+  `;
+
+  document.body.appendChild(gallery);
+
+  const image=
+    gallery.querySelector(
+      '[data-gallery-image]'
+    );
+
+  const loading=
+    gallery.querySelector(
+      '[data-gallery-loading]'
+    );
+
+  const title=
+    gallery.querySelector(
+      '[data-gallery-title]'
+    );
+
+  const count=
+    gallery.querySelector(
+      '[data-gallery-count]'
+    );
+
+  async function display(nextIndex){
+    index=(
+      nextIndex+
+      images.length
+    )%images.length;
+
+    const file=images[index];
+    title.textContent=file.name||'画像';
+    count.textContent=
+      `${index+1} / ${images.length}`;
+
+    loading.style.display='block';
+    loading.textContent='読み込み中…';
+    image.style.display='none';
+
+    const oldUrl=gallery.dataset.blobUrl;
+    if(oldUrl){
+      URL.revokeObjectURL(oldUrl);
+      gallery.dataset.blobUrl='';
+    }
+
+    try{
+      let blob;
+
+      const url=driveUrl(file);
+
+      if(url){
+        const response=
+          await fetch(
+            url,
+            {
+              credentials:'same-origin',
+              cache:'no-store'
+            }
+          );
+
+        if(!response.ok){
+          throw new Error(
+            `取得エラー（${response.status}）`
+          );
+        }
+
+        blob=await response.blob();
+      }else{
+        blob=dataUrlToBlob(
+          file.file_data
+        );
+      }
+
+      const blobUrl=
+        URL.createObjectURL(blob);
+
+      gallery.dataset.blobUrl=blobUrl;
+      image.src=blobUrl;
+      image.alt=file.name||'画像';
+      image.style.display='block';
+      loading.style.display='none';
+
+    }catch(e){
+      loading.textContent=
+        '画像を開けません：'+
+        e.message;
+    }
+
+    gallery
+      .querySelector('[data-gallery-prev]')
+      .style.display=
+        images.length>1
+          ?'block'
+          :'none';
+
+    gallery
+      .querySelector('[data-gallery-next]')
+      .style.display=
+        images.length>1
+          ?'block'
+          :'none';
+  }
+
+  gallery
+    .querySelector('[data-gallery-close]')
+    .onclick=closeImageGallery;
+
+  gallery
+    .querySelector('[data-gallery-prev]')
+    .onclick=()=>display(index-1);
+
+  gallery
+    .querySelector('[data-gallery-next]')
+    .onclick=()=>display(index+1);
+
+  let touchStartX=0;
+
+  gallery.addEventListener(
+    'touchstart',
+    event=>{
+      touchStartX=
+        event.changedTouches?.[0]?.clientX||
+        0;
+    },
+    {
+      passive:true
+    }
+  );
+
+  gallery.addEventListener(
+    'touchend',
+    event=>{
+      const endX=
+        event.changedTouches?.[0]?.clientX||
+        touchStartX;
+
+      const distance=endX-touchStartX;
+
+      if(Math.abs(distance)<50)return;
+
+      display(
+        distance<0
+          ?index+1
+          :index-1
+      );
+    },
+    {
+      passive:true
+    }
+  );
+
+  display(index);
+}
+
+
 function isPreviewable(f){
 
   const mime=
@@ -1153,6 +1443,11 @@ async function openFile(f){
         'ファイルが見つかりません'
       );
 
+      return;
+    }
+
+    if(isImageFile(f)){
+      showImageGallery(f.id);
       return;
     }
 
@@ -2610,8 +2905,14 @@ async function saveSelectedFile(){
           null,
 
         parent_id:
-          selectedFolderId||
-          null,
+          (
+            !selectedVersionId&&
+            isImageFile(f)&&
+            !selectedFolderId
+          )
+            ?await ensureImageFolder()
+            :selectedFolderId||
+              null,
 
         name:
           f.name,
@@ -2928,6 +3229,16 @@ function driveR(){
         'file'
     );
 
+  const imageFiles=
+    files.filter(
+      isImageFile
+    );
+
+  const regularFolders=
+    folders.filter(
+      folder=>folder.name!=='画像'
+    );
+
   let uploadBox='';
 
   if(
@@ -3001,8 +3312,8 @@ function driveR(){
   }
 
   const folderHtml=
-    folders.length
-      ?folders
+    regularFolders.length
+      ?regularFolders
       .map(
         folder=>{
 
@@ -3058,7 +3369,9 @@ function driveR(){
 
   const rootFiles=
     files.filter(
-      f=>!f.parent_id
+      f=>
+        !f.parent_id&&
+        !isImageFile(f)
     );
 
   el.innerHTML=`
@@ -3120,6 +3433,32 @@ function driveR(){
     ${uploadBox}
 
     <div class="panel">
+      <div class="sectionTitle">
+        <div>
+          <div class="title">🖼️ 画像</div>
+          <div class="meta">${imageFiles.length}枚</div>
+        </div>
+        <button
+          class="btn"
+          id="openImageFolder"
+          type="button"
+          ${imageFiles.length?'':'disabled'}
+        >開く</button>
+      </div>
+      ${
+        imageFiles.length
+          ?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
+              ${imageFiles.slice(0,6).map(file=>`
+                <button type="button" data-gallery-file="${esc(file.id)}" style="border:0;padding:0;background:#e8eef2;border-radius:10px;overflow:hidden;aspect-ratio:1">
+                  <img src="${esc(driveUrl(file)||file.file_data||'')}" alt="${esc(file.name)}" style="width:100%;height:100%;object-fit:cover">
+                </button>
+              `).join('')}
+            </div>`
+          :'<div class="empty">画像はまだありません</div>'
+      }
+    </div>
+
+    <div class="panel">
 
       <div class="title">
         📁 フォルダ
@@ -3145,6 +3484,26 @@ function driveR(){
 
     </div>
   `;
+
+  if($('openImageFolder')){
+    $('openImageFolder').onclick=
+      ()=>showImageGallery(
+        imageFiles[0]?.id
+      );
+  }
+
+  document
+    .querySelectorAll(
+      '[data-gallery-file]'
+    )
+    .forEach(
+      button=>{
+        button.onclick=
+          ()=>showImageGallery(
+            button.dataset.galleryFile
+          );
+      }
+    );
 
   $('refreshD').onclick=
     async()=>{
@@ -3768,7 +4127,8 @@ function chatR(){
                     dataUrlToBlob(
                       imageData
                     ).size,
-                  parent_id:null,
+                  parent_id:
+                    await ensureImageFolder(),
                   by:N
                 }
               );
