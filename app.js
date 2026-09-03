@@ -18,6 +18,7 @@ let state={
   minutes:[],
   reviews:[],
   permits:[],
+  tasks:[],
   onlineMembers:[],
   loginEvents:[]
 };
@@ -25,6 +26,7 @@ let state={
 let selectedUploadFile=null;
 let selectedVersionId=null;
 let selectedFolderId='';
+let selectedMessageImage=null;
 
 let xlsxPromise=null;
 let editorCurrent=null;
@@ -273,6 +275,9 @@ async function load(){
 
     permits:
       d.permits||[],
+
+    tasks:
+      d.tasks||[],
 
     onlineMembers:
       d.onlineMembers||[],
@@ -727,6 +732,20 @@ async function doLogin(){
     await preparePushNotifications();
 
     await announceLogin();
+
+    api(
+      'POST',
+      {
+        action:'drive_share_all',
+        by:N
+      }
+    )
+    .catch(
+      e=>console.error(
+        'Drive link sharing failed:',
+        e
+      )
+    );
 
     say(
       'ログインしました'
@@ -2661,6 +2680,15 @@ function homeR(){
 
       <button
         class="card"
+        data-go="tasks"
+      >
+        <div class="ico">☑️</div>
+        <div class="ct">やることリスト</div>
+        <div class="meta">${state.tasks.filter(x=>!x.completed).length}件 未完了</div>
+      </button>
+
+      <button
+        class="card"
         data-go="minute"
       >
         <div class="ico">📝</div>
@@ -3235,6 +3263,139 @@ function driveR(){
    メッセージ
 ========================================================= */
 
+function messageImageUrl(
+  message
+){
+  const value=
+    String(
+      message?.file_data||
+      ''
+    );
+
+  return /^data:image\/(?:jpeg|png|webp|gif);base64,/i
+    .test(value)
+      ?value
+      :'';
+}
+
+
+async function compressMessageImage(
+  file
+){
+
+  if(
+    !file||
+    !String(file.type).startsWith(
+      'image/'
+    )
+  ){
+    throw new Error(
+      '画像ファイルを選んでください'
+    );
+  }
+
+  const source=
+    await new Promise(
+      (resolve,reject)=>{
+
+        const reader=
+          new FileReader();
+
+        reader.onload=
+          ()=>resolve(
+            reader.result
+          );
+
+        reader.onerror=
+          ()=>reject(
+            new Error(
+              '画像を読み込めません'
+            )
+          );
+
+        reader.readAsDataURL(
+          file
+        );
+      }
+    );
+
+  const image=
+    await new Promise(
+      (resolve,reject)=>{
+
+        const value=
+          new Image();
+
+        value.onload=
+          ()=>resolve(value);
+
+        value.onerror=
+          ()=>reject(
+            new Error(
+              '画像を開けません'
+            )
+          );
+
+        value.src=source;
+      }
+    );
+
+  const maxSize=1280;
+  const scale=Math.min(
+    1,
+    maxSize/Math.max(
+      image.width,
+      image.height
+    )
+  );
+
+  const canvas=
+    document.createElement(
+      'canvas'
+    );
+
+  canvas.width=
+    Math.max(
+      1,
+      Math.round(
+        image.width*scale
+      )
+    );
+
+  canvas.height=
+    Math.max(
+      1,
+      Math.round(
+        image.height*scale
+      )
+    );
+
+  const context=
+    canvas.getContext('2d');
+
+  context.fillStyle='#fff';
+  context.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  context.drawImage(
+    image,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  return canvas.toDataURL(
+    'image/jpeg',
+    0.78
+  );
+}
+
+
 function chatR(){
 
   const el=
@@ -3242,60 +3403,122 @@ function chatR(){
 
   if(!el)return;
 
+  selectedMessageImage=null;
+
   const messages=
     state.messages
     .map(
-      x=>`
-        <div class="item recordItem">
+      x=>{
 
-          <div class="recordBody">
-            <div>
-              ${esc(x.name)}
-            </div>
+        const imageUrl=
+          messageImageUrl(x);
 
-            <div class="meta">
-              ${esc(x.updated_by||'')}
+        return `
+          <div class="item recordItem">
+            <div class="recordBody">
+              <div>${esc(x.name)}</div>
+              ${
+                imageUrl
+                  ?`<img src="${esc(imageUrl)}" alt="添付画像" style="display:block;width:100%;max-width:420px;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px;background:#eef5f8">`
+                  :''
+              }
+              <div class="meta">${esc(x.updated_by||'')}</div>
             </div>
+            ${
+              x.updated_by===N
+                ?`<button class="btn danger" type="button" data-message-delete="${esc(x.id)}">取り消し</button>`
+                :''
+            }
           </div>
-
-          ${
-            x.updated_by===N
-              ?`<button class="btn danger" type="button" data-message-delete="${esc(x.id)}">取り消し</button>`
-              :''
-          }
-
-        </div>
-      `
+        `;
+      }
     )
     .join('');
 
   el.innerHTML=`
-
     <div class="panel">
-
-      <div class="title">
-        💬 メッセージ
-      </div>
-
-      ${
-        messages||
-        '<div class="empty">まだありません</div>'
-      }
+      <div class="title">💬 メッセージ</div>
+      ${messages||'<div class="empty">まだありません</div>'}
 
       <textarea
         id="msg"
         placeholder="連絡事項を入力"
       ></textarea>
 
-      <button
-        class="btn"
-        id="send"
+      <label
+        class="btn light"
+        style="display:block;text-align:center;margin-top:10px"
       >
-        送信
-      </button>
+        📷 画像を添付
+        <input
+          id="msgImage"
+          type="file"
+          accept="image/*"
+          style="display:none"
+        >
+      </label>
 
+      <div
+        id="msgImagePreview"
+        class="hidden"
+        style="margin-top:10px"
+      ></div>
+
+      <button
+        class="btn wide"
+        id="send"
+        type="button"
+      >送信</button>
     </div>
   `;
+
+  $('msgImage').onchange=
+    event=>{
+
+      selectedMessageImage=
+        event.target.files?.[0]||
+        null;
+
+      const preview=
+        $('msgImagePreview');
+
+      if(!selectedMessageImage){
+
+        preview.classList.add(
+          'hidden'
+        );
+
+        preview.innerHTML='';
+        return;
+      }
+
+      const url=
+        URL.createObjectURL(
+          selectedMessageImage
+        );
+
+      preview.innerHTML=`
+        <div class="meta">選択：${esc(selectedMessageImage.name)}</div>
+        <img src="${url}" alt="送信する画像" style="display:block;width:100%;max-height:260px;object-fit:contain;border-radius:12px;margin-top:6px">
+        <button class="btn light" id="removeMsgImage" type="button" style="margin-top:8px">画像を外す</button>
+      `;
+
+      preview.classList.remove(
+        'hidden'
+      );
+
+      $('removeMsgImage').onclick=
+        ()=>{
+
+          URL.revokeObjectURL(url);
+          selectedMessageImage=null;
+          $('msgImage').value='';
+          preview.innerHTML='';
+          preview.classList.add(
+            'hidden'
+          );
+        };
+    };
 
   $('send').onclick=
     async()=>{
@@ -3303,20 +3526,59 @@ function chatR(){
       const text=
         $('msg').value.trim();
 
-      if(!text)return;
+      if(
+        !text&&
+        !selectedMessageImage
+      ){
 
-      await api(
-        'POST',
-        {
-          action:'message',
-          text,
-          by:N
-        }
-      );
+        alert(
+          'メッセージか画像を入力してください'
+        );
 
-      await load();
+        return;
+      }
 
-      go('chat');
+      const button=$('send');
+      button.disabled=true;
+      button.textContent='送信中…';
+
+      try{
+
+        const imageData=
+          selectedMessageImage
+            ?await compressMessageImage(
+                selectedMessageImage
+              )
+            :'';
+
+        await api(
+          'POST',
+          {
+            action:'message',
+            text,
+            image_data:imageData,
+            by:N
+          }
+        );
+
+        await load();
+
+        go('chat');
+
+        say(
+          '送信しました'
+        );
+
+      }catch(e){
+
+        alert(
+          '送信できません：'+
+          e.message
+        );
+
+        button.disabled=false;
+        button.textContent='送信';
+      }
     };
 
   document
@@ -3386,67 +3648,63 @@ function calR(){
     state.schedules
     .map(
       x=>`
-
-        <div class="item">
-
-          <div class="title">
-            ${esc(x.title)}
+        <div class="item recordItem">
+          <div class="recordBody">
+            <div class="title">${esc(x.title)}</div>
+            <div class="meta">
+              📅 ${
+                x.starts_at
+                  ?new Date(
+                      x.starts_at
+                    )
+                    .toLocaleString(
+                      'ja-JP'
+                    )
+                  :'日時未設定'
+              }
+              ${x.place?`<br>📍 ${esc(x.place)}`:''}
+              ${x.memo?`<br>${esc(x.memo)}`:''}
+            </div>
           </div>
-
-          <div class="meta">
-            ${
-              x.starts_at
-                ?new Date(
-                    x.starts_at
-                  )
-                  .toLocaleString(
-                    'ja-JP'
-                  )
-                :''
-            }
-          </div>
-
+          <button
+            class="btn danger"
+            type="button"
+            data-schedule-delete="${esc(x.id)}"
+          >削除</button>
         </div>
       `
     )
     .join('');
 
   el.innerHTML=`
+    <div class="panel">
+      <div class="title">📅 スケジュール</div>
+      ${list||'<div class="empty">まだありません</div>'}
+    </div>
 
     <div class="panel">
+      <div class="panelHeading">＋予定を追加</div>
 
-      <div class="title">
-        📅 スケジュール
-      </div>
+      <label class="meta" for="sdate">開催日</label>
+      <input id="sdate" type="date">
 
-      ${
-        list||
-        '<div class="empty">まだありません</div>'
-      }
+      <label class="meta" for="stime">開始時間</label>
+      <input id="stime" type="time" value="09:00">
 
-      <input
-        id="sdate"
-        type="date"
-      >
+      <label class="meta" for="ttl">予定名</label>
+      <input id="ttl" placeholder="例：出店者会議">
 
-      <input
-        id="stime"
-        type="time"
-        value="09:00"
-      >
+      <label class="meta" for="splace">場所</label>
+      <input id="splace" placeholder="場所（任意）">
 
-      <input
-        id="ttl"
-        placeholder="予定名"
-      >
+      <label class="meta" for="smemo">メモ</label>
+      <textarea id="smemo" placeholder="持ち物・連絡事項（任意）"></textarea>
 
       <button
-        class="btn"
+        class="btn wide"
         id="addS"
-      >
-        追加
-      </button>
-
+        type="button"
+      >予定を追加</button>
     </div>
   `;
 
@@ -3463,29 +3721,100 @@ function calR(){
       const title=
         $('ttl').value.trim();
 
-      if(
-        !date||
-        !title
-      )return;
+      if(!date){
 
-      await api(
-        'POST',
-        {
-          action:'schedule',
-          title,
-          starts_at:
-            `${date}T${time}:00+09:00`,
-          ends_at:null,
-          place:'',
-          memo:'',
-          by:N
-        }
-      );
+        alert(
+          '開催日を選んでください'
+        );
 
-      await load();
+        $('sdate').focus();
+        return;
+      }
 
-      go('cal');
+      if(!title){
+
+        alert(
+          '予定名を入力してください'
+        );
+
+        $('ttl').focus();
+        return;
+      }
+
+      const button=$('addS');
+      button.disabled=true;
+      button.textContent='保存中…';
+
+      try{
+
+        await api(
+          'POST',
+          {
+            action:'schedule',
+            title,
+            starts_at:
+              `${date}T${time}:00+09:00`,
+            ends_at:null,
+            place:
+              $('splace').value.trim(),
+            memo:
+              $('smemo').value.trim(),
+            by:N
+          }
+        );
+
+        await load();
+
+        go('cal');
+
+        say(
+          '予定を追加しました'
+        );
+
+      }catch(e){
+
+        alert(
+          '予定を追加できません：'+
+          e.message
+        );
+
+        button.disabled=false;
+        button.textContent='予定を追加';
+      }
     };
+
+  document
+    .querySelectorAll(
+      '[data-schedule-delete]'
+    )
+    .forEach(
+      button=>{
+
+        button.onclick=
+          async()=>{
+
+            if(
+              !confirm(
+                'この予定を削除しますか？'
+              )
+            )return;
+
+            await api(
+              'POST',
+              {
+                action:'schedule_delete',
+                id:
+                  button.dataset.scheduleDelete,
+                by:N
+              }
+            );
+
+            await load();
+
+            go('cal');
+          };
+      }
+    );
 }
 
 
@@ -3860,6 +4189,235 @@ function eventsR(){
 }
 
 
+function taskR(){
+
+  const el=
+    $('tasks');
+
+  if(!el)return;
+
+  const rows=
+    (state.tasks||[])
+    .map(
+      task=>{
+
+        const due=
+          task.due_at
+            ?new Date(
+                task.due_at
+              )
+              .toLocaleString(
+                'ja-JP'
+              )
+            :'期限なし';
+
+        const overdue=
+          !task.completed&&
+          task.due_at&&
+          new Date(task.due_at)<new Date();
+
+        return `
+          <div
+            class="item recordItem"
+            style="${task.completed?'opacity:.65':''}"
+          >
+            <button
+              class="btn ${task.completed?'light':''}"
+              type="button"
+              data-task-toggle="${esc(task.id)}"
+              data-completed="${task.completed?'1':'0'}"
+              aria-label="完了状態を変更"
+              style="flex:0 0 auto"
+            >${task.completed?'✅':'⬜️'}</button>
+
+            <div class="recordBody">
+              <div
+                class="title"
+                style="${task.completed?'text-decoration:line-through':''}"
+              >${esc(task.title)}</div>
+              <div
+                class="meta"
+                style="${overdue?'color:#b42318;font-weight:800':''}"
+              >期限：${esc(due)}</div>
+              <div class="meta">担当：${esc(task.assignee||'未定')}</div>
+              ${task.notes?`<div class="meta">${esc(task.notes)}</div>`:''}
+            </div>
+
+            <button
+              class="btn danger"
+              type="button"
+              data-task-delete="${esc(task.id)}"
+            >削除</button>
+          </div>
+        `;
+      }
+    )
+    .join('');
+
+  el.innerHTML=`
+    ${subPageHeader('☑️','やることリスト')}
+
+    <div class="panel">
+      <div class="panelHeading">未完了 ${state.tasks.filter(x=>!x.completed).length}件</div>
+      ${rows||'<div class="empty">やることはまだありません</div>'}
+    </div>
+
+    <div class="panel">
+      <div class="panelHeading">＋やることを追加</div>
+
+      <label class="meta" for="taskTitle">何をする</label>
+      <input id="taskTitle" placeholder="例：保健所へ申請書を提出">
+
+      <label class="meta" for="taskDate">期限</label>
+      <input id="taskDate" type="date">
+
+      <label class="meta" for="taskTime">期限時間</label>
+      <input id="taskTime" type="time" value="18:00">
+
+      <label class="meta" for="taskAssignee">担当名</label>
+      <input id="taskAssignee" placeholder="担当者名">
+
+      <label class="meta" for="taskNotes">メモ</label>
+      <textarea id="taskNotes" placeholder="補足・必要なもの（任意）"></textarea>
+
+      <button class="btn wide" id="addTask" type="button">追加</button>
+    </div>
+  `;
+
+  bindSubPageNavigation();
+
+  $('addTask').onclick=
+    async()=>{
+
+      const title=
+        $('taskTitle').value.trim();
+
+      if(!title){
+
+        alert(
+          'やることを入力してください'
+        );
+
+        $('taskTitle').focus();
+        return;
+      }
+
+      const date=
+        $('taskDate').value;
+
+      const time=
+        $('taskTime').value||
+        '18:00';
+
+      const button=
+        $('addTask');
+
+      button.disabled=true;
+      button.textContent='保存中…';
+
+      try{
+
+        await api(
+          'POST',
+          {
+            action:'task',
+            title,
+            due_at:
+              date
+                ?`${date}T${time}:00+09:00`
+                :null,
+            assignee:
+              $('taskAssignee').value.trim(),
+            notes:
+              $('taskNotes').value.trim(),
+            by:N
+          }
+        );
+
+        await load();
+
+        go('tasks');
+
+        say(
+          'やることを追加しました'
+        );
+
+      }catch(e){
+
+        alert(
+          '追加できません：'+
+          e.message
+        );
+
+        button.disabled=false;
+        button.textContent='追加';
+      }
+    };
+
+  document
+    .querySelectorAll(
+      '[data-task-toggle]'
+    )
+    .forEach(
+      button=>{
+
+        button.onclick=
+          async()=>{
+
+            await api(
+              'POST',
+              {
+                action:'task_toggle',
+                id:
+                  button.dataset.taskToggle,
+                completed:
+                  button.dataset.completed!=='1',
+                by:N
+              }
+            );
+
+            await load();
+
+            go('tasks');
+          };
+      }
+    );
+
+  document
+    .querySelectorAll(
+      '[data-task-delete]'
+    )
+    .forEach(
+      button=>{
+
+        button.onclick=
+          async()=>{
+
+            if(
+              !confirm(
+                'このやることを削除しますか？'
+              )
+            )return;
+
+            await api(
+              'POST',
+              {
+                action:'task_delete',
+                id:
+                  button.dataset.taskDelete,
+                by:N
+              }
+            );
+
+            await load();
+
+            go('tasks');
+          };
+      }
+    );
+}
+
+
 function moreR(){
 
   const el=
@@ -3893,6 +4451,12 @@ function moreR(){
           <div class="ico">🎪</div>
           <div class="ct">苫小牧イベント</div>
           <div class="meta">開催日時つき</div>
+        </button>
+
+        <button class="card" data-go="tasks">
+          <div class="ico">☑️</div>
+          <div class="ct">やることリスト</div>
+          <div class="meta">${state.tasks.filter(x=>!x.completed).length}件 未完了</div>
         </button>
       </div>
     </div>
@@ -3948,6 +4512,10 @@ function render(){
   if(
     cur==='events'
   )eventsR();
+
+  if(
+    cur==='tasks'
+  )taskR();
 }
 
 
@@ -3976,7 +4544,8 @@ function go(p){
       'minute',
       'review',
       'permit',
-      'events'
+      'events',
+      'tasks'
     ].includes(p)
       ?'more'
       :p;
