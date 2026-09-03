@@ -2903,15 +2903,23 @@ function chatR(){
     state.messages
     .map(
       x=>`
-        <div class="item">
+        <div class="item recordItem">
 
-          <div>
-            ${esc(x.name)}
+          <div class="recordBody">
+            <div>
+              ${esc(x.name)}
+            </div>
+
+            <div class="meta">
+              ${esc(x.updated_by||'')}
+            </div>
           </div>
 
-          <div class="meta">
-            ${esc(x.updated_by||'')}
-          </div>
+          ${
+            x.updated_by===N
+              ?`<button class="btn danger" type="button" data-message-delete="${esc(x.id)}">取り消し</button>`
+              :''
+          }
 
         </div>
       `
@@ -2967,6 +2975,56 @@ function chatR(){
 
       go('chat');
     };
+
+  document
+    .querySelectorAll(
+      '[data-message-delete]'
+    )
+    .forEach(
+      button=>{
+
+        button.onclick=
+          async()=>{
+
+            if(
+              !confirm(
+                'このメッセージを取り消しますか？'
+              )
+            )return;
+
+            button.disabled=true;
+
+            try{
+
+              await api(
+                'POST',
+                {
+                  action:'message_delete',
+                  id:button.dataset.messageDelete,
+                  by:N
+                }
+              );
+
+              await load();
+
+              go('chat');
+
+              say(
+                'メッセージを取り消しました'
+              );
+
+            }catch(e){
+
+              alert(
+                '取り消せません：'+
+                e.message
+              );
+
+              button.disabled=false;
+            }
+          };
+      }
+    );
 }
 
 
