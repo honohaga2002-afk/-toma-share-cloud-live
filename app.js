@@ -29,6 +29,7 @@ let driveMode=
 let driveSearch='';
 let driveType='all';
 let driveSort='updated';
+let openFolderId='';
 
 let selectedYear=
   Number.isInteger(storedYear)&&
@@ -3947,10 +3948,14 @@ function driveR(){
         )
     );
 
-  let files=
+  const allFiles=
     state.items.filter(
+      x=>x.item_type==='file'
+    );
+
+  let files=
+    allFiles.filter(
       x=>{
-        if(x.item_type!=='file')return false;
 
         const name=
           String(x.name||'')
@@ -4077,61 +4082,85 @@ function driveR(){
     `;
   }
 
+  const selectedFolder=
+    regularFolders.find(
+      folder=>sameId(
+        folder.id,
+        openFolderId
+      )
+    );
+
+  const selectedFolderFiles=
+    selectedFolder
+      ?allFiles.filter(
+          file=>sameId(
+            file.parent_id,
+            selectedFolder.id
+          )
+        )
+      :[];
+
+  const folderDetailHtml=
+    selectedFolder
+      ?`
+        <div class="panel">
+          <div class="sectionTitle">
+            <button class="btn light" id="closeFolder" type="button">← 戻る</button>
+            <div style="flex:1;min-width:0">
+              <div class="title">📂 ${esc(selectedFolder.name)}</div>
+              <div class="meta">${selectedFolderFiles.length}ファイル</div>
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            ${
+              selectedFolderFiles.length
+                ?selectedFolderFiles
+                  .map(fileRow)
+                  .join('')
+                :'<div class="empty">このフォルダーは空です</div>'
+            }
+          </div>
+        </div>
+      `
+      :'';
+
   const folderHtml=
     regularFolders.length
       ?regularFolders
-      .map(
-        folder=>{
-
-          const folderFiles=
-            files.filter(
-              f=>sameId(
-                f.parent_id,
+        .map(folder=>{
+          const count=
+            allFiles.filter(
+              file=>sameId(
+                file.parent_id,
                 folder.id
               )
-            );
+            ).length;
 
           return `
-
             <div class="item">
-
               <div class="row">
-
-                <div style="flex:1">
-
-                  <div class="title">
-                    📂 ${esc(folder.name)}
-                  </div>
-
-                  <div class="meta">
-                    ${folderFiles.length}ファイル
-                  </div>
-
-                </div>
-
+                <button
+                  type="button"
+                  class="btn light"
+                  data-folder-open="${esc(folder.id)}"
+                  style="flex:1;text-align:left;white-space:normal"
+                >
+                  <span class="title">📂 ${esc(folder.name)}</span>
+                  <span class="meta" style="display:block;margin-top:3px">${count}ファイル</span>
+                </button>
                 <button
                   class="btn danger"
                   data-del="${esc(folder.id)}"
+                  type="button"
                 >
                   削除
                 </button>
-
               </div>
-
-              ${
-                folderFiles.length
-                  ?folderFiles
-                    .map(fileRow)
-                    .join('')
-                  :'<div class="empty">このフォルダは空です</div>'
-              }
-
             </div>
           `;
-        }
-      )
-      .join('')
-      :'<div class="empty">まだフォルダがありません</div>';
+        })
+        .join('')
+      :'<div class="empty">まだフォルダーがありません</div>';
 
   const rootFiles=
     files.filter(
@@ -4229,6 +4258,8 @@ function driveR(){
 
     ${uploadBox}
 
+    ${folderDetailHtml}
+
     <div class="panel">
       <div class="sectionTitle">
         <div>
@@ -4281,6 +4312,29 @@ function driveR(){
 
     </div>
   `;
+
+  if($('closeFolder')){
+    $('closeFolder').onclick=()=>{
+      openFolderId='';
+      driveR();
+    };
+  }
+
+  document
+    .querySelectorAll(
+      '[data-folder-open]'
+    )
+    .forEach(button=>{
+      button.onclick=()=>{
+        openFolderId=
+          button.dataset.folderOpen;
+
+        selectedFolderId=
+          openFolderId;
+
+        driveR();
+      };
+    });
 
   if($('openImageFolder')){
     $('openImageFolder').onclick=
@@ -4438,7 +4492,7 @@ function driveR(){
           ()=>{
 
             const f=
-              files.find(
+              allFiles.find(
                 x=>sameId(
                   x.id,
                   b.dataset.open
@@ -4461,7 +4515,7 @@ function driveR(){
           async()=>{
 
             const f=
-              files.find(
+              allFiles.find(
                 x=>sameId(
                   x.id,
                   b.dataset.edit
