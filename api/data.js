@@ -1224,7 +1224,8 @@ async function notificationKeys(workspaceId){
 
 async function sendLoginPush(
   workspaceId,
-  memberName
+  memberName,
+  eventId
 ){
 
   const keys=
@@ -1254,7 +1255,8 @@ async function sendLoginPush(
   const payload=JSON.stringify({
     title:'TOMA SHARE',
     body:`${memberName}さんがログインしました`,
-    url:'/'
+    url:'/',
+    eventId
   });
 
   const results=
@@ -1922,7 +1924,8 @@ async(req,res)=>{
         const sent=
           await sendLoginPush(
             ws.id,
-            by
+            by,
+            event.rows[0].id
           );
 
         return send(
