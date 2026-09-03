@@ -1,6 +1,7 @@
 const { Pool } = require('pg');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
+const webpush = require('web-push');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -1112,6 +1113,197 @@ async function streamFile(
 }
 
 
+
+/* ==============================
+   ログイン通知
+============================== */
+
+async function ensureNotificationTables(){
+
+  await pool.query(
+    `
+    create table if not exists workspace_notification_keys
+    (
+      workspace_id uuid primary key,
+      public_key text not null,
+      private_key text not null,
+      created_at timestamptz not null default now()
+    )
+    `
+  );
+
+  await pool.query(
+    `
+    create table if not exists workspace_push_subscriptions
+    (
+      endpoint text primary key,
+      workspace_id uuid not null,
+      member_name text not null,
+      subscription jsonb not null,
+      updated_at timestamptz not null default now()
+    )
+    `
+  );
+
+  await pool.query(
+    `
+    create index if not exists workspace_push_subscriptions_workspace_idx
+    on workspace_push_subscriptions(workspace_id)
+    `
+  );
+
+  await pool.query(
+    `
+    create table if not exists workspace_login_events
+    (
+      id bigserial primary key,
+      workspace_id uuid not null,
+      member_name text not null,
+      created_at timestamptz not null default now()
+    )
+    `
+  );
+
+  await pool.query(
+    `
+    create index if not exists workspace_login_events_workspace_idx
+    on workspace_login_events(workspace_id,created_at desc)
+    `
+  );
+}
+
+
+async function notificationKeys(workspaceId){
+
+  await ensureNotificationTables();
+
+  let q=await pool.query(
+    `
+    select public_key,private_key
+    from workspace_notification_keys
+    where workspace_id=$1
+    limit 1
+    `,
+    [workspaceId]
+  );
+
+  if(q.rows[0]){
+    return q.rows[0];
+  }
+
+  const keys=
+    webpush.generateVAPIDKeys();
+
+  await pool.query(
+    `
+    insert into workspace_notification_keys
+    (workspace_id,public_key,private_key)
+    values($1,$2,$3)
+    on conflict(workspace_id) do nothing
+    `,
+    [
+      workspaceId,
+      keys.publicKey,
+      keys.privateKey
+    ]
+  );
+
+  q=await pool.query(
+    `
+    select public_key,private_key
+    from workspace_notification_keys
+    where workspace_id=$1
+    limit 1
+    `,
+    [workspaceId]
+  );
+
+  return q.rows[0];
+}
+
+
+async function sendLoginPush(
+  workspaceId,
+  memberName
+){
+
+  const keys=
+    await notificationKeys(
+      workspaceId
+    );
+
+  webpush.setVapidDetails(
+    'https://toma-share-cloud-live.vercel.app',
+    keys.public_key,
+    keys.private_key
+  );
+
+  const q=await pool.query(
+    `
+    select endpoint,subscription
+    from workspace_push_subscriptions
+    where workspace_id=$1
+      and member_name<>$2
+    `,
+    [
+      workspaceId,
+      memberName
+    ]
+  );
+
+  const payload=JSON.stringify({
+    title:'TOMA SHARE',
+    body:`${memberName}さんがログインしました`,
+    url:'/'
+  });
+
+  const results=
+    await Promise.allSettled(
+      q.rows.map(
+        row=>
+          webpush.sendNotification(
+            row.subscription,
+            payload
+          )
+      )
+    );
+
+  const expired=[];
+
+  results.forEach(
+    (result,index)=>{
+
+      if(
+        result.status==='rejected' &&
+        (
+          result.reason?.statusCode===404 ||
+          result.reason?.statusCode===410
+        )
+      ){
+        expired.push(
+          q.rows[index].endpoint
+        );
+      }
+    }
+  );
+
+  if(expired.length){
+
+    await pool.query(
+      `
+      delete from workspace_push_subscriptions
+      where endpoint=any($1::text[])
+      `,
+      [expired]
+    );
+  }
+
+  return results.filter(
+    result=>result.status==='fulfilled'
+  ).length;
+}
+
+
 /* ==============================
    API
 ============================== */
@@ -1256,6 +1448,8 @@ async(req,res)=>{
         );
       }
 
+      await ensureNotificationTables();
+
 
       const [
 
@@ -1269,7 +1463,9 @@ async(req,res)=>{
 
         permits,
 
-        online
+        online,
+
+        loginEvents
 
       ] =
       await Promise.all([
@@ -1374,6 +1570,19 @@ async(req,res)=>{
 
         getOnlineMembers(
           ws.id
+        ),
+
+        pool.query(
+          `
+          select id,member_name,created_at
+          from workspace_login_events
+          where workspace_id=$1
+            and created_at > now() - interval '10 minutes'
+          order by id
+          `,
+          [
+            ws.id
+          ]
         )
       ]);
 
@@ -1514,7 +1723,11 @@ async(req,res)=>{
 
 
           onlineMembers:
-            online
+            online,
+
+
+          loginEvents:
+            loginEvents.rows
         }
       );
     }
@@ -1568,6 +1781,160 @@ async(req,res)=>{
       case 'presence':
 
         break;
+
+
+      /* ==============================
+         プッシュ通知設定
+      ============================== */
+
+      case 'push_config':{
+
+        const keys=
+          await notificationKeys(
+            ws.id
+          );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true,
+            publicKey:
+              keys.public_key
+          }
+        );
+      }
+
+
+      case 'push_subscribe':{
+
+        const subscription=
+          b.subscription;
+
+        const endpoint=
+          String(
+            subscription?.endpoint ||
+            ''
+          );
+
+        if(
+          !endpoint ||
+          !subscription?.keys?.p256dh ||
+          !subscription?.keys?.auth
+        ){
+
+          return send(
+            res,
+            400,
+            {
+              error:
+                '通知登録情報が正しくありません'
+            }
+          );
+        }
+
+        await ensureNotificationTables();
+
+        await pool.query(
+          `
+          insert into workspace_push_subscriptions
+          (
+            endpoint,
+            workspace_id,
+            member_name,
+            subscription,
+            updated_at
+          )
+          values($1,$2,$3,$4,now())
+          on conflict(endpoint)
+          do update set
+            workspace_id=excluded.workspace_id,
+            member_name=excluded.member_name,
+            subscription=excluded.subscription,
+            updated_at=now()
+          `,
+          [
+            endpoint,
+            ws.id,
+            by,
+            JSON.stringify(
+              subscription
+            )
+          ]
+        );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true
+          }
+        );
+      }
+
+
+      case 'login_notify':{
+
+        await ensureNotificationTables();
+
+        const recent=
+          await pool.query(
+            `
+            select id
+            from workspace_login_events
+            where workspace_id=$1
+              and member_name=$2
+              and created_at > now() - interval '20 seconds'
+            limit 1
+            `,
+            [
+              ws.id,
+              by
+            ]
+          );
+
+        if(recent.rows[0]){
+
+          return send(
+            res,
+            200,
+            {
+              ok:true,
+              duplicate:true
+            }
+          );
+        }
+
+        const event=
+          await pool.query(
+            `
+            insert into workspace_login_events
+            (workspace_id,member_name)
+            values($1,$2)
+            returning id,member_name,created_at
+            `,
+            [
+              ws.id,
+              by
+            ]
+          );
+
+        const sent=
+          await sendLoginPush(
+            ws.id,
+            by
+          );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true,
+            event:event.rows[0],
+            sent
+          }
+        );
+      }
 
 
       /* ==============================
