@@ -1705,6 +1705,39 @@ function driveUrl(f){
 }
 
 
+function googleViewUrl(f){
+
+  const editUrl=
+    googleEditUrl(f);
+
+  if(!editUrl)return null;
+
+  try{
+    const url=new URL(editUrl);
+
+    if(
+      url.hostname==='docs.google.com' &&
+      /\/spreadsheets\/d\//.test(url.pathname)
+    ){
+      url.pathname=
+        url.pathname.replace(
+          /\/(edit|view|preview).*$/,
+          '/preview'
+        );
+
+      url.search='';
+      url.hash='';
+
+      return url.toString();
+    }
+
+    return editUrl;
+  }catch(e){
+    return editUrl;
+  }
+}
+
+
 function googleEditUrl(f){
 
   if(!f)return null;
@@ -1817,6 +1850,15 @@ async function openFile(f){
     if(url){
 
       if(isSpreadsheet(f)){
+        const viewUrl=
+          googleViewUrl(f);
+
+        if(viewUrl){
+          openExternal(viewUrl);
+          say('閲覧画面を開きました');
+          return;
+        }
+
         await editFile(f);
         return;
       }
@@ -3505,9 +3547,7 @@ function fileRow(file){
     !!googleEditUrl(file);
 
   const openLabel=
-    isPreviewable(file)
-      ?'表示'
-      :'保存して開く';
+    '開く';
 
   return `
 
