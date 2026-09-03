@@ -1805,22 +1805,58 @@ function showFilePreview(f,blob){
     String(f.mime_type||blob.type||'')
       .toLowerCase();
 
+  const isPdf=
+    mime==='application/pdf' ||
+    String(f.name||'')
+      .toLowerCase()
+      .endsWith('.pdf');
+
+  const previewUrl=
+    isPdf
+      ?blobUrl+'#page=1&view=Fit&zoom=page-fit'
+      :blobUrl;
+
   const content=
     mime.startsWith('image/')
-      ?`<img src="${blobUrl}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto">`
-      :`<iframe src="${blobUrl}" title="${esc(f.name||'ファイル')}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
+      ?`<img src="${previewUrl}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto">`
+      :`<iframe data-preview-frame src="${previewUrl}" title="${esc(f.name||'ファイル')}" style="display:block;width:100%;height:100%;border:0;background:#fff"></iframe>`;
 
   viewer.innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(12px,env(safe-area-inset-top))">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(10px,env(safe-area-inset-top))">
       <button type="button" data-close-preview class="btn light">閉じる</button>
-      <strong style="min-width:0;overflow-wrap:anywhere">${esc(f.name||'ファイル')}</strong>
+      <strong style="flex:1;min-width:0;overflow-wrap:anywhere;font-size:14px">${esc(f.name||'ファイル')}</strong>
+      ${isPdf?'<button type="button" data-print-preview class="btn">印刷</button>':''}
     </div>
-    <div style="flex:1;min-height:0;display:flex">${content}</div>
+    <div style="flex:1;min-height:0;display:flex;overflow:hidden">${content}</div>
   `;
 
   viewer
     .querySelector('[data-close-preview]')
     .onclick=closeFilePreview;
+
+  const printButton=
+    viewer.querySelector(
+      '[data-print-preview]'
+    );
+
+  if(printButton){
+    printButton.onclick=()=>{
+      const frame=
+        viewer.querySelector(
+          '[data-preview-frame]'
+        );
+
+      try{
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      }catch(e){
+        openExternal(blobUrl);
+        alert(
+          '開いたPDFの共有ボタンから「プリント」を選んでください。'
+        );
+      }
+    };
+  }
 
   document.body.appendChild(viewer);
 }
