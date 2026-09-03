@@ -1,0 +1,11 @@
+{
+  "name": "TOMA SHARE",
+  "short_name": "TOMA SHARE",
+  "description": "苫小牧の情報共有ワークスペース",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f8fb",
+  "theme_color": "#0b76d1",
+  "lang": "ja"
+}
