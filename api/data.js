@@ -1590,17 +1590,32 @@ async(req,res)=>{
 
         pool.query(
           `
-          select *
+          select child.*
 
-          from shared_items
+          from shared_items child
 
-          where workspace_id=$1
+          where child.workspace_id=$1
 
-            and trashed=false
+            and child.trashed=false
+
+            and
+            (
+              child.item_type<>'file'
+              or child.parent_id is null
+              or exists
+              (
+                select 1
+                from shared_items parent
+                where parent.id=child.parent_id
+                  and parent.workspace_id=child.workspace_id
+                  and parent.item_type='folder'
+                  and parent.trashed=false
+              )
+            )
 
           order by
-            item_type,
-            name
+            child.item_type,
+            child.name
           `,
           [
             ws.id
@@ -2542,9 +2557,13 @@ async(req,res)=>{
 
             updated_at=now()
 
-          where id=$2
+          where workspace_id=$3
 
-            and workspace_id=$3
+            and
+            (
+              id=$2
+              or parent_id=$2
+            )
           `,
           [
 
