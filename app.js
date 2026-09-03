@@ -1839,8 +1839,10 @@ function savePreviewFile(
 }
 
 
-function printRenderedPdf(
-  viewer
+async function printRenderedPdf(
+  viewer,
+  title,
+  blob
 ){
   const canvases=[
     ...viewer.querySelectorAll(
@@ -1855,99 +1857,67 @@ function printRenderedPdf(
     return;
   }
 
-  let printStyle=
-    document.getElementById(
-      'tomaPdfPrintStyle'
-    );
-
-  if(!printStyle){
-    printStyle=
-      document.createElement('style');
-
-    printStyle.id=
-      'tomaPdfPrintStyle';
-
-    printStyle.textContent=`
-      @media print{
-        body.toma-pdf-printing{
-          background:#fff!important;
-        }
-        body.toma-pdf-printing > *:not(#tomaFilePreview){
-          display:none!important;
-        }
-        body.toma-pdf-printing #tomaFilePreview{
-          position:static!important;
-          inset:auto!important;
-          display:block!important;
-          background:#fff!important;
-          overflow:visible!important;
-        }
-        body.toma-pdf-printing #tomaFilePreview [data-pdf-toolbar]{
-          display:none!important;
-        }
-        body.toma-pdf-printing #tomaFilePreview > div:last-child{
-          display:block!important;
-          overflow:visible!important;
-        }
-        body.toma-pdf-printing #tomaFilePreview [data-pdf-pages]{
-          display:block!important;
-          overflow:visible!important;
-          padding:0!important;
-        }
-        body.toma-pdf-printing #tomaFilePreview [data-pdf-page]{
-          display:block!important;
-          width:100%!important;
-          height:auto!important;
-          max-width:none!important;
-          margin:0!important;
-          box-shadow:none!important;
-          break-after:page;
-          page-break-after:always;
-        }
-        body.toma-pdf-printing #tomaFilePreview [data-pdf-page]:last-child{
-          break-after:auto;
-          page-break-after:auto;
-        }
-        @page{
-          size:auto;
-          margin:0;
-        }
-      }
-    `;
-
-    document.head.appendChild(
-      printStyle
-    );
-  }
-
-  const cleanup=()=>{
-    document.body.classList.remove(
-      'toma-pdf-printing'
-    );
-  };
-
-  window.addEventListener(
-    'afterprint',
-    cleanup,
-    {once:true}
-  );
-
-  document.body.classList.add(
-    'toma-pdf-printing'
-  );
+  const fileName=
+    String(title||'document.pdf')
+      .toLowerCase()
+      .endsWith('.pdf')
+        ?String(title||'document.pdf')
+        :String(title||'document')+'.pdf';
 
   try{
-    window.print();
+    const file=
+      new File(
+        [blob],
+        fileName,
+        {type:'application/pdf'}
+      );
+
+    if(
+      navigator.share &&
+      (
+        !navigator.canShare ||
+        navigator.canShare({
+          files:[file]
+        })
+      )
+    ){
+      say(
+        '共有画面で「プリント」を選んでください'
+      );
+
+      await navigator.share({
+        files:[file],
+        title:fileName
+      });
+
+      return;
+    }
   }catch(e){
-    cleanup();
-    alert(
-      '印刷画面を開けませんでした。Safariで開き直してお試しください。'
+    if(e?.name==='AbortError'){
+      return;
+    }
+
+    console.error(
+      'PDF share failed:',
+      e
     );
   }
 
-  setTimeout(
-    cleanup,
-    60000
+  const blobUrl=
+    viewer.dataset.blobUrl;
+
+  if(blobUrl){
+    openExternal(blobUrl);
+
+    alert(
+      '開いたPDFの共有ボタンから「プリント」を選んでください。'
+    );
+
+    return;
+  }
+
+  alert(
+    '印刷画面を開けませんでした。'
   );
 }
 
@@ -2138,7 +2108,8 @@ function showFilePreview(f,blob){
       .querySelector('[data-print-preview]')
       .onclick=()=>printRenderedPdf(
         viewer,
-        f.name
+        f.name,
+        blob
       );
   }
 
