@@ -8,6 +8,8 @@ let N='';
 let cur='home';
 let presenceTimer=null;
 let driveSyncing=false;
+let lastLoginEventId=0;
+let loginAnnounced=false;
 
 let state={
   schedules:[],
@@ -16,7 +18,8 @@ let state={
   minutes:[],
   reviews:[],
   permits:[],
-  onlineMembers:[]
+  onlineMembers:[],
+  loginEvents:[]
 };
 
 let selectedUploadFile=null;
@@ -272,8 +275,15 @@ async function load(){
       d.permits||[],
 
     onlineMembers:
-      d.onlineMembers||[]
+      d.onlineMembers||[],
+
+    loginEvents:
+      d.loginEvents||[]
   };
+
+  if(loginAnnounced){
+    showLoginEvents();
+  }
 }
 
 
@@ -308,6 +318,312 @@ async function syncDriveChanges(showMessage=false){
 /* =========================================================
    ログイン
 ========================================================= */
+
+
+function supportsPushNotifications(){
+
+  return (
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  );
+}
+
+
+function isStandaloneApp(){
+
+  return (
+    window.matchMedia?.(
+      '(display-mode: standalone)'
+    ).matches ||
+    window.navigator.standalone===true
+  );
+}
+
+
+function urlBase64ToUint8Array(value){
+
+  const padding=
+    '='.repeat(
+      (
+        4-value.length%4
+      )%4
+    );
+
+  const base64=
+    (
+      value+padding
+    )
+    .replace(/-/g,'+')
+    .replace(/_/g,'/');
+
+  const raw=
+    atob(base64);
+
+  return Uint8Array.from(
+    raw,
+    char=>char.charCodeAt(0)
+  );
+}
+
+
+async function registerNotificationWorker(){
+
+  if(!supportsPushNotifications()){
+    return null;
+  }
+
+  return navigator.serviceWorker
+    .register(
+      '/sw.js'
+    );
+}
+
+
+async function savePushSubscription(){
+
+  const registration=
+    await registerNotificationWorker();
+
+  if(
+    !registration ||
+    Notification.permission!=='granted'
+  ){
+    return false;
+  }
+
+  const config=
+    await api(
+      'POST',
+      {
+        action:'push_config',
+        by:N
+      }
+    );
+
+  let subscription=
+    await registration.pushManager
+      .getSubscription();
+
+  if(!subscription){
+
+    subscription=
+      await registration.pushManager
+      .subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:
+          urlBase64ToUint8Array(
+            config.publicKey
+          )
+      });
+  }
+
+  await api(
+    'POST',
+    {
+      action:'push_subscribe',
+      subscription:
+        subscription.toJSON(),
+      by:N
+    }
+  );
+
+  return true;
+}
+
+
+async function preparePushNotifications(){
+
+  if(
+    !supportsPushNotifications() ||
+    Notification.permission!=='granted'
+  ){
+    return false;
+  }
+
+  try{
+    return await savePushSubscription();
+  }catch(e){
+    console.error(
+      'Push registration failed:',
+      e
+    );
+    return false;
+  }
+}
+
+
+async function enablePushNotifications(){
+
+  if(!supportsPushNotifications()){
+
+    alert(
+      isIOS()
+        ?'iPhoneのSafariで共有ボタンから「ホーム画面に追加」し、追加したTOMA SHAREから通知をオンにしてください。'
+        :'この端末はプッシュ通知に対応していません。'
+    );
+
+    return;
+  }
+
+  if(
+    isIOS() &&
+    !isStandaloneApp()
+  ){
+
+    alert(
+      'iPhoneでは先にSafariの共有ボタンから「ホーム画面に追加」し、追加したTOMA SHAREを開いてください。'
+    );
+
+    return;
+  }
+
+  const permission=
+    await Notification
+      .requestPermission();
+
+  if(permission!=='granted'){
+
+    alert(
+      '通知が許可されませんでした。iPhoneの「設定」→「通知」→「TOMA SHARE」から許可できます。'
+    );
+
+    homeR();
+    return;
+  }
+
+  try{
+
+    await savePushSubscription();
+
+    say(
+      'ログイン通知をオンにしました'
+    );
+
+    homeR();
+
+  }catch(e){
+
+    console.error(e);
+
+    alert(
+      '通知を登録できません：'+
+      e.message
+    );
+  }
+}
+
+
+function showLoginEvents(){
+
+  const events=
+    state.loginEvents||[];
+
+  if(!events.length){
+    return;
+  }
+
+  const latestId=
+    Math.max(
+      ...events.map(
+        event=>Number(event.id)||0
+      )
+    );
+
+  const newest=
+    events
+      .filter(
+        event=>
+          Number(event.id)>lastLoginEventId &&
+          event.member_name!==N
+      )
+      .at(-1);
+
+  lastLoginEventId=
+    Math.max(
+      lastLoginEventId,
+      latestId
+    );
+
+  if(newest){
+
+    say(
+      `${newest.member_name}さんがログインしました`
+    );
+  }
+}
+
+
+async function announceLogin(){
+
+  try{
+
+    await api(
+      'POST',
+      {
+        action:'login_notify',
+        by:N
+      }
+    );
+
+  }catch(e){
+
+    console.error(
+      'Login notification failed:',
+      e
+    );
+  }
+}
+
+
+function notificationPanel(){
+
+  let text=
+    'ログイン通知を受け取れます';
+
+  let button=
+    '通知をオンにする';
+
+  if(!supportsPushNotifications()){
+
+    text=isIOS()
+      ?'ホーム画面に追加するとプッシュ通知を利用できます'
+      :'この端末はプッシュ通知に対応していません';
+
+    button='設定方法を見る';
+
+  }else if(
+    Notification.permission==='granted'
+  ){
+
+    text='ログインのプッシュ通知：オン';
+    button='通知設定済み';
+
+  }else if(
+    Notification.permission==='denied'
+  ){
+
+    text='通知がオフです。端末の設定から許可してください';
+    button='設定方法を見る';
+  }
+
+  return `
+    <div class="panel">
+      <div class="sectionTitle">
+        <div>
+          <div class="title">🔔 ログイン通知</div>
+          <div class="meta">${text}</div>
+        </div>
+        <button
+          class="btn light"
+          id="enableLoginNotifications"
+          type="button"
+        >${button}</button>
+      </div>
+    </div>
+  `;
+}
+
 
 async function doLogin(){
 
@@ -370,6 +686,16 @@ async function doLogin(){
 
     await load();
 
+    lastLoginEventId=
+      Math.max(
+        0,
+        ...(
+          state.loginEvents||[]
+        ).map(
+          event=>Number(event.id)||0
+        )
+      );
+
     localStorage.setItem(
       'tomaCode',
       C
@@ -395,6 +721,12 @@ async function doLogin(){
     go('home');
 
     startPresence();
+
+    loginAnnounced=true;
+
+    await preparePushNotifications();
+
+    await announceLogin();
 
     say(
       'ログインしました'
@@ -2296,6 +2628,8 @@ function homeR(){
 
     </div>
 
+    ${notificationPanel()}
+
     <div class="grid">
 
       <button
@@ -2360,6 +2694,15 @@ function homeR(){
 
     </div>
   `;
+
+  const notifyButton=
+    $('enableLoginNotifications');
+
+  if(notifyButton){
+
+    notifyButton.onclick=
+      enablePushNotifications;
+  }
 
   document
     .querySelectorAll(
@@ -3418,6 +3761,47 @@ function init(){
           ()=>go(
             n.dataset.p
           );
+      }
+    );
+
+  registerNotificationWorker()
+    ?.catch(
+      e=>console.error(
+        'Service worker registration failed:',
+        e
+      )
+    );
+
+  navigator.serviceWorker
+    ?.addEventListener(
+      'message',
+      event=>{
+
+        if(
+          event.data?.type!==
+          'login-notification'
+        )return;
+
+        const eventId=
+          Number(
+            event.data.eventId
+          )||0;
+
+        lastLoginEventId=
+          Math.max(
+            lastLoginEventId,
+            eventId
+          );
+
+        if(
+          event.data.memberName &&
+          event.data.memberName!==N
+        ){
+
+          say(
+            `${event.data.memberName}さんがログインしました`
+          );
+        }
       }
     );
 
