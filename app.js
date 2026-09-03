@@ -1780,6 +1780,244 @@ function closeFilePreview(){
 }
 
 
+let pdfJsPromise=null;
+
+
+function loadPdfJs(){
+  if(window.pdfjsLib){
+    return Promise.resolve(
+      window.pdfjsLib
+    );
+  }
+
+  if(pdfJsPromise){
+    return pdfJsPromise;
+  }
+
+  pdfJsPromise=
+    new Promise((resolve,reject)=>{
+      const script=
+        document.createElement('script');
+
+      script.src=
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+
+      script.onload=()=>{
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc=
+          'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+        resolve(window.pdfjsLib);
+      };
+
+      script.onerror=()=>reject(
+        new Error(
+          'PDF表示機能を読み込めませんでした'
+        )
+      );
+
+      document.head.appendChild(script);
+    });
+
+  return pdfJsPromise;
+}
+
+
+function savePreviewFile(
+  blobUrl,
+  name
+){
+  const link=
+    document.createElement('a');
+
+  link.href=blobUrl;
+  link.download=name||'document.pdf';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  say('PDFを端末に保存します');
+}
+
+
+function printRenderedPdf(
+  viewer,
+  title
+){
+  const canvases=[
+    ...viewer.querySelectorAll(
+      '[data-pdf-page]'
+    )
+  ];
+
+  if(!canvases.length){
+    alert(
+      '全ページの読み込み完了後に印刷してください'
+    );
+    return;
+  }
+
+  const printWindow=
+    window.open('','_blank');
+
+  if(!printWindow){
+    alert(
+      '印刷画面を開けません。ポップアップを許可してください。'
+    );
+    return;
+  }
+
+  const pages=canvases.map(
+    (canvas,index)=>`
+      <div class="page">
+        <img src="${canvas.toDataURL('image/png')}" alt="${index+1}ページ">
+      </div>
+    `
+  ).join('');
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!doctype html>
+    <html lang="ja">
+      <head>
+        <meta charset="utf-8">
+        <title>${esc(title||'PDF')}</title>
+        <style>
+          @page{size:auto;margin:0}
+          html,body{margin:0;padding:0;background:#fff}
+          .page{width:100%;break-after:page;page-break-after:always;text-align:center}
+          .page:last-child{break-after:auto;page-break-after:auto}
+          img{display:block;width:100%;height:auto;margin:0 auto}
+        </style>
+      </head>
+      <body>${pages}</body>
+    </html>
+  `);
+  printWindow.document.close();
+
+  setTimeout(()=>{
+    printWindow.focus();
+    printWindow.print();
+  },600);
+}
+
+
+async function renderPdfPages(
+  viewer,
+  blob
+){
+  const container=
+    viewer.querySelector(
+      '[data-pdf-pages]'
+    );
+
+  const status=
+    viewer.querySelector(
+      '[data-pdf-status]'
+    );
+
+  try{
+    const pdfjs=
+      await loadPdfJs();
+
+    const pdf=
+      await pdfjs.getDocument({
+        data:await blob.arrayBuffer()
+      }).promise;
+
+    status.textContent=
+      `全${pdf.numPages}ページ`;
+
+    const availableWidth=
+      Math.max(
+        260,
+        container.clientWidth-24
+      );
+
+    for(
+      let pageNumber=1;
+      pageNumber<=pdf.numPages;
+      pageNumber++
+    ){
+      const page=
+        await pdf.getPage(pageNumber);
+
+      const base=
+        page.getViewport({scale:1});
+
+      const cssScale=
+        Math.min(
+          1,
+          availableWidth/base.width
+        );
+
+      const pixelRatio=
+        Math.min(
+          2,
+          window.devicePixelRatio||1
+        );
+
+      const renderViewport=
+        page.getViewport({
+          scale:cssScale*pixelRatio
+        });
+
+      const canvas=
+        document.createElement('canvas');
+
+      canvas.dataset.pdfPage=
+        String(pageNumber);
+
+      canvas.width=
+        Math.floor(renderViewport.width);
+
+      canvas.height=
+        Math.floor(renderViewport.height);
+
+      canvas.style.width=
+        Math.floor(
+          base.width*cssScale
+        )+'px';
+
+      canvas.style.height=
+        Math.floor(
+          base.height*cssScale
+        )+'px';
+
+      canvas.style.maxWidth='100%';
+      canvas.style.background='#fff';
+      canvas.style.boxShadow=
+        '0 2px 10px rgba(0,0,0,.16)';
+
+      container.appendChild(canvas);
+
+      await page.render({
+        canvasContext:
+          canvas.getContext('2d'),
+        viewport:renderViewport
+      }).promise;
+    }
+
+    viewer
+      .querySelector(
+        '[data-print-preview]'
+      )
+      .disabled=false;
+
+  }catch(e){
+    console.error(
+      'PDF preview failed:',
+      e
+    );
+
+    status.textContent=
+      'PDFを表示できませんでした';
+
+    container.innerHTML=
+      '<div class="empty">表示できません。「保存」から原本PDFを開いてください。</div>';
+  }
+}
+
+
 function showFilePreview(f,blob){
 
   closeFilePreview();
@@ -1796,7 +2034,7 @@ function showFilePreview(f,blob){
     position:fixed;
     inset:0;
     z-index:10000;
-    background:#f4f8fb;
+    background:#e8edf1;
     display:flex;
     flex-direction:column;
   `;
@@ -1811,21 +2049,25 @@ function showFilePreview(f,blob){
       .toLowerCase()
       .endsWith('.pdf');
 
-  const previewUrl=
-    isPdf
-      ?blobUrl+'#page=1&view=Fit&zoom=page-fit'
-      :blobUrl;
-
-  const content=
-    mime.startsWith('image/')
-      ?`<img src="${previewUrl}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto">`
-      :`<iframe data-preview-frame src="${previewUrl}" title="${esc(f.name||'ファイル')}" style="display:block;width:100%;height:100%;border:0;background:#fff"></iframe>`;
+  const content=isPdf
+    ?`
+      <div data-pdf-pages style="width:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px;overflow:auto;-webkit-overflow-scrolling:touch"></div>
+    `
+    :mime.startsWith('image/')
+      ?`<img src="${blobUrl}" alt="" style="max-width:100%;max-height:100%;object-fit:contain;margin:auto">`
+      :`<iframe src="${blobUrl}" title="${esc(f.name||'ファイル')}" style="display:block;width:100%;height:100%;border:0;background:#fff"></iframe>`;
 
   viewer.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(10px,env(safe-area-inset-top))">
+    <div style="display:flex;align-items:center;gap:7px;padding:10px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(10px,env(safe-area-inset-top))">
       <button type="button" data-close-preview class="btn light">閉じる</button>
-      <strong style="flex:1;min-width:0;overflow-wrap:anywhere;font-size:14px">${esc(f.name||'ファイル')}</strong>
-      ${isPdf?'<button type="button" data-print-preview class="btn">印刷</button>':''}
+      <div style="flex:1;min-width:0">
+        <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${esc(f.name||'ファイル')}</strong>
+        ${isPdf?'<span data-pdf-status class="meta">全ページを読み込み中…</span>':''}
+      </div>
+      ${isPdf?`
+        <button type="button" data-save-preview class="btn light">保存</button>
+        <button type="button" data-print-preview class="btn" disabled>印刷</button>
+      `:''}
     </div>
     <div style="flex:1;min-height:0;display:flex;overflow:hidden">${content}</div>
   `;
@@ -1834,33 +2076,31 @@ function showFilePreview(f,blob){
     .querySelector('[data-close-preview]')
     .onclick=closeFilePreview;
 
-  const printButton=
-    viewer.querySelector(
-      '[data-print-preview]'
-    );
+  if(isPdf){
+    viewer
+      .querySelector('[data-save-preview]')
+      .onclick=()=>savePreviewFile(
+        blobUrl,
+        f.name
+      );
 
-  if(printButton){
-    printButton.onclick=()=>{
-      const frame=
-        viewer.querySelector(
-          '[data-preview-frame]'
-        );
-
-      try{
-        frame.contentWindow.focus();
-        frame.contentWindow.print();
-      }catch(e){
-        openExternal(blobUrl);
-        alert(
-          '開いたPDFの共有ボタンから「プリント」を選んでください。'
-        );
-      }
-    };
+    viewer
+      .querySelector('[data-print-preview]')
+      .onclick=()=>printRenderedPdf(
+        viewer,
+        f.name
+      );
   }
 
   document.body.appendChild(viewer);
-}
 
+  if(isPdf){
+    renderPdfPages(
+      viewer,
+      blob
+    );
+  }
+}
 
 async function openFile(f){
 
