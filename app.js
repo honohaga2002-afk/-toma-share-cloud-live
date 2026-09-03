@@ -1840,8 +1840,7 @@ function savePreviewFile(
 
 
 function printRenderedPdf(
-  viewer,
-  title
+  viewer
 ){
   const canvases=[
     ...viewer.querySelectorAll(
@@ -1856,50 +1855,101 @@ function printRenderedPdf(
     return;
   }
 
-  const printWindow=
-    window.open('','_blank');
-
-  if(!printWindow){
-    alert(
-      '印刷画面を開けません。ポップアップを許可してください。'
+  let printStyle=
+    document.getElementById(
+      'tomaPdfPrintStyle'
     );
-    return;
+
+  if(!printStyle){
+    printStyle=
+      document.createElement('style');
+
+    printStyle.id=
+      'tomaPdfPrintStyle';
+
+    printStyle.textContent=`
+      @media print{
+        body.toma-pdf-printing{
+          background:#fff!important;
+        }
+        body.toma-pdf-printing > *:not(#tomaFilePreview){
+          display:none!important;
+        }
+        body.toma-pdf-printing #tomaFilePreview{
+          position:static!important;
+          inset:auto!important;
+          display:block!important;
+          background:#fff!important;
+          overflow:visible!important;
+        }
+        body.toma-pdf-printing #tomaFilePreview [data-pdf-toolbar]{
+          display:none!important;
+        }
+        body.toma-pdf-printing #tomaFilePreview > div:last-child{
+          display:block!important;
+          overflow:visible!important;
+        }
+        body.toma-pdf-printing #tomaFilePreview [data-pdf-pages]{
+          display:block!important;
+          overflow:visible!important;
+          padding:0!important;
+        }
+        body.toma-pdf-printing #tomaFilePreview [data-pdf-page]{
+          display:block!important;
+          width:100%!important;
+          height:auto!important;
+          max-width:none!important;
+          margin:0!important;
+          box-shadow:none!important;
+          break-after:page;
+          page-break-after:always;
+        }
+        body.toma-pdf-printing #tomaFilePreview [data-pdf-page]:last-child{
+          break-after:auto;
+          page-break-after:auto;
+        }
+        @page{
+          size:auto;
+          margin:0;
+        }
+      }
+    `;
+
+    document.head.appendChild(
+      printStyle
+    );
   }
 
-  const pages=canvases.map(
-    (canvas,index)=>`
-      <div class="page">
-        <img src="${canvas.toDataURL('image/png')}" alt="${index+1}ページ">
-      </div>
-    `
-  ).join('');
+  const cleanup=()=>{
+    document.body.classList.remove(
+      'toma-pdf-printing'
+    );
+  };
 
-  printWindow.document.open();
-  printWindow.document.write(`
-    <!doctype html>
-    <html lang="ja">
-      <head>
-        <meta charset="utf-8">
-        <title>${esc(title||'PDF')}</title>
-        <style>
-          @page{size:auto;margin:0}
-          html,body{margin:0;padding:0;background:#fff}
-          .page{width:100%;break-after:page;page-break-after:always;text-align:center}
-          .page:last-child{break-after:auto;page-break-after:auto}
-          img{display:block;width:100%;height:auto;margin:0 auto}
-        </style>
-      </head>
-      <body>${pages}</body>
-    </html>
-  `);
-  printWindow.document.close();
+  window.addEventListener(
+    'afterprint',
+    cleanup,
+    {once:true}
+  );
 
-  setTimeout(()=>{
-    printWindow.focus();
-    printWindow.print();
-  },600);
+  document.body.classList.add(
+    'toma-pdf-printing'
+  );
+
+  try{
+    window.print();
+  }catch(e){
+    cleanup();
+    alert(
+      '印刷画面を開けませんでした。Safariで開き直してお試しください。'
+    );
+  }
+
+  setTimeout(
+    cleanup,
+    60000
+  );
 }
-
 
 async function renderPdfPages(
   viewer,
@@ -2058,7 +2108,7 @@ function showFilePreview(f,blob){
       :`<iframe src="${blobUrl}" title="${esc(f.name||'ファイル')}" style="display:block;width:100%;height:100%;border:0;background:#fff"></iframe>`;
 
   viewer.innerHTML=`
-    <div style="display:flex;align-items:center;gap:7px;padding:10px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(10px,env(safe-area-inset-top))">
+    <div data-pdf-toolbar style="display:flex;align-items:center;gap:7px;padding:10px;background:#fff;border-bottom:1px solid #d8e2e8;padding-top:max(10px,env(safe-area-inset-top))">
       <button type="button" data-close-preview class="btn light">閉じる</button>
       <div style="flex:1;min-width:0">
         <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${esc(f.name||'ファイル')}</strong>
