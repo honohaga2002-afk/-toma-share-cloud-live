@@ -783,6 +783,75 @@ async function doLogin(){
    オンライン
 ========================================================= */
 
+function hasUnsavedFormInput(){
+
+  const active=
+    document.activeElement;
+
+  if(
+    active &&
+    active.matches?.(
+      'input,textarea,select,[contenteditable="true"]'
+    )
+  ){
+    return true;
+  }
+
+  if(
+    selectedUploadFile||
+    selectedMessageImage
+  ){
+    return true;
+  }
+
+  const fieldsByPage={
+    cal:[
+      'sdate',
+      'ttl',
+      'splace',
+      'smemo'
+    ],
+    chat:[
+      'msg'
+    ],
+    tasks:[
+      'taskTitle',
+      'taskDate',
+      'taskAssignee',
+      'taskNotes'
+    ],
+    minute:[
+      'mt',
+      'md',
+      'mb',
+      'ma'
+    ],
+    review:[
+      'rt',
+      'rb'
+    ],
+    permit:[
+      'pt',
+      'po',
+      'pc',
+      'pb'
+    ]
+  };
+
+  return (
+    fieldsByPage[cur]||
+    []
+  )
+  .some(
+    id=>
+      String(
+        $(id)?.value||
+        ''
+      ).trim()!==''
+  );
+}
+
+
 function startPresence(){
 
   if(presenceTimer){
@@ -798,7 +867,9 @@ function startPresence(){
 
         if(
           !C||
-          !N
+          !N||
+          document.visibilityState!=='visible'||
+          hasUnsavedFormInput()
         )return;
 
         try{
