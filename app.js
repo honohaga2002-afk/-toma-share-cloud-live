@@ -12,22 +12,22 @@ let lastLoginEventId=0;
 let loginAnnounced=false;
 let busyCount=0;
 let taskFilter='all';
-let selectedYear=
-  [2026,2027].includes(
-    Number(
-      localStorage.getItem(
-        'tomaSelectedYear'
-      )
+const storedYear=
+  Number(
+    localStorage.getItem(
+      'tomaSelectedYear'
     )
-  )
-    ?Number(
-        localStorage.getItem(
-          'tomaSelectedYear'
-        )
-      )
+  );
+
+let selectedYear=
+  Number.isInteger(storedYear)&&
+  storedYear>=2000&&
+  storedYear<=2100
+    ?storedYear
     :2026;
 
 let state={
+  years:[2026,2027],
   schedules:[],
   messages:[],
   items:[],
@@ -40,6 +40,116 @@ let state={
   trash:[],
   activities:[]
 };
+
+
+function availableYears(){
+  const years=
+    (state.years||[])
+    .map(Number)
+    .filter(
+      year=>
+        Number.isInteger(year)&&
+        year>=2000&&
+        year<=2100
+    );
+
+  return years.length
+    ?[...new Set(years)].sort((a,b)=>a-b)
+    :[2026,2027];
+}
+
+
+function updateYearSelector(){
+  const select=$('workspaceYear');
+
+  if(!select)return;
+
+  const years=availableYears();
+
+  select.innerHTML=
+    years.map(
+      year=>`<option value="${year}" ${year===selectedYear?'selected':''}>${year}年</option>`
+    ).join('');
+}
+
+
+async function addWorkspaceYear(){
+  const input=prompt(
+    '追加する年度を数字で入力してください\n例：2028'
+  );
+
+  if(input===null)return;
+
+  const year=Number(
+    String(input).trim()
+  );
+
+  if(
+    !Number.isInteger(year)||
+    year<2000||
+    year>2100
+  ){
+    alert(
+      '2000から2100までの年度を入力してください'
+    );
+    return;
+  }
+
+  const button=$('addWorkspaceYear');
+
+  if(button){
+    button.disabled=true;
+  }
+
+  try{
+    await api(
+      'POST',
+      {
+        action:'year_add',
+        new_year:year,
+        by:N||'メンバー'
+      }
+    );
+
+    selectedYear=year;
+
+    try{
+      localStorage.setItem(
+        'tomaSelectedYear',
+        String(year)
+      );
+    }catch(e){}
+
+    window.TOMA_SELECTED_YEAR=year;
+
+    await load();
+    go(cur);
+
+    document.dispatchEvent(
+      new CustomEvent(
+        'toma-year-change',
+        {
+          detail:{
+            year
+          }
+        }
+      )
+    );
+
+    say(
+      `${year}年を追加しました`
+    );
+  }catch(e){
+    alert(
+      '年度を追加できません：'+
+      e.message
+    );
+  }finally{
+    if(button){
+      button.disabled=false;
+    }
+  }
+}
 
 
 function yearItems(list){
@@ -58,7 +168,7 @@ function yearItems(list){
 async function changeYear(value){
   const year=Number(value);
 
-  if(![2026,2027].includes(year)){
+  if(!availableYears().includes(year)){
     return;
   }
 
@@ -365,6 +475,10 @@ async function load(){
     await api();
 
   state={
+    years:
+      (d.years||[2026,2027])
+        .map(Number),
+
     schedules:
       yearItems(d.schedules),
 
@@ -399,6 +513,27 @@ async function load(){
       yearItems(d.activities)
   };
 
+  if(
+    !availableYears().includes(
+      selectedYear
+    )
+  ){
+    selectedYear=
+      availableYears()[0]||
+      2026;
+
+    try{
+      localStorage.setItem(
+        'tomaSelectedYear',
+        String(selectedYear)
+      );
+    }catch(e){}
+  }
+
+  window.TOMA_SELECTED_YEAR=
+    selectedYear;
+
+  updateYearSelector();
   checkDueReminders();
 
   if(loginAnnounced){
@@ -5703,8 +5838,7 @@ function init(){
     $('workspaceYear');
 
   if(yearSelect){
-    yearSelect.value=
-      String(selectedYear);
+    updateYearSelector();
 
     yearSelect.onchange=
       ()=>{
@@ -5726,6 +5860,11 @@ function init(){
           }
         );
       };
+  }
+
+  if($('addWorkspaceYear')){
+    $('addWorkspaceYear').onclick=
+      addWorkspaceYear;
   }
 
   C='TOMA-2026';
