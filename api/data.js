@@ -3121,7 +3121,8 @@ async(req,res)=>{
           await pool.query(
             `update shared_items
              set trashed=false,updated_by=$1,updated_at=now()
-             where id=$2 and workspace_id=$3`,
+             where workspace_id=$3
+               and (id=$2 or parent_id=$2)`,
             [by,b.id,ws.id]
           );
         }else if(kind==='schedule'){
