@@ -10,6 +10,8 @@ let presenceTimer=null;
 let driveSyncing=false;
 let lastLoginEventId=0;
 let loginAnnounced=false;
+let busyCount=0;
+let taskFilter='all';
 
 let state={
   schedules:[],
@@ -20,7 +22,9 @@ let state={
   permits:[],
   tasks:[],
   onlineMembers:[],
-  loginEvents:[]
+  loginEvents:[],
+  trash:[],
+  activities:[]
 };
 
 let selectedUploadFile=null;
@@ -159,6 +163,30 @@ function formatBytes(value){
    API
 ========================================================= */
 
+function setBusy(active){
+  busyCount=Math.max(
+    0,
+    busyCount+(active?1:-1)
+  );
+
+  let overlay=$('globalBusy');
+
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='globalBusy';
+    overlay.style.cssText='position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20000;background:#17364d;color:#fff;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.24)';
+    overlay.textContent='保存・更新中…';
+    overlay.className='hidden';
+    document.body.appendChild(overlay);
+  }
+
+  overlay.classList.toggle(
+    'hidden',
+    busyCount===0
+  );
+}
+
+
 async function api(
   method='GET',
   body=null
@@ -192,6 +220,8 @@ async function api(
     options.body=
       JSON.stringify(body);
   }
+
+  setBusy(true);
 
   try{
 
@@ -248,6 +278,8 @@ async function api(
     }
 
     throw e;
+  }finally{
+    setBusy(false);
   }
 }
 
@@ -283,11 +315,107 @@ async function load(){
       d.onlineMembers||[],
 
     loginEvents:
-      d.loginEvents||[]
+      d.loginEvents||[],
+
+    trash:
+      d.trash||[],
+
+    activities:
+      d.activities||[]
   };
+
+  checkDueReminders();
 
   if(loginAnnounced){
     showLoginEvents();
+  }
+}
+
+
+function checkDueReminders(){
+  if(!N)return;
+
+  const now=Date.now();
+  const limit=now+24*60*60*1000;
+
+  const due=[
+    ...(state.tasks||[])
+      .filter(
+        item=>
+          !item.completed&&
+          item.due_at&&
+          new Date(item.due_at).getTime()>now&&
+          new Date(item.due_at).getTime()<=limit
+      )
+      .map(item=>({
+        key:'task-'+item.id+'-'+item.due_at,
+        title:'やることの期限が近づいています',
+        body:item.title
+      })),
+    ...(state.schedules||[])
+      .filter(
+        item=>
+          item.starts_at&&
+          new Date(item.starts_at).getTime()>now&&
+          new Date(item.starts_at).getTime()<=limit
+      )
+      .map(item=>({
+        key:'schedule-'+item.id+'-'+item.starts_at,
+        title:'予定が近づいています',
+        body:item.title
+      }))
+  ];
+
+  if(!due.length)return;
+
+  let sent=[];
+
+  try{
+    sent=JSON.parse(
+      localStorage.getItem(
+        'tomaDueReminderKeys'
+      )||'[]'
+    );
+  }catch(e){}
+
+  const next=due.find(
+    item=>!sent.includes(item.key)
+  );
+
+  if(!next)return;
+
+  sent=[
+    ...sent.slice(-100),
+    next.key
+  ];
+
+  try{
+    localStorage.setItem(
+      'tomaDueReminderKeys',
+      JSON.stringify(sent)
+    );
+  }catch(e){}
+
+  say(next.body);
+
+  if(
+    'Notification' in window&&
+    Notification.permission==='granted'&&
+    navigator.serviceWorker
+  ){
+    navigator.serviceWorker.ready
+      .then(
+        registration=>
+          registration.showNotification(
+            next.title,
+            {
+              body:next.body,
+              icon:'/icon-192.png',
+              tag:next.key
+            }
+          )
+      )
+      .catch(e=>console.error(e));
   }
 }
 
@@ -4830,8 +4958,18 @@ function taskR(){
 
   if(!el)return;
 
-  const rows=
+  const visibleTasks=
     (state.tasks||[])
+    .filter(
+      task=>
+        taskFilter==='all'||
+        (taskFilter==='open'&&!task.completed)||
+        (taskFilter==='done'&&task.completed)||
+        (taskFilter==='mine'&&task.assignee===N)
+    );
+
+  const rows=
+    visibleTasks
     .map(
       task=>{
 
@@ -4892,8 +5030,16 @@ function taskR(){
     ${subPageHeader('☑️','やることリスト')}
 
     <div class="panel">
-      <div class="panelHeading">未完了 ${state.tasks.filter(x=>!x.completed).length}件</div>
-      ${rows||'<div class="empty">やることはまだありません</div>'}
+      <div class="sectionTitle">
+        <div class="panelHeading">未完了 ${state.tasks.filter(x=>!x.completed).length}件</div>
+        <select id="taskFilter" style="width:auto;margin:0">
+          <option value="all" ${taskFilter==='all'?'selected':''}>すべて</option>
+          <option value="open" ${taskFilter==='open'?'selected':''}>未完了</option>
+          <option value="done" ${taskFilter==='done'?'selected':''}>完了</option>
+          <option value="mine" ${taskFilter==='mine'?'selected':''}>自分の担当</option>
+        </select>
+      </div>
+      ${rows||'<div class="empty">該当するやることはありません</div>'}
     </div>
 
     <div class="panel">
@@ -4920,6 +5066,12 @@ function taskR(){
 
   bindSubPageNavigation();
   bindTaskDraft();
+
+  $('taskFilter').onchange=
+    ()=>{
+      taskFilter=$('taskFilter').value;
+      taskR();
+    };
 
   $('addTask').onclick=
     async()=>{
@@ -5055,6 +5207,203 @@ function taskR(){
 }
 
 
+function searchR(){
+  const el=$('search');
+  if(!el)return;
+
+  el.innerHTML=`
+    ${subPageHeader('🔎','全体検索')}
+    <div class="panel">
+      <input id="globalSearchInput" placeholder="資料・予定・メッセージ・やることを検索" style="margin:0">
+      <div id="globalSearchResults" style="margin-top:12px"></div>
+    </div>
+  `;
+
+  bindSubPageNavigation();
+
+  const input=$('globalSearchInput');
+  const results=$('globalSearchResults');
+
+  const sources=[
+    ...(state.items||[]).map(x=>({title:x.name,detail:x.updated_by||'',page:'drive',type:x.item_type==='folder'?'フォルダ':'資料'})),
+    ...(state.messages||[]).map(x=>({title:x.name,detail:x.updated_by||'',page:'chat',type:'メッセージ'})),
+    ...(state.schedules||[]).map(x=>({title:x.title,detail:[x.place,x.memo].filter(Boolean).join(' '),page:'cal',type:'予定'})),
+    ...(state.tasks||[]).map(x=>({title:x.title,detail:[x.assignee,x.notes].filter(Boolean).join(' '),page:'tasks',type:'やること'})),
+    ...(state.minutes||[]).map(x=>({title:x.title,detail:x.body||'',page:'minute',type:'議事録'})),
+    ...(state.reviews||[]).map(x=>({title:x.title,detail:x.body||'',page:'review',type:'改善'})),
+    ...(state.permits||[]).map(x=>({title:x.title,detail:[x.organization,x.body].filter(Boolean).join(' '),page:'permit',type:'申請'}))
+  ];
+
+  function run(){
+    const query=input.value.trim().toLowerCase();
+
+    if(!query){
+      results.innerHTML='<div class="empty">検索する言葉を入力してください</div>';
+      return;
+    }
+
+    const matched=sources.filter(
+      item=>
+        `${item.title||''} ${item.detail||''}`
+          .toLowerCase()
+          .includes(query)
+    );
+
+    results.innerHTML=
+      matched.length
+        ?matched.slice(0,100).map(item=>`
+          <button class="item" type="button" data-search-go="${esc(item.page)}" style="width:100%;text-align:left;border:0">
+            <div class="pill">${esc(item.type)}</div>
+            <div class="title">${esc(item.title||'名称なし')}</div>
+            ${item.detail?`<div class="meta">${esc(item.detail)}</div>`:''}
+          </button>
+        `).join('')
+        :'<div class="empty">見つかりませんでした</div>';
+
+    document.querySelectorAll('[data-search-go]').forEach(
+      button=>{
+        button.onclick=()=>go(
+          button.dataset.searchGo
+        );
+      }
+    );
+  }
+
+  input.addEventListener('input',run);
+  input.focus();
+  run();
+}
+
+
+function trashR(){
+  const el=$('trash');
+  if(!el)return;
+
+  const rows=(state.trash||[]).map(item=>`
+    <div class="item recordItem">
+      <div class="recordBody">
+        <div class="title">${esc(item.title||'名称なし')}</div>
+        <div class="meta">${item.kind==='schedule'?'予定':item.kind==='task'?'やること':item.item_type==='folder'?'フォルダ':'資料'}｜削除：${esc(new Date(item.deleted_at).toLocaleString('ja-JP'))}</div>
+      </div>
+      <button class="btn" type="button" data-trash-restore="${esc(item.id)}" data-trash-kind="${esc(item.kind)}">復元</button>
+    </div>
+  `).join('');
+
+  el.innerHTML=`
+    ${subPageHeader('🗑️','ゴミ箱')}
+    <div class="panel">
+      <div class="meta">削除した資料・予定・やることを30日間表示します。</div>
+      ${rows||'<div class="empty">ゴミ箱は空です</div>'}
+    </div>
+  `;
+
+  bindSubPageNavigation();
+
+  document.querySelectorAll('[data-trash-restore]').forEach(
+    button=>{
+      button.onclick=async()=>{
+        button.disabled=true;
+        try{
+          await api('POST',{
+            action:'trash_restore',
+            id:button.dataset.trashRestore,
+            kind:button.dataset.trashKind,
+            by:N
+          });
+          await load();
+          go('trash');
+          say('復元しました');
+        }catch(e){
+          alert('復元できません：'+e.message);
+          button.disabled=false;
+        }
+      };
+    }
+  );
+}
+
+
+function activityR(){
+  const el=$('activity');
+  if(!el)return;
+
+  const labels={
+    folder:'フォルダ追加',
+    file:'資料追加',
+    version:'更新版追加',
+    item_delete:'資料削除',
+    message:'メッセージ送信',
+    message_delete:'メッセージ取消',
+    schedule:'予定追加',
+    schedule_delete:'予定削除',
+    minute:'議事録追加',
+    review:'改善点追加',
+    permit:'申請先追加',
+    task:'やること追加',
+    task_toggle:'完了状態変更',
+    task_delete:'やること削除',
+    record_delete:'記録削除',
+    trash_restore:'ゴミ箱から復元'
+  };
+
+  const rows=(state.activities||[]).map(item=>`
+    <div class="item">
+      <div class="title">${esc(labels[item.action]||item.action)}</div>
+      <div class="meta">${esc(item.member_name||'メンバー')}｜${esc(new Date(item.created_at).toLocaleString('ja-JP'))}</div>
+      ${item.detail?`<div class="meta">${esc(item.detail)}</div>`:''}
+    </div>
+  `).join('');
+
+  el.innerHTML=`
+    ${subPageHeader('🕘','更新履歴')}
+    <div class="panel">
+      ${rows||'<div class="empty">更新履歴はまだありません</div>'}
+    </div>
+  `;
+
+  bindSubPageNavigation();
+}
+
+
+function downloadBackup(){
+  const backup={
+    exported_at:new Date().toISOString(),
+    workspace:'TOMA SHARE',
+    schedules:state.schedules,
+    tasks:state.tasks,
+    minutes:state.minutes,
+    reviews:state.reviews,
+    permits:state.permits,
+    files:(state.items||[]).map(item=>({
+      id:item.id,
+      parent_id:item.parent_id,
+      item_type:item.item_type,
+      name:item.name,
+      mime_type:item.mime_type,
+      version:item.version,
+      updated_by:item.updated_by,
+      updated_at:item.updated_at
+    }))
+  };
+
+  const blob=new Blob(
+    [JSON.stringify(backup,null,2)],
+    {type:'application/json'}
+  );
+
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=
+    `TOMA_SHARE_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  say('バックアップを保存しました');
+}
+
+
 function moreR(){
 
   const el=
@@ -5095,6 +5444,30 @@ function moreR(){
           <div class="ct">やることリスト</div>
           <div class="meta">${state.tasks.filter(x=>!x.completed).length}件 未完了</div>
         </button>
+
+        <button class="card" data-go="search">
+          <div class="ico">🔎</div>
+          <div class="ct">全体検索</div>
+          <div class="meta">まとめて検索</div>
+        </button>
+
+        <button class="card" data-go="trash">
+          <div class="ico">🗑️</div>
+          <div class="ct">ゴミ箱</div>
+          <div class="meta">${state.trash.length}件</div>
+        </button>
+
+        <button class="card" data-go="activity">
+          <div class="ico">🕘</div>
+          <div class="ct">更新履歴</div>
+          <div class="meta">最新100件</div>
+        </button>
+
+        <button class="card" id="downloadBackup" type="button">
+          <div class="ico">💾</div>
+          <div class="ct">バックアップ</div>
+          <div class="meta">端末に保存</div>
+        </button>
       </div>
     </div>
 
@@ -5105,6 +5478,11 @@ function moreR(){
   `;
 
   bindSubPageNavigation();
+
+  if($('downloadBackup')){
+    $('downloadBackup').onclick=
+      downloadBackup;
+  }
 }
 
 
@@ -5153,6 +5531,10 @@ function render(){
   if(
     cur==='tasks'
   )taskR();
+
+  if(cur==='search')searchR();
+  if(cur==='trash')trashR();
+  if(cur==='activity')activityR();
 }
 
 
@@ -5182,7 +5564,10 @@ function go(p){
       'review',
       'permit',
       'events',
-      'tasks'
+      'tasks',
+      'search',
+      'trash',
+      'activity'
     ].includes(p)
       ?'more'
       :p;
