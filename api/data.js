@@ -582,6 +582,21 @@ function ensureFiscalYearColumns(){
 }
 
 
+async function ensureEditingSessions(){
+  await pool.query(
+    `create table if not exists workspace_editing_sessions
+     (
+       workspace_id uuid not null,
+       file_id text not null,
+       member_name text not null,
+       fiscal_year integer not null default 2026,
+       last_seen timestamptz not null default now(),
+       primary key(workspace_id,file_id,member_name)
+     )`
+  );
+}
+
+
 async function ensureWorkspaceYears(workspaceId){
   await pool.query(
     `create table if not exists workspace_years
@@ -1556,6 +1571,7 @@ async(req,res)=>{
     await ensureActivityTable();
     await ensureFiscalYearColumns();
     await ensureWorkspaceYears(ws.id);
+    await ensureEditingSessions();
 
 
     /*
@@ -1613,6 +1629,17 @@ async(req,res)=>{
            from workspace_years
            where workspace_id=$1
            order by year`,
+          [ws.id]
+        );
+
+
+      const editorsResult=
+        await pool.query(
+          `select file_id,member_name,fiscal_year,last_seen
+           from workspace_editing_sessions
+           where workspace_id=$1
+             and last_seen>now()-interval '2 minutes'
+           order by last_seen desc`,
           [ws.id]
         );
 
@@ -1986,6 +2013,9 @@ async(req,res)=>{
               row=>Number(row.year)
             ),
 
+          editors:
+            editorsResult.rows,
+
 
           schedules:
             schedules.rows,
@@ -2119,6 +2149,50 @@ async(req,res)=>{
           {
             ok:true,
             year
+          }
+        );
+      }
+
+
+      case 'editor_presence':{
+        const fileId=
+          String(
+            b.file_id||
+            ''
+          ).trim();
+
+        if(!fileId){
+          return send(
+            res,
+            400,
+            {
+              error:
+                '編集するファイルが見つかりません'
+            }
+          );
+        }
+
+        await pool.query(
+          `insert into workspace_editing_sessions
+           (workspace_id,file_id,member_name,fiscal_year,last_seen)
+           values($1,$2,$3,$4,now())
+           on conflict(workspace_id,file_id,member_name)
+           do update set
+             fiscal_year=excluded.fiscal_year,
+             last_seen=now()`,
+          [
+            ws.id,
+            fileId,
+            by,
+            fiscalYear
+          ]
+        );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true
           }
         );
       }
