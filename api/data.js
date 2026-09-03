@@ -1338,6 +1338,17 @@ async function ensureNotificationTables(){
 
   await pool.query(
     `
+    alter table workspace_push_subscriptions
+      add column if not exists notify_all boolean not null default true,
+      add column if not exists notify_login boolean not null default true,
+      add column if not exists notify_file boolean not null default true,
+      add column if not exists notify_message boolean not null default true,
+      add column if not exists notify_event boolean not null default true
+    `
+  );
+
+  await pool.query(
+    `
     create table if not exists workspace_login_events
     (
       id bigserial primary key,
@@ -1406,12 +1417,15 @@ async function notificationKeys(workspaceId){
 }
 
 
-async function sendLoginPush(
+async function sendWorkspacePush(
   workspaceId,
   memberName,
-  eventId
+  eventType,
+  title,
+  body,
+  url='/',
+  eventId=0
 ){
-
   const keys=
     await notificationKeys(
       workspaceId
@@ -1423,24 +1437,41 @@ async function sendLoginPush(
     keys.private_key
   );
 
+  const type=
+    ['login','file','message','event']
+      .includes(eventType)
+        ?eventType
+        :'login';
+
   const q=await pool.query(
     `
     select endpoint,subscription
     from workspace_push_subscriptions
     where workspace_id=$1
       and member_name<>$2
+      and notify_all=true
+      and case $3
+        when 'login' then notify_login
+        when 'file' then notify_file
+        when 'message' then notify_message
+        when 'event' then notify_event
+        else false
+      end=true
     `,
     [
       workspaceId,
-      memberName
+      memberName,
+      type
     ]
   );
 
   const payload=JSON.stringify({
-    title:'TOMA SHARE',
-    body:`${memberName}さんがログインしました`,
-    url:'/',
-    eventId
+    title:title||'TOMA SHARE',
+    body:body||'新しい更新があります',
+    url,
+    eventId,
+    eventType:type,
+    tag:`toma-${type}`
   });
 
   const results=
@@ -1458,7 +1489,6 @@ async function sendLoginPush(
 
   results.forEach(
     (result,index)=>{
-
       if(
         result.status==='rejected' &&
         (
@@ -1474,7 +1504,6 @@ async function sendLoginPush(
   );
 
   if(expired.length){
-
     await pool.query(
       `
       delete from workspace_push_subscriptions
@@ -1489,6 +1518,22 @@ async function sendLoginPush(
   ).length;
 }
 
+
+async function sendLoginPush(
+  workspaceId,
+  memberName,
+  eventId
+){
+  return sendWorkspacePush(
+    workspaceId,
+    memberName,
+    'login',
+    '🔔 ログイン通知',
+    `${memberName}さんがログインしました`,
+    '/?open=home',
+    eventId
+  );
+}
 
 /* ==============================
    API
@@ -2267,14 +2312,24 @@ async(req,res)=>{
             workspace_id,
             member_name,
             subscription,
+            notify_all,
+            notify_login,
+            notify_file,
+            notify_message,
+            notify_event,
             updated_at
           )
-          values($1,$2,$3,$4,now())
+          values($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
           on conflict(endpoint)
           do update set
             workspace_id=excluded.workspace_id,
             member_name=excluded.member_name,
             subscription=excluded.subscription,
+            notify_all=excluded.notify_all,
+            notify_login=excluded.notify_login,
+            notify_file=excluded.notify_file,
+            notify_message=excluded.notify_message,
+            notify_event=excluded.notify_event,
             updated_at=now()
           `,
           [
@@ -2283,7 +2338,12 @@ async(req,res)=>{
             by,
             JSON.stringify(
               subscription
-            )
+            ),
+            b.preferences?.all!==false,
+            b.preferences?.login!==false,
+            b.preferences?.file!==false,
+            b.preferences?.message!==false,
+            b.preferences?.event!==false
           ]
         );
 
@@ -2633,6 +2693,15 @@ async(req,res)=>{
           ]
         );
 
+        await sendWorkspacePush(
+          ws.id,
+          by,
+          'file',
+          '📎 ファイルが追加されました',
+          `${by}さんが「${b.name}」を追加しました`,
+          '/?open=drive'
+        ).catch(error=>console.error('File push failed:',error));
+
 
         break;
       }
@@ -2841,6 +2910,15 @@ async(req,res)=>{
           ]
         );
 
+        await sendWorkspacePush(
+          ws.id,
+          by,
+          'file',
+          '📎 ファイルが更新されました',
+          `${by}さんが「${b.name}」を更新しました`,
+          '/?open=drive'
+        ).catch(error=>console.error('Version push failed:',error));
+
 
         break;
       }
@@ -2920,6 +2998,16 @@ async(req,res)=>{
             fiscalYear
           ]
         );
+
+        await sendWorkspacePush(
+          ws.id,
+          by,
+          'message',
+          '💬 新しいメッセージ',
+          `${by}さん：${text?text.slice(0,80):'画像を送信しました'}`,
+          '/?open=chat'
+        ).catch(error=>console.error('Message push failed:',error));
+
         break;
       }
 
@@ -3083,6 +3171,15 @@ async(req,res)=>{
             fiscalYear
           ]
         );
+
+        await sendWorkspacePush(
+          ws.id,
+          by,
+          'event',
+          '📅 予定・イベントが更新されました',
+          `${by}さんが「${b.title}」を追加しました`,
+          '/?open=cal'
+        ).catch(error=>console.error('Event push failed:',error));
 
 
         break;
