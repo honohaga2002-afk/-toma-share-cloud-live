@@ -12,6 +12,20 @@ let lastLoginEventId=0;
 let loginAnnounced=false;
 let busyCount=0;
 let taskFilter='all';
+let selectedYear=
+  [2026,2027].includes(
+    Number(
+      localStorage.getItem(
+        'tomaSelectedYear'
+      )
+    )
+  )
+    ?Number(
+        localStorage.getItem(
+          'tomaSelectedYear'
+        )
+      )
+    :2026;
 
 let state={
   schedules:[],
@@ -26,6 +40,57 @@ let state={
   trash:[],
   activities:[]
 };
+
+
+function yearItems(list){
+  return (
+    list||[]
+  ).filter(
+    item=>
+      Number(
+        item.fiscal_year||
+        2026
+      )===selectedYear
+  );
+}
+
+
+async function changeYear(value){
+  const year=Number(value);
+
+  if(![2026,2027].includes(year)){
+    return;
+  }
+
+  selectedYear=year;
+
+  try{
+    localStorage.setItem(
+      'tomaSelectedYear',
+      String(year)
+    );
+  }catch(e){}
+
+  window.TOMA_SELECTED_YEAR=
+    selectedYear;
+
+  await load();
+  go(cur);
+  document.dispatchEvent(
+    new CustomEvent(
+      'toma-year-change',
+      {
+        detail:{
+          year:selectedYear
+        }
+      }
+    )
+  );
+
+  say(
+    `${selectedYear}年に切り替えました`
+  );
+}
 
 let selectedUploadFile=null;
 let selectedVersionId=null;
@@ -208,6 +273,16 @@ async function api(
       encodeURIComponent(N);
   }
 
+  if(
+    body&&
+    method!=='GET'
+  ){
+    body={
+      ...body,
+      year:selectedYear
+    };
+  }
+
   const options={
     method,
     headers,
@@ -291,25 +366,25 @@ async function load(){
 
   state={
     schedules:
-      d.schedules||[],
+      yearItems(d.schedules),
 
     messages:
-      d.messages||[],
+      yearItems(d.messages),
 
     items:
-      d.items||[],
+      yearItems(d.items),
 
     minutes:
-      d.minutes||[],
+      yearItems(d.minutes),
 
     reviews:
-      d.reviews||[],
+      yearItems(d.reviews),
 
     permits:
-      d.permits||[],
+      yearItems(d.permits),
 
     tasks:
-      d.tasks||[],
+      yearItems(d.tasks),
 
     onlineMembers:
       d.onlineMembers||[],
@@ -318,10 +393,10 @@ async function load(){
       d.loginEvents||[],
 
     trash:
-      d.trash||[],
+      yearItems(d.trash),
 
     activities:
-      d.activities||[]
+      yearItems(d.activities)
   };
 
   checkDueReminders();
@@ -4894,7 +4969,7 @@ function eventsR(){
   if(!el)return;
 
   el.innerHTML=`
-    ${subPageHeader('🎪','苫小牧イベント')}
+    ${subPageHeader('🎪',`苫小牧イベント ${selectedYear}年`)}
 
     <div
       class="panel"
@@ -4910,12 +4985,14 @@ function eventsR(){
 }
 
 
-const TASK_DRAFT_KEY='tomaTaskDraftV1';
+function taskDraftKey(){
+  return `tomaTaskDraftV1-${selectedYear}`;
+}
 
 function readTaskDraft(){
   try{
     return JSON.parse(
-      localStorage.getItem(TASK_DRAFT_KEY)||'{}'
+      localStorage.getItem(taskDraftKey())||'{}'
     )||{};
   }catch(e){
     return {};
@@ -4933,7 +5010,7 @@ function saveTaskDraft(){
 
   try{
     localStorage.setItem(
-      TASK_DRAFT_KEY,
+      taskDraftKey(),
       JSON.stringify(draft)
     );
   }catch(e){}
@@ -4942,7 +5019,7 @@ function saveTaskDraft(){
 function clearTaskDraft(){
   try{
     localStorage.removeItem(
-      TASK_DRAFT_KEY
+      taskDraftKey()
     );
   }catch(e){}
 }
@@ -5391,6 +5468,7 @@ function downloadBackup(){
   const backup={
     exported_at:new Date().toISOString(),
     workspace:'TOMA SHARE',
+    year:selectedYear,
     schedules:state.schedules,
     tasks:state.tasks,
     minutes:state.minutes,
@@ -5417,7 +5495,7 @@ function downloadBackup(){
   const link=document.createElement('a');
   link.href=url;
   link.download=
-    `TOMA_SHARE_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
+    `TOMA_SHARE_${selectedYear}年_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -5617,6 +5695,38 @@ function go(p){
 ========================================================= */
 
 function init(){
+
+  window.TOMA_SELECTED_YEAR=
+    selectedYear;
+
+  const yearSelect=
+    $('workspaceYear');
+
+  if(yearSelect){
+    yearSelect.value=
+      String(selectedYear);
+
+    yearSelect.onchange=
+      ()=>{
+        yearSelect.disabled=true;
+        changeYear(
+          yearSelect.value
+        )
+        .catch(
+          error=>{
+            alert(
+              '年度を切り替えられません：'+
+              error.message
+            );
+          }
+        )
+        .finally(
+          ()=>{
+            yearSelect.disabled=false;
+          }
+        );
+      };
+  }
 
   C='TOMA-2026';
 
