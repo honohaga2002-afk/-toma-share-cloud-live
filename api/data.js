@@ -582,6 +582,26 @@ function ensureFiscalYearColumns(){
 }
 
 
+async function ensureWorkspaceYears(workspaceId){
+  await pool.query(
+    `create table if not exists workspace_years
+     (
+       workspace_id uuid not null,
+       year integer not null,
+       created_at timestamptz not null default now(),
+       primary key(workspace_id,year)
+     )`
+  );
+
+  await pool.query(
+    `insert into workspace_years(workspace_id,year)
+     values($1,2026),($1,2027)
+     on conflict(workspace_id,year) do nothing`,
+    [workspaceId]
+  );
+}
+
+
 /* ==============================
    やることリスト
 ============================== */
@@ -1535,6 +1555,7 @@ async(req,res)=>{
     await ensureTasksTable();
     await ensureActivityTable();
     await ensureFiscalYearColumns();
+    await ensureWorkspaceYears(ws.id);
 
 
     /*
@@ -1585,6 +1606,15 @@ async(req,res)=>{
       req.method ===
       'GET'
     ){
+
+      const yearsResult=
+        await pool.query(
+          `select year
+           from workspace_years
+           where workspace_id=$1
+           order by year`,
+          [ws.id]
+        );
 
 
       const memberName =
@@ -1951,6 +1981,11 @@ async(req,res)=>{
           workspace:
             ws,
 
+          years:
+            yearsResult.rows.map(
+              row=>Number(row.year)
+            ),
+
 
           schedules:
             schedules.rows,
@@ -2028,11 +2063,14 @@ async(req,res)=>{
       b.by ||
       'メンバー';
 
+    const requestedYear=
+      Number(b.year);
+
     const fiscalYear=
-      [2026,2027].includes(
-        Number(b.year)
-      )
-        ?Number(b.year)
+      Number.isInteger(requestedYear)&&
+      requestedYear>=2000&&
+      requestedYear<=2100
+        ?requestedYear
         :2026;
 
 
@@ -2048,6 +2086,42 @@ async(req,res)=>{
     switch(
       b.action
     ){
+
+
+      case 'year_add':{
+        const year=Number(b.new_year);
+
+        if(
+          !Number.isInteger(year)||
+          year<2000||
+          year>2100
+        ){
+          return send(
+            res,
+            400,
+            {
+              error:
+                '年度は2000年から2100年の間で入力してください'
+            }
+          );
+        }
+
+        await pool.query(
+          `insert into workspace_years(workspace_id,year)
+           values($1,$2)
+           on conflict(workspace_id,year) do nothing`,
+          [ws.id,year]
+        );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true,
+            year
+          }
+        );
+      }
 
 
       /* ==============================
