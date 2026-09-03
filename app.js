@@ -741,7 +741,7 @@ async function registerNotificationWorker(){
 
   return navigator.serviceWorker
     .register(
-      '/sw.js'
+      '/sw.js?v=20260903-2'
     );
 }
 
