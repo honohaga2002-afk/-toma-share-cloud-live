@@ -746,6 +746,40 @@ async function registerNotificationWorker(){
 }
 
 
+function notificationPreferences(){
+  const defaults={
+    all:true,
+    login:true,
+    file:true,
+    message:true,
+    event:true
+  };
+
+  try{
+    return {
+      ...defaults,
+      ...JSON.parse(
+        localStorage.getItem(
+          'tomaNotificationPreferences'
+        )||'{}'
+      )
+    };
+  }catch(e){
+    return defaults;
+  }
+}
+
+
+function storeNotificationPreferences(
+  preferences
+){
+  localStorage.setItem(
+    'tomaNotificationPreferences',
+    JSON.stringify(preferences)
+  );
+}
+
+
 async function savePushSubscription(){
 
   const registration=
@@ -790,6 +824,8 @@ async function savePushSubscription(){
       action:'push_subscribe',
       subscription:
         subscription.toJSON(),
+      preferences:
+        notificationPreferences(),
       by:N
     }
   );
@@ -863,7 +899,7 @@ async function enablePushNotifications(){
     await savePushSubscription();
 
     say(
-      'ログイン通知をオンにしました'
+      'プッシュ通知をオンにしました'
     );
 
     homeR();
@@ -945,7 +981,7 @@ async function announceLogin(){
 function notificationPanel(){
 
   let text=
-    'ログイン通知を受け取れます';
+    'ログイン・ファイル・メッセージ・予定の通知を受け取れます';
 
   let button=
     '通知をオンにする';
@@ -962,8 +998,11 @@ function notificationPanel(){
     Notification.permission==='granted'
   ){
 
-    text='ログインのプッシュ通知：オン';
-    button='通知設定済み';
+    text=notificationPreferences().all
+      ?'プッシュ通知：オン'
+      :'プッシュ通知：オフ';
+
+    button='通知設定';
 
   }else if(
     Notification.permission==='denied'
@@ -977,7 +1016,7 @@ function notificationPanel(){
     <div class="panel">
       <div class="sectionTitle">
         <div>
-          <div class="title">🔔 ログイン通知</div>
+          <div class="title">🔔 プッシュ通知</div>
           <div class="meta">${text}</div>
         </div>
         <button
@@ -989,7 +1028,6 @@ function notificationPanel(){
     </div>
   `;
 }
-
 
 async function doLogin(){
 
@@ -1084,7 +1122,25 @@ async function doLogin(){
         'hidden'
       );
 
-    go('home');
+    const requestedPage=
+      new URLSearchParams(
+        location.search
+      ).get('open');
+
+    go(
+      ['home','drive','chat','cal','more']
+        .includes(requestedPage)
+          ?requestedPage
+          :'home'
+    );
+
+    if(requestedPage){
+      history.replaceState(
+        {},
+        '',
+        location.pathname
+      );
+    }
 
     startPresence();
 
@@ -6220,6 +6276,74 @@ function downloadBackup(){
 }
 
 
+async function saveNotificationSettings(){
+  const preferences={
+    all:!!$('notifyAll')?.checked,
+    login:!!$('notifyLogin')?.checked,
+    file:!!$('notifyFile')?.checked,
+    message:!!$('notifyMessage')?.checked,
+    event:!!$('notifyEvent')?.checked
+  };
+
+  storeNotificationPreferences(
+    preferences
+  );
+
+  if(
+    preferences.all &&
+    Notification.permission!=='granted'
+  ){
+    await enablePushNotifications();
+    moreR();
+    return;
+  }
+
+  if(Notification.permission==='granted'){
+    try{
+      await savePushSubscription();
+    }catch(e){
+      alert(
+        '通知設定を保存できません：'+
+        e.message
+      );
+      return;
+    }
+  }
+
+  say(
+    preferences.all
+      ?'通知設定を保存しました'
+      :'プッシュ通知をオフにしました'
+  );
+
+  moreR();
+}
+
+
+function bindNotificationSettings(){
+  const all=$('notifyAll');
+  if(!all)return;
+
+  const updateDisabled=()=>{
+    document
+      .querySelectorAll(
+        '[data-notify-type]'
+      )
+      .forEach(
+        input=>{
+          input.disabled=!all.checked;
+        }
+      );
+  };
+
+  all.onchange=updateDisabled;
+  updateDisabled();
+
+  $('saveNotificationSettings').onclick=
+    saveNotificationSettings;
+}
+
+
 function moreR(){
 
   const el=
@@ -6287,6 +6411,28 @@ function moreR(){
       </div>
     </div>
 
+    <div class="panel">
+      <div class="panelHeading">🔔 プッシュ通知設定</div>
+      <div class="meta" style="margin-bottom:10px">アプリを閉じている時も通知します。iPhoneはホーム画面に追加したTOMA SHAREで設定してください。</div>
+      ${(()=>{
+        const p=notificationPreferences();
+        const row=(id,label,checked,type='')=>`
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 2px;border-bottom:1px solid #e3edf2">
+            <span style="font-weight:800">${label}</span>
+            <input id="${id}" ${type} type="checkbox" ${checked?'checked':''} style="width:28px;height:28px;margin:0">
+          </label>
+        `;
+        return [
+          row('notifyAll','通知を受け取る',p.all),
+          row('notifyLogin','ログイン',p.login,'data-notify-type'),
+          row('notifyFile','ファイル添付・更新',p.file,'data-notify-type'),
+          row('notifyMessage','メッセージ',p.message,'data-notify-type'),
+          row('notifyEvent','予定・イベント更新',p.event,'data-notify-type')
+        ].join('');
+      })()}
+      <button class="btn wide" id="saveNotificationSettings" type="button" style="margin-top:12px">通知設定を保存</button>
+    </div>
+
     <div class="panel installHelp">
       <div class="panelHeading">📱 ホーム画面に追加</div>
       <div class="meta">${isIOS()?'Safariの共有ボタン →「ホーム画面に追加」で、アプリのように起動できます。':'ブラウザのメニューから「ホーム画面に追加」または「アプリをインストール」を選べます。'}</div>
@@ -6294,6 +6440,7 @@ function moreR(){
   `;
 
   bindSubPageNavigation();
+  bindNotificationSettings();
 
   if($('downloadBackup')){
     $('downloadBackup').onclick=
@@ -6522,6 +6669,16 @@ function init(){
       event=>{
 
         if(
+          event.data?.type===
+          'workspace-notification'
+        ){
+          if(event.data.body){
+            say(event.data.body);
+          }
+          return;
+        }
+
+        if(
           event.data?.type!==
           'login-notification'
         )return;
@@ -6541,7 +6698,6 @@ function init(){
           event.data.memberName &&
           event.data.memberName!==N
         ){
-
           say(
             `${event.data.memberName}さんがログインしました`
           );
