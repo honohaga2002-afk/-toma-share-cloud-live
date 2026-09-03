@@ -2661,26 +2661,26 @@ function homeR(){
 
       <button
         class="card"
-        data-go="more"
+        data-go="minute"
       >
         <div class="ico">📝</div>
         <div class="ct">議事録</div>
         <div class="meta">${state.minutes.length}件</div>
       </button>
 
-      <button class="card" data-go="more">
+      <button class="card" data-go="review">
         <div class="ico">💡</div>
         <div class="ct">反省点・改善</div>
         <div class="meta">${state.reviews.length}件</div>
       </button>
 
-      <button class="card" data-go="more">
+      <button class="card" data-go="permit">
         <div class="ico">✅</div>
         <div class="ct">許可・申請</div>
         <div class="meta">${state.permits.length}件</div>
       </button>
 
-      <button class="card" data-go="more">
+      <button class="card" data-go="events">
         <div class="ico">🎪</div>
         <div class="ct">苫小牧イベント</div>
         <div class="meta">年間行事</div>
@@ -3530,33 +3530,243 @@ function officialPermitRows(){
   `).join('');
 }
 
-function moreR(){
+function subPageHeader(
+  icon,
+  title
+){
+
+  return `
+    <div class="panel">
+      <button
+        class="btn light"
+        type="button"
+        data-go="more"
+      >← その他へ戻る</button>
+      <div
+        class="panelHeading"
+        style="margin-top:14px"
+      >${icon} ${title}</div>
+    </div>
+  `;
+}
+
+
+function bindSubPageNavigation(){
+
+  document
+    .querySelectorAll(
+      '[data-go]'
+    )
+    .forEach(
+      button=>{
+
+        button.onclick=
+          ()=>go(
+            button.dataset.go
+          );
+      }
+    );
+}
+
+
+function bindRecordDeletes(
+  page
+){
+
+  document
+    .querySelectorAll(
+      '[data-rdel]'
+    )
+    .forEach(
+      button=>{
+
+        button.onclick=
+          async()=>{
+
+            if(
+              !confirm(
+                '削除しますか？'
+              )
+            )return;
+
+            await api(
+              'POST',
+              {
+                action:
+                  'record_delete',
+                kind:
+                  button.dataset.kind,
+                id:
+                  button.dataset.rdel,
+                by:N
+              }
+            );
+
+            await load();
+
+            go(page);
+          };
+      }
+    );
+}
+
+
+function minuteR(){
 
   const el=
-    $('more');
+    $('minute');
 
   if(!el)return;
 
   el.innerHTML=`
+    ${subPageHeader('📝','議事録')}
 
     <div class="panel">
-      <div class="panelHeading">📝 議事録</div>
-      ${state.minutes.length?state.minutes.map(x=>recordRow(x,'minute')).join(''):'<div class="empty">まだありません</div>'}
+      ${
+        state.minutes.length
+          ?state.minutes
+            .map(
+              x=>recordRow(
+                x,
+                'minute'
+              )
+            )
+            .join('')
+          :'<div class="empty">まだありません</div>'
+      }
       <input id="mt" placeholder="会議名">
       <input id="md" type="date">
       <textarea id="mb" placeholder="議事内容"></textarea>
       <textarea id="ma" placeholder="決定事項・担当"></textarea>
       <button class="btn wide" id="addM">議事録を保存</button>
     </div>
+  `;
+
+  bindSubPageNavigation();
+
+  $('addM').onclick=
+    async()=>{
+
+      if(
+        !$('mt').value.trim()
+      ){
+        return alert(
+          '会議名を入力してください'
+        );
+      }
+
+      await api(
+        'POST',
+        {
+          action:'minute',
+          title:$('mt').value,
+          meeting_date:
+            $('md').value||null,
+          body:$('mb').value,
+          action_items:
+            $('ma').value,
+          by:N
+        }
+      );
+
+      await load();
+
+      go('minute');
+
+      say(
+        '議事録を保存しました'
+      );
+    };
+
+  bindRecordDeletes(
+    'minute'
+  );
+}
+
+
+function reviewR(){
+
+  const el=
+    $('review');
+
+  if(!el)return;
+
+  el.innerHTML=`
+    ${subPageHeader('💡','反省点・改善')}
 
     <div class="panel">
-      <div class="panelHeading">💡 反省点・改善</div>
-      ${state.reviews.length?state.reviews.map(x=>recordRow(x,'review')).join(''):'<div class="empty">まだありません</div>'}
+      ${
+        state.reviews.length
+          ?state.reviews
+            .map(
+              x=>recordRow(
+                x,
+                'review'
+              )
+            )
+            .join('')
+          :'<div class="empty">まだありません</div>'
+      }
       <input id="rt" placeholder="タイトル">
-      <select id="rc"><option>改善</option><option>反省</option><option>良かった点</option><option>次回対応</option></select>
+      <select id="rc">
+        <option>改善</option>
+        <option>反省</option>
+        <option>良かった点</option>
+        <option>次回対応</option>
+      </select>
       <textarea id="rb" placeholder="内容"></textarea>
       <button class="btn wide" id="addR">改善内容を保存</button>
     </div>
+  `;
+
+  bindSubPageNavigation();
+
+  $('addR').onclick=
+    async()=>{
+
+      if(
+        !$('rt').value.trim()
+      ){
+        return alert(
+          'タイトルを入力してください'
+        );
+      }
+
+      await api(
+        'POST',
+        {
+          action:'review',
+          title:$('rt').value,
+          category:$('rc').value,
+          body:$('rb').value,
+          by:N
+        }
+      );
+
+      await load();
+
+      go('review');
+
+      say(
+        '改善内容を保存しました'
+      );
+    };
+
+  bindRecordDeletes(
+    'review'
+  );
+}
+
+
+function permitR(){
+
+  const el=
+    $('permit');
+
+  if(!el)return;
+
+  el.innerHTML=`
+    ${subPageHeader('✅','許可・申請')}
 
     <div class="panel">
       <div class="panelHeading">🏛️ 苫小牧の許可・申請一覧</div>
@@ -3566,36 +3776,125 @@ function moreR(){
 
     <div class="panel">
       <div class="panelHeading">✅ 自分たちの申請・進捗</div>
-      ${state.permits.length?state.permits.map(x=>recordRow(x,'permit')).join(''):'<div class="empty">まだありません</div>'}
+      ${
+        state.permits.length
+          ?state.permits
+            .map(
+              x=>recordRow(
+                x,
+                'permit'
+              )
+            )
+            .join('')
+          :'<div class="empty">まだありません</div>'
+      }
       <input id="pt" placeholder="申請名">
       <input id="po" placeholder="申請先・組織">
       <input id="pc" placeholder="連絡先">
       <textarea id="pb" placeholder="内容・期限・進捗"></textarea>
       <button class="btn wide" id="addP">申請情報を保存</button>
     </div>
+  `;
 
+  bindSubPageNavigation();
+
+  $('addP').onclick=
+    async()=>{
+
+      if(
+        !$('pt').value.trim()
+      ){
+        return alert(
+          '申請名を入力してください'
+        );
+      }
+
+      await api(
+        'POST',
+        {
+          action:'permit',
+          title:$('pt').value,
+          organization:$('po').value,
+          contact:$('pc').value,
+          body:$('pb').value,
+          by:N
+        }
+      );
+
+      await load();
+
+      go('permit');
+
+      say(
+        '申請情報を保存しました'
+      );
+    };
+
+  bindRecordDeletes(
+    'permit'
+  );
+}
+
+
+function eventsR(){
+
+  const el=
+    $('events');
+
+  if(!el)return;
+
+  el.innerHTML=`
+    ${subPageHeader('🎪','苫小牧イベント')}
+
+    <div
+      class="panel"
+      id="tomakomaiEventsMount"
+    >
+      <div class="empty">
+        イベント情報を読み込んでいます…
+      </div>
+    </div>
+  `;
+
+  bindSubPageNavigation();
+}
+
+
+function moreR(){
+
+  const el=
+    $('more');
+
+  if(!el)return;
+
+  el.innerHTML=`
     <div class="panel">
+      <div class="panelHeading">≡ その他のメニュー</div>
+      <div class="grid">
+        <button class="card" data-go="minute">
+          <div class="ico">📝</div>
+          <div class="ct">議事録</div>
+          <div class="meta">${state.minutes.length}件</div>
+        </button>
 
-      <div class="title">
-        🎪 苫小牧 年間行事
+        <button class="card" data-go="review">
+          <div class="ico">💡</div>
+          <div class="ct">反省点・改善</div>
+          <div class="meta">${state.reviews.length}件</div>
+        </button>
+
+        <button class="card" data-go="permit">
+          <div class="ico">✅</div>
+          <div class="ct">許可・申請</div>
+          <div class="meta">${state.permits.length}件</div>
+        </button>
+
+        <button class="card" data-go="events">
+          <div class="ico">🎪</div>
+          <div class="ct">苫小牧イベント</div>
+          <div class="meta">開催日時つき</div>
+        </button>
       </div>
-
-      <div class="item">
-        <span class="pill">冬</span>スケート・冬季イベント
-      </div>
-
-      <div class="item">
-        <span class="pill">春</span>地域行事・新年度イベント
-      </div>
-
-      <div class="item">
-        <span class="pill">夏</span>港まつり・地域フェス・屋外イベント
-      </div>
-
-      <div class="item">
-        <span class="pill">秋</span>文化・スポーツ・地域イベント
-      </div>
-
     </div>
 
     <div class="panel installHelp">
@@ -3604,31 +3903,7 @@ function moreR(){
     </div>
   `;
 
-  $('addM').onclick=async()=>{
-    if(!$('mt').value.trim())return alert('会議名を入力してください');
-    await api('POST',{action:'minute',title:$('mt').value,meeting_date:$('md').value||null,body:$('mb').value,action_items:$('ma').value,by:N});
-    await load(); go('more'); say('議事録を保存しました');
-  };
-
-  $('addR').onclick=async()=>{
-    if(!$('rt').value.trim())return alert('タイトルを入力してください');
-    await api('POST',{action:'review',title:$('rt').value,category:$('rc').value,body:$('rb').value,by:N});
-    await load(); go('more'); say('改善内容を保存しました');
-  };
-
-  $('addP').onclick=async()=>{
-    if(!$('pt').value.trim())return alert('申請名を入力してください');
-    await api('POST',{action:'permit',title:$('pt').value,organization:$('po').value,contact:$('pc').value,body:$('pb').value,by:N});
-    await load(); go('more'); say('申請情報を保存しました');
-  };
-
-  document.querySelectorAll('[data-rdel]').forEach(b=>{
-    b.onclick=async()=>{
-      if(!confirm('削除しますか？'))return;
-      await api('POST',{action:'record_delete',kind:b.dataset.kind,id:b.dataset.rdel,by:N});
-      await load(); go('more');
-    };
-  });
+  bindSubPageNavigation();
 }
 
 
@@ -3657,6 +3932,22 @@ function render(){
   if(
     cur==='more'
   )moreR();
+
+  if(
+    cur==='minute'
+  )minuteR();
+
+  if(
+    cur==='review'
+  )reviewR();
+
+  if(
+    cur==='permit'
+  )permitR();
+
+  if(
+    cur==='events'
+  )eventsR();
 }
 
 
@@ -3680,6 +3971,16 @@ function go(p){
       'hidden'
     );
 
+  const navPage=
+    [
+      'minute',
+      'review',
+      'permit',
+      'events'
+    ].includes(p)
+      ?'more'
+      :p;
+
   document
     .querySelectorAll(
       '.nav'
@@ -3689,7 +3990,7 @@ function go(p){
 
         n.classList.toggle(
           'on',
-          n.dataset.p===p
+          n.dataset.p===navPage
         );
       }
     );
