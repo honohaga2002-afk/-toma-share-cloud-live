@@ -26,12 +26,12 @@ self.addEventListener('push',event=>{
         );
 
       if(visible){
-
         visible.postMessage({
-          type:'login-notification',
-          memberName:
-            String(data.body||'')
-              .replace(/さんがログインしました$/,''),
+          type:'workspace-notification',
+          title:data.title||'TOMA SHARE',
+          body:data.body||'新しい更新があります',
+          url:data.url||'/',
+          eventType:data.eventType||'update',
           eventId:data.eventId||0
         });
 
@@ -44,11 +44,17 @@ self.addEventListener('push',event=>{
           {
             body:
               data.body||
-              'メンバーがログインしました',
-            tag:'toma-login',
+              '新しい更新があります',
+            icon:'/icon-192.png',
+            badge:'/icon-192.png',
+            tag:
+              data.tag||
+              `toma-${data.eventType||'update'}`,
             renotify:true,
             data:{
               url:data.url||'/',
+              eventType:
+                data.eventType||'update',
               eventId:data.eventId||0
             }
           }
@@ -56,7 +62,6 @@ self.addEventListener('push',event=>{
     })
   );
 });
-
 
 self.addEventListener(
   'notificationclick',
