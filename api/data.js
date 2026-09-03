@@ -496,6 +496,87 @@ async function getOnlineMembers(
 }
 
 
+
+/* ==============================
+   Driveリンク共有
+============================== */
+
+async function allowAnyoneToEdit(fileId){
+  if(!fileId)return false;
+  const drive=driveClient();
+  const result=await drive.permissions.list({
+    fileId,
+    fields:'permissions(id,type,role)'
+  });
+  const anyone=(result.data.permissions||[]).find(x=>x.type==='anyone');
+  if(anyone){
+    if(anyone.role!=='writer'){
+      await drive.permissions.update({
+        fileId,
+        permissionId:anyone.id,
+        requestBody:{role:'writer'}
+      });
+    }
+    return true;
+  }
+  await drive.permissions.create({
+    fileId,
+    requestBody:{type:'anyone',role:'writer'}
+  });
+  return true;
+}
+
+async function shareWorkspaceDriveFiles(workspaceId){
+  const q=await pool.query(
+    `select id,item_type,content from shared_items
+     where workspace_id=$1
+       and item_type in ('file','folder')
+       and trashed=false`,
+    [workspaceId]
+  );
+  let shared=0;
+  const failed=[];
+  for(const item of q.rows){
+    const content=parseContent(item.content);
+    const fileId=content.driveFileId||content.driveFolderId;
+    if(!fileId)continue;
+    try{
+      await allowAnyoneToEdit(fileId);
+      shared++;
+    }catch(e){
+      console.error('Drive sharing failed:',item.id,e.message);
+      failed.push(item.id);
+    }
+  }
+  return {shared,failed:failed.length};
+}
+
+/* ==============================
+   やることリスト
+============================== */
+
+async function ensureTasksTable(){
+  await pool.query(
+    `create table if not exists workspace_tasks
+     (
+       id bigserial primary key,
+       workspace_id uuid not null,
+       title text not null,
+       due_at timestamptz,
+       assignee text,
+       notes text,
+       completed boolean not null default false,
+       created_by text,
+       created_at timestamptz not null default now(),
+       updated_at timestamptz not null default now()
+     )`
+  );
+  await pool.query(
+    `create index if not exists workspace_tasks_workspace_idx
+     on workspace_tasks(workspace_id,completed,due_at)`
+  );
+}
+
 /* ==============================
    Driveフォルダ作成
 ============================== */
@@ -521,6 +602,10 @@ async function createDriveFolder(
       fields:
         'id,name,mimeType,webViewLink'
     });
+
+  await allowAnyoneToEdit(
+    result.data.id
+  );
 
   return (
     result.data
@@ -749,6 +834,11 @@ async function uploadToDrive(
       fields:
         'id,name,mimeType,webViewLink,parents,modifiedTime'
     });
+
+
+  await allowAnyoneToEdit(
+    result.data.id
+  );
 
 
   return (
@@ -1452,6 +1542,8 @@ async(req,res)=>{
 
       await ensureNotificationTables();
 
+      await ensureTasksTable();
+
 
       const [
 
@@ -1464,6 +1556,8 @@ async(req,res)=>{
         reviews,
 
         permits,
+
+        tasks,
 
         online,
 
@@ -1563,6 +1657,19 @@ async(req,res)=>{
 
           order by
             created_at desc
+          `,
+          [
+            ws.id
+          ]
+        ),
+
+
+        pool.query(
+          `
+          select *
+          from workspace_tasks
+          where workspace_id=$1
+          order by completed,due_at nulls last,created_at desc
           `,
           [
             ws.id
@@ -1722,6 +1829,10 @@ async(req,res)=>{
 
           permits:
             permits.rows,
+
+
+          tasks:
+            tasks.rows,
 
 
           onlineMembers:
@@ -1960,6 +2071,12 @@ async(req,res)=>{
             updated
           }
         );
+      }
+
+
+      case 'drive_share_all':{
+        const result=await shareWorkspaceDriveFiles(ws.id);
+        return send(res,200,{ok:true,...result});
       }
 
 
@@ -2447,45 +2564,36 @@ async(req,res)=>{
          メッセージ
       ============================== */
 
-      case 'message':
+      case 'message':{
+        const text=String(b.text||'').trim();
+        const imageData=String(b.image_data||'');
 
+        if(!text&&!imageData){
+          return send(res,400,{error:'メッセージか画像を入力してください'});
+        }
+
+        if(imageData&&!/^data:image\/(?:jpeg|png|webp|gif);base64,/i.test(imageData)){
+          return send(res,400,{error:'画像形式が正しくありません'});
+        }
+
+        if(imageData.length>1800000){
+          return send(res,413,{error:'画像が大きすぎます'});
+        }
 
         await pool.query(
-          `
-          insert into shared_items
-          (
-            workspace_id,
-
-            item_type,
-
-            name,
-
-            updated_by
-          )
-
-          values
-          (
-            $1,
-
-            'message',
-
-            $2,
-
-            $3
-          )
-          `,
+          `insert into shared_items
+           (workspace_id,item_type,name,mime_type,file_data,updated_by)
+           values($1,'message',$2,$3,$4,$5)`,
           [
-
             ws.id,
-
-            b.text,
-
+            text||'画像',
+            imageData?(imageData.match(/^data:([^;]+)/)?.[1]||'image/jpeg'):null,
+            imageData||null,
             by
           ]
         );
-
-
         break;
+      }
 
 
       /* ==============================
@@ -2837,6 +2945,50 @@ async(req,res)=>{
 
 
         break;
+
+
+      /* ==============================
+         やることリスト
+      ============================== */
+
+      case 'task':{
+        const title=String(b.title||'').trim();
+        if(!title)return send(res,400,{error:'やることを入力してください'});
+        await ensureTasksTable();
+        await pool.query(
+          `insert into workspace_tasks
+           (workspace_id,title,due_at,assignee,notes,created_by)
+           values($1,$2,$3,$4,$5,$6)`,
+          [
+            ws.id,
+            title,
+            b.due_at||null,
+            String(b.assignee||'').trim()||null,
+            String(b.notes||'').trim()||null,
+            by
+          ]
+        );
+        break;
+      }
+
+      case 'task_toggle':{
+        await ensureTasksTable();
+        await pool.query(
+          `update workspace_tasks set completed=$1,updated_at=now()
+           where id=$2 and workspace_id=$3`,
+          [Boolean(b.completed),b.id,ws.id]
+        );
+        break;
+      }
+
+      case 'task_delete':{
+        await ensureTasksTable();
+        await pool.query(
+          `delete from workspace_tasks where id=$1 and workspace_id=$2`,
+          [b.id,ws.id]
+        );
+        break;
+      }
 
 
       /* ==============================
