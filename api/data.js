@@ -575,6 +575,34 @@ async function ensureTasksTable(){
     `create index if not exists workspace_tasks_workspace_idx
      on workspace_tasks(workspace_id,completed,due_at)`
   );
+  await pool.query(
+    `alter table workspace_tasks
+     add column if not exists deleted_at timestamptz`
+  );
+  await pool.query(
+    `alter table schedules
+     add column if not exists deleted_at timestamptz`
+  );
+}
+
+async function ensureActivityTable(){
+  await pool.query(
+    `create table if not exists workspace_activity
+     (
+       id bigserial primary key,
+       workspace_id uuid not null,
+       action text not null,
+       item_kind text,
+       item_id text,
+       detail text,
+       member_name text,
+       created_at timestamptz not null default now()
+     )`
+  );
+  await pool.query(
+    `create index if not exists workspace_activity_workspace_idx
+     on workspace_activity(workspace_id,created_at desc)`
+  );
 }
 
 /* ==============================
@@ -1543,6 +1571,7 @@ async(req,res)=>{
       await ensureNotificationTables();
 
       await ensureTasksTable();
+      await ensureActivityTable();
 
 
       const [
@@ -1574,6 +1603,7 @@ async(req,res)=>{
           from schedules
 
           where workspace_id=$1
+            and deleted_at is null
 
           order by
 
@@ -1684,6 +1714,7 @@ async(req,res)=>{
           select *
           from workspace_tasks
           where workspace_id=$1
+            and deleted_at is null
           order by completed,due_at nulls last,created_at desc
           `,
           [
@@ -1709,6 +1740,73 @@ async(req,res)=>{
           ]
         )
       ]);
+
+
+      const [
+        trashedItems,
+        trashedSchedules,
+        trashedTasks,
+        activities
+      ]=await Promise.all([
+        pool.query(
+          `select id,item_type,name,updated_by,updated_at
+           from shared_items
+           where workspace_id=$1
+             and trashed=true
+             and updated_at>now()-interval '30 days'
+             and item_type in ('file','folder')
+           order by updated_at desc`,
+          [ws.id]
+        ),
+        pool.query(
+          `select id,title,updated_by,deleted_at
+           from schedules
+           where workspace_id=$1
+             and deleted_at is not null
+             and deleted_at>now()-interval '30 days'
+           order by deleted_at desc`,
+          [ws.id]
+        ),
+        pool.query(
+          `select id,title,created_by,deleted_at
+           from workspace_tasks
+           where workspace_id=$1
+             and deleted_at is not null
+             and deleted_at>now()-interval '30 days'
+           order by deleted_at desc`,
+          [ws.id]
+        ),
+        pool.query(
+          `select id,action,item_kind,item_id,detail,member_name,created_at
+           from workspace_activity
+           where workspace_id=$1
+           order by created_at desc
+           limit 100`,
+          [ws.id]
+        )
+      ]);
+
+      const trash=[
+        ...trashedItems.rows.map(x=>({
+          ...x,
+          kind:'item',
+          title:x.name,
+          deleted_at:x.updated_at
+        })),
+        ...trashedSchedules.rows.map(x=>({
+          ...x,
+          kind:'schedule'
+        })),
+        ...trashedTasks.rows.map(x=>({
+          ...x,
+          kind:'task',
+          updated_by:x.created_by
+        }))
+      ].sort(
+        (a,b)=>
+          new Date(b.deleted_at)-
+          new Date(a.deleted_at)
+      );
 
 
       /*
@@ -1855,7 +1953,12 @@ async(req,res)=>{
 
 
           loginEvents:
-            loginEvents.rows
+            loginEvents.rows,
+
+          trash,
+
+          activities:
+            activities.rows
         }
       );
     }
@@ -1895,6 +1998,9 @@ async(req,res)=>{
       ws.id,
       by
     );
+
+    await ensureTasksTable();
+    await ensureActivityTable();
 
 
     switch(
@@ -2783,16 +2889,13 @@ async(req,res)=>{
 
         await pool.query(
           `
-          delete from schedules
-
+          update schedules
+          set deleted_at=now()
           where id=$1
-
             and workspace_id=$2
           `,
           [
-
             b.id,
-
             ws.id
           ]
         );
@@ -3003,9 +3106,41 @@ async(req,res)=>{
       case 'task_delete':{
         await ensureTasksTable();
         await pool.query(
-          `delete from workspace_tasks where id=$1 and workspace_id=$2`,
+          `update workspace_tasks
+           set deleted_at=now(),updated_at=now()
+           where id=$1 and workspace_id=$2`,
           [b.id,ws.id]
         );
+        break;
+      }
+
+
+      case 'trash_restore':{
+        const kind=String(b.kind||'');
+        if(kind==='item'){
+          await pool.query(
+            `update shared_items
+             set trashed=false,updated_by=$1,updated_at=now()
+             where id=$2 and workspace_id=$3`,
+            [by,b.id,ws.id]
+          );
+        }else if(kind==='schedule'){
+          await pool.query(
+            `update schedules
+             set deleted_at=null,updated_at=now(),updated_by=$1
+             where id=$2 and workspace_id=$3`,
+            [by,b.id,ws.id]
+          );
+        }else if(kind==='task'){
+          await pool.query(
+            `update workspace_tasks
+             set deleted_at=null,updated_at=now()
+             where id=$1 and workspace_id=$2`,
+            [b.id,ws.id]
+          );
+        }else{
+          return send(res,400,{error:'復元対象が不正です'});
+        }
         break;
       }
 
@@ -3078,6 +3213,40 @@ async(req,res)=>{
               '操作が不正です'
           }
         );
+    }
+
+
+    const auditable=[
+      'folder','file','version','item_delete',
+      'message','message_delete','schedule',
+      'schedule_delete','minute','review','permit',
+      'task','task_toggle','task_delete',
+      'record_delete','trash_restore'
+    ];
+
+    if(auditable.includes(b.action)){
+      const detail=
+        String(
+          b.title||
+          b.name||
+          b.text||
+          ''
+        ).trim()||
+        null;
+
+      await pool.query(
+        `insert into workspace_activity
+         (workspace_id,action,item_kind,item_id,detail,member_name)
+         values($1,$2,$3,$4,$5,$6)`,
+        [
+          ws.id,
+          b.action,
+          b.kind||null,
+          b.id?String(b.id):null,
+          detail,
+          by
+        ]
+      );
     }
 
 
