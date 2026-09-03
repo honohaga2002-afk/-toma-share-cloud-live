@@ -19,6 +19,17 @@ const storedYear=
     )
   );
 
+let driveMode=
+  localStorage.getItem(
+    'tomaDriveMode'
+  )==='pro'
+    ?'pro'
+    :'normal';
+
+let driveSearch='';
+let driveType='all';
+let driveSort='updated';
+
 let selectedYear=
   Number.isInteger(storedYear)&&
   storedYear>=2000&&
@@ -28,6 +39,7 @@ let selectedYear=
 
 let state={
   years:[2026,2027],
+  editors:[],
   schedules:[],
   messages:[],
   items:[],
@@ -478,6 +490,16 @@ async function load(){
     years:
       (d.years||[2026,2027])
         .map(Number),
+
+    editors:
+      (d.editors||[])
+      .filter(
+        item=>
+          Number(
+            item.fiscal_year||
+            selectedYear
+          )===selectedYear
+      ),
 
     schedules:
       yearItems(d.schedules),
@@ -3464,6 +3486,17 @@ function homeR(){
 
 function fileRow(file){
 
+  const editingNames=
+    (state.editors||[])
+    .filter(
+      item=>sameId(
+        item.file_id,
+        file.id
+      )
+    )
+    .map(item=>item.member_name)
+    .filter(Boolean);
+
   const isDrive=
     !!driveUrl(file);
 
@@ -3493,6 +3526,12 @@ function fileRow(file){
             ${esc(file.updated_by||'')}
             ${isDrive?'｜Google Drive':''}
           </div>
+          ${
+            driveMode==='pro'&&
+            editingNames.length
+              ?`<div class="pill" style="margin-top:7px;background:#e8fff2;color:#087944">● ${esc(editingNames.join('・'))}さんが編集中</div>`
+              :''
+          }
 
       </div>
 
@@ -3553,19 +3592,71 @@ function driveR(){
 
   if(!el)return;
 
-  const folders=
+  const isPro=
+    driveMode==='pro';
+
+  const query=
+    driveSearch.trim().toLowerCase();
+
+  let folders=
     state.items.filter(
       x=>
-        x.item_type===
-        'folder'
+        x.item_type==='folder'&&
+        (
+          !query||
+          String(x.name||'')
+            .toLowerCase()
+            .includes(query)
+        )
     );
 
-  const files=
+  let files=
     state.items.filter(
-      x=>
-        x.item_type===
-        'file'
+      x=>{
+        if(x.item_type!=='file')return false;
+
+        const name=
+          String(x.name||'')
+            .toLowerCase();
+
+        if(query&&!name.includes(query)){
+          return false;
+        }
+
+        if(!isPro||driveType==='all'){
+          return true;
+        }
+
+        if(driveType==='image'){
+          return isImageFile(x);
+        }
+
+        if(driveType==='sheet'){
+          return isSpreadsheet(x);
+        }
+
+        if(driveType==='pdf'){
+          return (
+            String(x.mime_type||'')
+              .toLowerCase()==='application/pdf'||
+            name.endsWith('.pdf')
+          );
+        }
+
+        return true;
+      }
     );
+
+  files.sort(
+    (a,b)=>
+      driveSort==='name'
+        ?String(a.name||'').localeCompare(
+            String(b.name||''),
+            'ja'
+          )
+        :new Date(b.updated_at||0)-
+          new Date(a.updated_at||0)
+  );
 
   const imageFiles=
     files.filter(
@@ -3731,6 +3822,37 @@ function driveR(){
 
       </div>
 
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn ${isPro?'light':''}" id="driveNormalMode" type="button">通常版</button>
+        <button class="btn ${isPro?'':'light'}" id="driveProMode" type="button">高機能編集版</button>
+      </div>
+
+      ${
+        isPro
+          ?`<div style="background:#eef7ff;border:1px solid #cfe5f5;border-radius:12px;padding:12px;margin-bottom:12px">
+              <div class="title" style="font-size:16px">共同編集ドライブ</div>
+              <input id="driveSearch" value="${esc(driveSearch)}" placeholder="ファイル名で検索" style="margin-top:9px">
+              <div class="row">
+                <select id="driveType" style="margin:0">
+                  <option value="all" ${driveType==='all'?'selected':''}>すべて</option>
+                  <option value="sheet" ${driveType==='sheet'?'selected':''}>表計算</option>
+                  <option value="pdf" ${driveType==='pdf'?'selected':''}>PDF</option>
+                  <option value="image" ${driveType==='image'?'selected':''}>画像</option>
+                </select>
+                <select id="driveSort" style="margin:0">
+                  <option value="updated" ${driveSort==='updated'?'selected':''}>更新順</option>
+                  <option value="name" ${driveSort==='name'?'selected':''}>名前順</option>
+                </select>
+              </div>
+              <div class="row">
+                <button class="btn" id="applyDriveSearch" type="button">検索・並び替え</button>
+                <button class="btn light" id="proDriveSync" type="button">編集内容を同期</button>
+              </div>
+              <div class="meta" style="margin-top:8px">Googleで同時編集した変更は、アプリへ戻ると自動同期されます。</div>
+            </div>`
+          :''
+      }
+
       <div class="row">
 
         <button
@@ -3843,6 +3965,57 @@ function driveR(){
       }
     );
 
+  $('driveNormalMode').onclick=
+    ()=>{
+      driveMode='normal';
+      localStorage.setItem(
+        'tomaDriveMode',
+        driveMode
+      );
+      driveR();
+      say('通常版に戻しました');
+    };
+
+  $('driveProMode').onclick=
+    ()=>{
+      driveMode='pro';
+      localStorage.setItem(
+        'tomaDriveMode',
+        driveMode
+      );
+      driveR();
+      say('高機能編集版に切り替えました');
+    };
+
+  if($('applyDriveSearch')){
+    $('applyDriveSearch').onclick=
+      ()=>{
+        driveSearch=
+          $('driveSearch').value;
+        driveType=
+          $('driveType').value;
+        driveSort=
+          $('driveSort').value;
+        driveR();
+      };
+
+    $('driveSearch').onkeydown=
+      event=>{
+        if(event.key==='Enter'){
+          $('applyDriveSearch').click();
+        }
+      };
+  }
+
+  if($('proDriveSync')){
+    $('proDriveSync').onclick=
+      async()=>{
+        await syncDriveChanges(true);
+        await load();
+        go('drive');
+      };
+  }
+
   $('refreshD').onclick=
     async()=>{
 
@@ -3948,7 +4121,7 @@ function driveR(){
       b=>{
 
         b.onclick=
-          ()=>{
+          async()=>{
 
             const f=
               files.find(
@@ -3966,7 +4139,24 @@ function driveR(){
               return;
             }
 
+            try{
+              await api(
+                'POST',
+                {
+                  action:'editor_presence',
+                  file_id:f.id,
+                  by:N
+                }
+              );
+            }catch(e){
+              console.error(e);
+            }
+
             openExternal(url);
+
+            say(
+              '共同編集を開始しました'
+            );
 
             /* 編集開始時点のDrive更新日時を記録 */
             syncDriveChanges(false)
