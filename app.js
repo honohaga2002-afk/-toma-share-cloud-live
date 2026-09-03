@@ -3490,7 +3490,11 @@ function chatR(){
               <div>${esc(x.name)}</div>
               ${
                 imageUrl
-                  ?`<img src="${esc(imageUrl)}" alt="添付画像" style="display:block;width:100%;max-width:420px;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px;background:#eef5f8">`
+                  ?`<img src="${esc(imageUrl)}" alt="添付画像" style="display:block;width:100%;max-width:420px;max-height:420px;object-fit:contain;border-radius:12px;margin-top:10px;background:#eef5f8">
+                    <div class="row" style="margin-top:8px">
+                      <button class="btn light" type="button" data-message-open="${esc(x.id)}">画像を開く</button>
+                      <button class="btn" type="button" data-message-save="${esc(x.id)}">共有フォルダーに保存</button>
+                    </div>`
                   :''
               }
               <div class="meta">${esc(x.updated_by||'')}</div>
@@ -3651,6 +3655,142 @@ function chatR(){
         button.textContent='送信';
       }
     };
+
+  document
+    .querySelectorAll(
+      '[data-message-open]'
+    )
+    .forEach(
+      button=>{
+        button.onclick=
+          ()=>{
+            const message=
+              state.messages.find(
+                item=>sameId(
+                  item.id,
+                  button.dataset.messageOpen
+                )
+              );
+
+            const imageUrl=
+              messageImageUrl(message);
+
+            if(!imageUrl){
+              alert('画像が見つかりません');
+              return;
+            }
+
+            const mime=
+              imageUrl.match(
+                /^data:([^;]+)/
+              )?.[1]||
+              'image/jpeg';
+
+            showFilePreview(
+              {
+                name:'メッセージ画像',
+                mime_type:mime
+              },
+              dataUrlToBlob(imageUrl)
+            );
+          };
+      }
+    );
+
+  document
+    .querySelectorAll(
+      '[data-message-save]'
+    )
+    .forEach(
+      button=>{
+        button.onclick=
+          async()=>{
+            const message=
+              state.messages.find(
+                item=>sameId(
+                  item.id,
+                  button.dataset.messageSave
+                )
+              );
+
+            const imageData=
+              messageImageUrl(message);
+
+            if(!imageData){
+              alert('画像が見つかりません');
+              return;
+            }
+
+            const mime=
+              imageData.match(
+                /^data:([^;]+)/
+              )?.[1]||
+              'image/jpeg';
+
+            const extension=
+              mime==='image/png'
+                ?'png'
+                :mime==='image/webp'
+                  ?'webp'
+                  :mime==='image/gif'
+                    ?'gif'
+                    :'jpg';
+
+            const created=
+              new Date(
+                message?.created_at||
+                Date.now()
+              );
+
+            const stamp=[
+              created.getFullYear(),
+              String(created.getMonth()+1).padStart(2,'0'),
+              String(created.getDate()).padStart(2,'0'),
+              '_',
+              String(created.getHours()).padStart(2,'0'),
+              String(created.getMinutes()).padStart(2,'0'),
+              String(created.getSeconds()).padStart(2,'0')
+            ].join('');
+
+            button.disabled=true;
+            button.textContent='保存中…';
+
+            try{
+              await api(
+                'POST',
+                {
+                  action:'file',
+                  name:
+                    `メッセージ画像_${stamp}.${extension}`,
+                  mime_type:mime,
+                  data:imageData,
+                  size:
+                    dataUrlToBlob(
+                      imageData
+                    ).size,
+                  parent_id:null,
+                  by:N
+                }
+              );
+
+              await load();
+              go('chat');
+              say(
+                '共有フォルダーに保存しました'
+              );
+
+            }catch(e){
+              alert(
+                '保存できません：'+
+                e.message
+              );
+              button.disabled=false;
+              button.textContent=
+                '共有フォルダーに保存';
+            }
+          };
+      }
+    );
 
   document
     .querySelectorAll(
@@ -4260,7 +4400,70 @@ function eventsR(){
 }
 
 
+const TASK_DRAFT_KEY='tomaTaskDraftV1';
+
+function readTaskDraft(){
+  try{
+    return JSON.parse(
+      localStorage.getItem(TASK_DRAFT_KEY)||'{}'
+    )||{};
+  }catch(e){
+    return {};
+  }
+}
+
+function saveTaskDraft(){
+  const draft={
+    title:$('taskTitle')?.value||'',
+    date:$('taskDate')?.value||'',
+    time:$('taskTime')?.value||'18:00',
+    assignee:$('taskAssignee')?.value||'',
+    notes:$('taskNotes')?.value||''
+  };
+
+  try{
+    localStorage.setItem(
+      TASK_DRAFT_KEY,
+      JSON.stringify(draft)
+    );
+  }catch(e){}
+}
+
+function clearTaskDraft(){
+  try{
+    localStorage.removeItem(
+      TASK_DRAFT_KEY
+    );
+  }catch(e){}
+}
+
+function bindTaskDraft(){
+  [
+    'taskTitle',
+    'taskDate',
+    'taskTime',
+    'taskAssignee',
+    'taskNotes'
+  ].forEach(
+    id=>{
+      const field=$(id);
+      if(!field)return;
+      field.addEventListener(
+        'input',
+        saveTaskDraft
+      );
+      field.addEventListener(
+        'change',
+        saveTaskDraft
+      );
+    }
+  );
+}
+
+
 function taskR(){
+
+  const draft=readTaskDraft();
 
   const el=
     $('tasks');
@@ -4337,25 +4540,26 @@ function taskR(){
       <div class="panelHeading">＋やることを追加</div>
 
       <label class="meta" for="taskTitle">何をする</label>
-      <input id="taskTitle" placeholder="例：保健所へ申請書を提出">
+      <input id="taskTitle" value="${esc(draft.title||'')}" placeholder="例：保健所へ申請書を提出">
 
       <label class="meta" for="taskDate">期限</label>
-      <input id="taskDate" type="date">
+      <input id="taskDate" type="date" value="${esc(draft.date||'')}">
 
       <label class="meta" for="taskTime">期限時間</label>
-      <input id="taskTime" type="time" value="18:00">
+      <input id="taskTime" type="time" value="${esc(draft.time||'18:00')}">
 
       <label class="meta" for="taskAssignee">担当名</label>
-      <input id="taskAssignee" placeholder="担当者名">
+      <input id="taskAssignee" value="${esc(draft.assignee||'')}" placeholder="担当者名">
 
       <label class="meta" for="taskNotes">メモ</label>
-      <textarea id="taskNotes" placeholder="補足・必要なもの（任意）"></textarea>
+      <textarea id="taskNotes" placeholder="補足・必要なもの（任意）">${esc(draft.notes||'')}</textarea>
 
       <button class="btn wide" id="addTask" type="button">追加</button>
     </div>
   `;
 
   bindSubPageNavigation();
+  bindTaskDraft();
 
   $('addTask').onclick=
     async()=>{
@@ -4404,6 +4608,8 @@ function taskR(){
             by:N
           }
         );
+
+        clearTaskDraft();
 
         await load();
 
