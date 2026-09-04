@@ -3775,8 +3775,6 @@ function homeR(){
 
     </div>
 
-    ${notificationPanel()}
-
     <div class="grid">
 
       <button
@@ -3850,15 +3848,6 @@ function homeR(){
 
     </div>
   `;
-
-  const notifyButton=
-    $('enableLoginNotifications');
-
-  if(notifyButton){
-
-    notifyButton.onclick=
-      enablePushNotifications;
-  }
 
   document
     .querySelectorAll(
@@ -6236,45 +6225,49 @@ function activityR(){
 }
 
 
-function downloadBackup(){
-  const backup={
-    exported_at:new Date().toISOString(),
-    workspace:'TOMA SHARE',
-    year:selectedYear,
-    schedules:state.schedules,
-    tasks:state.tasks,
-    minutes:state.minutes,
-    reviews:state.reviews,
-    permits:state.permits,
-    files:(state.items||[]).map(item=>({
-      id:item.id,
-      parent_id:item.parent_id,
-      item_type:item.item_type,
-      name:item.name,
-      mime_type:item.mime_type,
-      version:item.version,
-      updated_by:item.updated_by,
-      updated_at:item.updated_at
-    }))
-  };
+async function saveCloudBackup(){
+  const button=
+    $('downloadBackup');
 
-  const blob=new Blob(
-    [JSON.stringify(backup,null,2)],
-    {type:'application/json'}
-  );
+  if(button){
+    button.disabled=true;
+  }
 
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement('a');
-  link.href=url;
-  link.download=
-    `TOMA_SHARE_${selectedYear}年_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),30000);
-  say('バックアップを保存しました');
+  try{
+    const result=
+      await api(
+        'POST',
+        {
+          action:'cloud_backup',
+          by:N
+        }
+      );
+
+    say(
+      'Googleドライブへバックアップしました'
+    );
+
+    if(
+      result.url &&
+      confirm(
+        'クラウドバックアップが完了しました。Googleドライブで確認しますか？'
+      )
+    ){
+      openExternal(
+        result.url
+      );
+    }
+  }catch(e){
+    alert(
+      'クラウドバックアップに失敗しました：'+
+      e.message
+    );
+  }finally{
+    if(button){
+      button.disabled=false;
+    }
+  }
 }
-
 
 async function saveNotificationSettings(){
   const preferences={
@@ -6405,8 +6398,8 @@ function moreR(){
 
         <button class="card" id="downloadBackup" type="button">
           <div class="ico">💾</div>
-          <div class="ct">バックアップ</div>
-          <div class="meta">端末に保存</div>
+          <div class="ct">クラウドバックアップ</div>
+          <div class="meta">Googleドライブへ上書き</div>
         </button>
       </div>
     </div>
@@ -6444,7 +6437,7 @@ function moreR(){
 
   if($('downloadBackup')){
     $('downloadBackup').onclick=
-      downloadBackup;
+      saveCloudBackup;
   }
 }
 
