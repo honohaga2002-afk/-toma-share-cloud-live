@@ -676,7 +676,8 @@ async function ensureActivityTable(){
 ============================== */
 
 async function createDriveFolder(
-  name
+  name,
+  parentDriveId=null
 ){
 
   const drive =
@@ -690,7 +691,11 @@ async function createDriveFolder(
         name,
 
         mimeType:
-          'application/vnd.google-apps.folder'
+          'application/vnd.google-apps.folder',
+
+        ...(parentDriveId
+          ?{parents:[parentDriveId]}
+          :{})
       },
 
       fields:
@@ -711,10 +716,37 @@ async function createDriveFolder(
    保存先フォルダ取得
 ============================== */
 
+function automaticFileCategory(name=''){
+  const lower=
+    String(name).toLowerCase();
+
+  if(lower.endsWith('.pdf')){
+    return 'pdf';
+  }
+
+  if(
+    lower.endsWith('.ppt')||
+    lower.endsWith('.pptx')
+  ){
+    return 'powerpoint';
+  }
+
+  if(
+    lower.endsWith('.doc')||
+    lower.endsWith('.docx')
+  ){
+    return 'word';
+  }
+
+  return '';
+}
+
+
 async function getDriveFolder(
   workspaceId,
   parentId,
-  by
+  by,
+  fileName=''
 ){
 
   if(!parentId){
@@ -762,6 +794,20 @@ async function getDriveFolder(
       folder.content
     );
 
+
+  const category=
+    automaticFileCategory(
+      fileName
+    );
+
+  const automaticFolder=
+    category
+      ?content.autoFolders?.[category]
+      :null;
+
+  if(automaticFolder?.driveFolderId){
+    return automaticFolder.driveFolderId;
+  }
 
   if(
     content.driveFolderId
@@ -2597,16 +2643,12 @@ async(req,res)=>{
 
       case 'folder':{
 
-
-        const name =
+        const name=
           String(
-            b.name ||
-            ''
+            b.name||''
           ).trim();
 
-
         if(!name){
-
           return send(
             res,
             400,
@@ -2617,92 +2659,85 @@ async(req,res)=>{
           );
         }
 
-
-        const driveFolder =
+        const driveFolder=
           await createDriveFolder(
             name
           );
 
+        const categoryDefinitions=[
+          ['pdf','PDF'],
+          ['powerpoint','PowerPoint'],
+          ['word','Word']
+        ];
 
-        const content = {
+        const createdCategories=
+          await Promise.all(
+            categoryDefinitions.map(
+              async([key,label])=>{
+                const folder=
+                  await createDriveFolder(
+                    label,
+                    driveFolder.id
+                  );
 
+                return [
+                  key,
+                  {
+                    name:label,
+                    driveFolderId:folder.id,
+                    webViewLink:
+                      folder.webViewLink||null
+                  }
+                ];
+              }
+            )
+          );
+
+        const content={
           driveFolderId:
             driveFolder.id,
-
           webViewLink:
-            driveFolder.webViewLink ||
-            null,
-
+            driveFolder.webViewLink||null,
           googleMimeType:
-            driveFolder.mimeType
+            driveFolder.mimeType,
+          autoOrganize:true,
+          autoFolders:
+            Object.fromEntries(
+              createdCategories
+            )
         };
-
 
         await pool.query(
           `
           insert into shared_items
           (
             workspace_id,
-
             item_type,
-
             name,
-
             mime_type,
-
             file_data,
-
             content,
-
             updated_by,
-
             fiscal_year
           )
-
           values
           (
-            $1,
-
-            'folder',
-
-            $2,
-
-            $3,
-
-            $4,
-
-            $5,
-
-            $6,
-
-            $7
+            $1,'folder',$2,$3,$4,$5,$6,$7
           )
           `,
           [
-
             ws.id,
-
             name,
-
             'application/vnd.google-apps.folder',
-
-            driveFolder.webViewLink ||
-            null,
-
-            JSON.stringify(
-              content
-            ),
-
+            driveFolder.webViewLink||null,
+            JSON.stringify(content),
             by,
-
             fiscalYear
           ]
         );
 
-
         break;
       }
-
 
       /* ==============================
          ファイル追加
@@ -2720,7 +2755,9 @@ async(req,res)=>{
             b.parent_id ||
             null,
 
-            by
+            by,
+
+            b.name
           );
 
 
@@ -2953,7 +2990,9 @@ async(req,res)=>{
             parentId ||
             null,
 
-            by
+            by,
+
+            b.name
           );
 
 
