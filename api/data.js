@@ -810,6 +810,66 @@ async function getDriveFolder(
   }
 
   if(
+    category &&
+    content.driveFolderId
+  ){
+    const definitions=[
+      ['pdf','PDF'],
+      ['powerpoint','PowerPoint'],
+      ['word','Word']
+    ];
+
+    const autoFolders={
+      ...(content.autoFolders||{})
+    };
+
+    for(const [key,label] of definitions){
+      if(autoFolders[key]?.driveFolderId){
+        continue;
+      }
+
+      const created=
+        await createDriveFolder(
+          label,
+          content.driveFolderId
+        );
+
+      autoFolders[key]={
+        name:label,
+        driveFolderId:created.id,
+        webViewLink:
+          created.webViewLink||null
+      };
+    }
+
+    const updatedContent={
+      ...content,
+      autoOrganize:true,
+      autoFolders
+    };
+
+    await pool.query(
+      `
+      update shared_items
+      set content=$1,
+          updated_by=$2,
+          updated_at=now()
+      where id=$3
+        and workspace_id=$4
+      `,
+      [
+        JSON.stringify(updatedContent),
+        by,
+        folder.id,
+        workspaceId
+      ]
+    );
+
+    return autoFolders[category]
+      .driveFolderId;
+  }
+
+  if(
     content.driveFolderId
   ){
 
