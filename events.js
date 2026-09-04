@@ -30,6 +30,8 @@ const EVENTS=[
   {date:'10/25(土)〜10/26(日)',time:'25日14:00〜20:00／26日9:00〜15:00',title:'植苗地区文化祭',place:'植苗ファミリーセンター',tag:'地域・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/eventannai/siminbunkasai.html'},
   {date:'10/31(土)',time:'10:30〜11:30',title:'宇宙ステーション「ミール」ガイド「コックピットとトイレのひみつ」',place:'苫小牧市科学センター',tag:'科学・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/r8list.html'},
   {date:'10/31(土)',time:'11:00〜11:30／13:30〜14:00',title:'担当学芸員によるギャラリートーク',place:'苫小牧市美術博物館 企画展示室',tag:'美術・解説',url:'https://www.city.tomakomai.hokkaido.jp/hakubutsukan/tenrankai/munakata.html'},
+  {date:'11/3(火・祝)',time:'10:00／11:30／13:30／15:00（各回約30分）',title:'地層標本 展示説明会',place:'苫小牧市美術博物館 第一収蔵展示室',tag:'博物館・無料',url:'https://www.city.tomakomai.hokkaido.jp/hakubutsukan/gyoji/tisou.html'},
+  {date:'11/8(日)',time:'10:00〜11:30',title:'地層標本の作成体験',place:'苫小牧市美術博物館',tag:'体験・無料',url:'https://www.city.tomakomai.hokkaido.jp/hakubutsukan/gyoji/tisou.html'},
   {date:'11/10(火)',time:'時間は公式ページ確認',title:'ルーランド・デュイ チェロリサイタル',place:'苫小牧信用金庫本店2階 市民サロン',tag:'音楽・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/bunkageijutsu/shinkojoseijigyo/jigyoitiran.html'},
   {date:'11/15(日)',time:'時間は公式ページ確認',title:'NHKのど自慢',place:'苫小牧市内',tag:'音楽・公開番組',url:'https://www.city.tomakomai.hokkaido.jp/calendar/'},
   {date:'11/20(金)',time:'18:00〜18:40',title:'夜の上映会「彫る～棟方志功の世界」',place:'苫小牧市美術博物館 研修室',tag:'上映会・無料',url:'https://www.city.tomakomai.hokkaido.jp/hakubutsukan/tenrankai/munakata.html'},
@@ -45,24 +47,11 @@ const EVENTS=[
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function eventYear(event){
-  return (
-    String(event.date).includes('2027')||
-    String(event.title).includes('2027')
-  )
-    ?2027
-    :2026;
+  return (String(event.date).includes('2027')||String(event.title).includes('2027'))?2027:2026;
 }
-
 function renderEvents(){
-  const selectedYear=
-    Number(window.TOMA_SELECTED_YEAR)||
-    2026;
-
-  const visibleEvents=
-    EVENTS.filter(
-      event=>eventYear(event)===selectedYear
-    );
-
+  const selectedYear=Number(window.TOMA_SELECTED_YEAR)||2026;
+  const visibleEvents=EVENTS.filter(event=>eventYear(event)===selectedYear);
   const page=document.getElementById('events');
   if(!page || page.classList.contains('hidden')) return;
   const mount=page.querySelector('#tomakomaiEventsMount');
