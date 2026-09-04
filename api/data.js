@@ -721,6 +721,13 @@ function automaticFileCategory(name=''){
     String(name).toLowerCase();
 
   if(
+    /\.(?:jpe?g|png|webp|gif|heic|heif|mp4|mov|m4v|webm)$/
+      .test(lower)
+  ){
+    return 'media';
+  }
+
+  if(
     lower.endsWith('.xlsx')||
     lower.endsWith('.xls')||
     lower.endsWith('.csv')
@@ -825,7 +832,8 @@ async function getDriveFolder(
       ['excel','Excel'],
       ['word','Word'],
       ['pdf','PDF'],
-      ['powerpoint','PowerPoint']
+      ['powerpoint','PowerPoint'],
+      ['media','画像データ']
     ];
 
     const autoFolders={
@@ -2737,7 +2745,8 @@ async(req,res)=>{
           ['excel','Excel'],
           ['word','Word'],
           ['pdf','PDF'],
-          ['powerpoint','PowerPoint']
+          ['powerpoint','PowerPoint'],
+          ['media','画像データ']
         ];
 
         const createdCategories=
