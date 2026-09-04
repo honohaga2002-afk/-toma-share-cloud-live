@@ -31,6 +31,7 @@ let driveSearch='';
 let driveType='all';
 let driveSort='updated';
 let openFolderId='';
+let openFolderCategory='';
 
 let selectedYear=
   Number.isInteger(storedYear)&&
@@ -4151,6 +4152,14 @@ function driveR(){
       String(file.name||'')
         .toLowerCase();
 
+    if(
+      name.endsWith('.xlsx')||
+      name.endsWith('.xls')||
+      name.endsWith('.csv')
+    ){
+      return 'excel';
+    }
+
     if(name.endsWith('.pdf')){
       return 'pdf';
     }
@@ -4183,18 +4192,34 @@ function driveR(){
           folderFileKind(file)===kind
       );
 
+    const isOpen=
+      openFolderCategory===kind;
+
     return `
       <div class="item" style="margin-top:10px">
-        <div class="sectionTitle">
-          <div class="title">${icon} ${title}</div>
-          <div class="pill">${sectionFiles.length}件</div>
-        </div>
+        <button
+          type="button"
+          class="btn light"
+          data-folder-category="${kind}"
+          aria-expanded="${isOpen?'true':'false'}"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;white-space:normal"
+        >
+          <span class="title">${icon} ${title}</span>
+          <span style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+            <span class="pill">${sectionFiles.length}件</span>
+            <span aria-hidden="true">${isOpen?'▲':'▼'}</span>
+          </span>
+        </button>
         ${
-          sectionFiles.length
-            ?sectionFiles
-              .map(fileRow)
-              .join('')
-            :'<div class="empty">ファイルはありません</div>'
+          isOpen
+            ?`<div style="margin-top:8px">
+                ${
+                  sectionFiles.length
+                    ?sectionFiles.map(fileRow).join('')
+                    :'<div class="empty">ファイルはありません</div>'
+                }
+              </div>`
+            :''
         }
       </div>
     `;
@@ -4211,9 +4236,10 @@ function driveR(){
               <div class="meta">${selectedFolderFiles.length}ファイル｜種類別に自動保存</div>
             </div>
           </div>
+          ${folderSection('📗','Excel','excel')}
+          ${folderSection('📘','Word','word')}
           ${folderSection('📕','PDF','pdf')}
           ${folderSection('📊','PowerPoint','powerpoint')}
-          ${folderSection('📘','Word','word')}
           ${folderSection('📄','その他','other')}
         </div>
       `
@@ -4411,6 +4437,7 @@ function driveR(){
   if($('closeFolder')){
     $('closeFolder').onclick=()=>{
       openFolderId='';
+      openFolderCategory='';
       driveR();
     };
   }
@@ -4426,6 +4453,25 @@ function driveR(){
 
         selectedFolderId=
           openFolderId;
+
+        openFolderCategory='';
+        driveR();
+      };
+    });
+
+  document
+    .querySelectorAll(
+      '[data-folder-category]'
+    )
+    .forEach(button=>{
+      button.onclick=()=>{
+        const category=
+          button.dataset.folderCategory;
+
+        openFolderCategory=
+          openFolderCategory===category
+            ?''
+            :category;
 
         driveR();
       };
