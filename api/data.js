@@ -720,6 +720,14 @@ function automaticFileCategory(name=''){
   const lower=
     String(name).toLowerCase();
 
+  if(
+    lower.endsWith('.xlsx')||
+    lower.endsWith('.xls')||
+    lower.endsWith('.csv')
+  ){
+    return 'excel';
+  }
+
   if(lower.endsWith('.pdf')){
     return 'pdf';
   }
@@ -814,9 +822,10 @@ async function getDriveFolder(
     content.driveFolderId
   ){
     const definitions=[
+      ['excel','Excel'],
+      ['word','Word'],
       ['pdf','PDF'],
-      ['powerpoint','PowerPoint'],
-      ['word','Word']
+      ['powerpoint','PowerPoint']
     ];
 
     const autoFolders={
@@ -2725,9 +2734,10 @@ async(req,res)=>{
           );
 
         const categoryDefinitions=[
+          ['excel','Excel'],
+          ['word','Word'],
           ['pdf','PDF'],
-          ['powerpoint','PowerPoint'],
-          ['word','Word']
+          ['powerpoint','PowerPoint']
         ];
 
         const createdCategories=
