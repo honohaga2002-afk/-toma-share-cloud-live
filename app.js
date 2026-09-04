@@ -218,6 +218,7 @@ async function changeYear(value){
 }
 
 let selectedUploadFile=null;
+let selectedUploadFiles=[];
 let selectedVersionId=null;
 let selectedFolderId='';
 let selectedMessageImage=null;
@@ -1476,8 +1477,10 @@ function showImageGallery(startId){
   gallery.style.cssText='position:fixed;inset:0;z-index:10001;background:#000;color:#fff;display:flex;flex-direction:column;touch-action:pan-y';
   gallery.innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;padding:max(12px,env(safe-area-inset-top)) 14px 12px;background:rgba(0,0,0,.92)">
-      <button type="button" data-gallery-close style="border:0;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:10px 16px;font-size:16px;font-weight:800">閉じる</button>
+      <button type="button" data-gallery-close style="border:0;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:10px 14px;font-size:16px;font-weight:800">閉じる</button>
       <strong data-gallery-title style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></strong>
+      <button type="button" data-gallery-save style="border:0;background:#16864f;color:#fff;border-radius:10px;padding:9px 12px;font-size:15px;font-weight:800">保存</button>
+      <button type="button" data-gallery-print style="border:0;background:#fff;color:#17364d;border-radius:10px;padding:9px 12px;font-size:15px;font-weight:800">印刷</button>
       <span data-gallery-count style="font-size:14px;color:#ddd"></span>
     </div>
     <div style="position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
@@ -1501,6 +1504,9 @@ function showImageGallery(startId){
     index=(nextIndex+mediaFiles.length)%mediaFiles.length;
     const file=mediaFiles[index];
     const videoFile=isVideoFile(file);
+    gallery.dataset.currentName=file.name||(videoFile?'動画':'画像');
+    gallery.dataset.currentType=file.mime_type||(videoFile?'video/mp4':'image/jpeg');
+    gallery.querySelector('[data-gallery-print]').style.display=videoFile?'none':'block';
     title.textContent=file.name||(videoFile?'動画':'画像');
     count.textContent=`${index+1} / ${mediaFiles.length}`;
     loading.style.display='block';
@@ -1550,6 +1556,75 @@ function showImageGallery(startId){
   gallery.querySelector('[data-gallery-close]').onclick=closeImageGallery;
   gallery.querySelector('[data-gallery-prev]').onclick=()=>display(index-1);
   gallery.querySelector('[data-gallery-next]').onclick=()=>display(index+1);
+
+  gallery.querySelector('[data-gallery-save]').onclick=async()=>{
+    const url=gallery.dataset.blobUrl;
+    if(!url){
+      alert('読み込みが完了してから保存してください');
+      return;
+    }
+
+    try{
+      const blob=await fetch(url).then(response=>response.blob());
+      const file=new File(
+        [blob],
+        gallery.dataset.currentName||'画像',
+        {type:gallery.dataset.currentType||blob.type}
+      );
+
+      if(
+        navigator.share&&
+        navigator.canShare?.({files:[file]})
+      ){
+        await navigator.share({
+          files:[file],
+          title:file.name
+        });
+      }else{
+        const link=document.createElement('a');
+        link.href=url;
+        link.download=file.name;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    }catch(e){
+      if(e.name!=='AbortError'){
+        alert('保存画面を開けません：'+e.message);
+      }
+    }
+  };
+
+  gallery.querySelector('[data-gallery-print]').onclick=()=>{
+    const url=gallery.dataset.blobUrl;
+    if(!url){
+      alert('読み込みが完了してから印刷してください');
+      return;
+    }
+
+    const printWindow=window.open('','_blank');
+    if(!printWindow){
+      alert('印刷画面を開けません。ポップアップを許可してください。');
+      return;
+    }
+
+    const safeName=esc(gallery.dataset.currentName||'画像');
+    printWindow.document.open();
+    printWindow.document.write(
+      '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>'+
+      safeName+
+      '</title><style>@page{margin:10mm}html,body{margin:0}body{display:grid;place-items:center;min-height:100vh}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="'+
+      url+
+      '" alt=""></body></html>'
+    );
+    printWindow.document.close();
+
+    const printable=printWindow.document.querySelector('img');
+    printable.onload=()=>{
+      printWindow.focus();
+      printWindow.print();
+    };
+  };
 
   let touchStartX=0;
   gallery.addEventListener('touchstart',event=>{
@@ -3418,6 +3493,7 @@ async function prepareSharedFile(){
     return false;
   }
   selectedUploadFile=file;
+  selectedUploadFiles=[file];
   selectedVersionId=null;
   selectedFolderId='';
   go('drive');
@@ -3437,6 +3513,8 @@ function pickFile(
 
   input.type=
     'file';
+
+  input.multiple=!id;
 
   input.name=
     'toma-share-file';
@@ -3491,31 +3569,36 @@ function pickFile(
 
       picked=true;
 
-      const f=
-        input.files?.[0];
-
-      if(!f){
-
-        cleanup();
-
-        return;
-      }
-
-      if(
-        f.size>
-        2500000
-      ){
-
-        alert(
-          '現在は1ファイル2.5MB以下でアップロードしてください'
+      const pickedFiles=
+        Array.from(
+          input.files||[]
         );
 
+      if(!pickedFiles.length){
         cleanup();
-
         return;
       }
 
-      selectedUploadFile=f;
+      const oversized=
+        pickedFiles.find(
+          file=>file.size>2500000
+        );
+
+      if(oversized){
+        alert(
+          '「'+oversized.name+'」は2.5MBを超えています。現在は1ファイル2.5MB以下で選択してください'
+        );
+        cleanup();
+        return;
+      }
+
+      selectedUploadFiles=
+        id
+          ?[pickedFiles[0]]
+          :pickedFiles;
+
+      selectedUploadFile=
+        selectedUploadFiles[0];
 
       selectedVersionId=
         id||null;
@@ -3539,7 +3622,8 @@ function pickFile(
 
       }else{
 
-        selectedFolderId='';
+        selectedFolderId=
+          openFolderId||'';
       }
 
       go('drive');
@@ -3552,129 +3636,93 @@ function pickFile(
 
 
 async function saveSelectedFile(){
+  const files=
+    selectedUploadFiles.length
+      ?selectedUploadFiles
+      :selectedUploadFile
+        ?[selectedUploadFile]
+        :[];
 
-  const f=
-    selectedUploadFile;
-
-  if(!f){
-
-    alert(
-      'ファイルを選択してください'
-    );
-
+  if(!files.length){
+    alert('ファイルを選択してください');
     return;
   }
 
-  const btn=
-    $('saveSelectedFile');
+  const btn=$('saveSelectedFile');
 
   try{
-
     if(btn){
-
       btn.disabled=true;
-
       btn.textContent=
-        '保存中…';
+        files.length>1
+          ?`0 / ${files.length} 保存中…`
+          :'保存中…';
     }
 
-    const data=
-      await new Promise(
-        (
-          resolve,
-          reject
-        )=>{
+    let destination=
+      selectedFolderId||null;
 
-          const fr=
-            new FileReader();
+    if(
+      !selectedVersionId&&
+      files.every(isMediaFile)&&
+      !destination
+    ){
+      destination=await ensureImageFolder();
+    }
 
-          fr.onload=
-            ()=>resolve(
-              fr.result
-            );
+    for(let i=0;i<files.length;i++){
+      const file=files[i];
 
-          fr.onerror=
-            ()=>reject(
-              new Error(
-                'ファイルを読み込めませんでした'
-              )
-            );
-
-          fr.readAsDataURL(f);
-        }
-      );
-
-    await api(
-      'POST',
-      {
-        action:
-          selectedVersionId
-            ?'version'
-            :'file',
-
-        id:
-          selectedVersionId||
-          null,
-
-        parent_id:
-          (
-            !selectedVersionId&&
-            isMediaFile(f)&&
-            !selectedFolderId
-          )
-            ?await ensureImageFolder()
-            :selectedFolderId||
-              null,
-
-        name:
-          f.name,
-
-        mime_type:
-          f.type||
-          'application/octet-stream',
-
-        size:
-          f.size,
-
-        data,
-
-        by:N
+      if(btn&&files.length>1){
+        btn.textContent=
+          `${i+1} / ${files.length} 保存中…`;
       }
-    );
 
+      const data=await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(reader.result);
+        reader.onerror=()=>reject(new Error('ファイルを読み込めませんでした'));
+        reader.readAsDataURL(file);
+      });
+
+      await api('POST',{
+        action:selectedVersionId?'version':'file',
+        id:selectedVersionId||null,
+        parent_id:destination,
+        name:file.name,
+        mime_type:file.type||'application/octet-stream',
+        size:file.size,
+        data,
+        by:N
+      });
+    }
+
+    const savedCount=files.length;
     selectedUploadFile=null;
+    selectedUploadFiles=[];
     selectedVersionId=null;
     selectedFolderId='';
 
     await load();
-
     go('drive');
-
     say(
-      '保存しました'
+      savedCount>1
+        ?`${savedCount}個のファイルを保存しました`
+        :'保存しました'
     );
-
   }catch(e){
-
-    alert(
-      '保存できませんでした。\n\n'+
-      e.message
-    );
-
+    alert('保存できませんでした。\n\n'+e.message);
     if(btn){
-
       btn.disabled=false;
-
-      btn.textContent=
-        '保存';
+      btn.textContent='保存';
     }
   }
 }
 
-
 function cancelSelectedFile(){
 
   selectedUploadFile=null;
+  selectedUploadFiles=[];
   selectedVersionId=null;
   selectedFolderId='';
 
@@ -4047,11 +4095,23 @@ function driveR(){
         </div>
 
         <div class="item">
-          <div class="title">${esc(selectedUploadFile.name)}</div>
-          <div class="meta">${formatBytes(selectedUploadFile.size)}</div>
+          <div class="title">
+            ${selectedUploadFiles.length>1
+              ?`${selectedUploadFiles.length}個のファイルを選択中`
+              :esc(selectedUploadFile.name)}
+          </div>
+          <div class="meta">
+            ${selectedUploadFiles.length>1
+              ?selectedUploadFiles.map(file=>esc(file.name)).join('<br>')
+              :formatBytes(selectedUploadFile.size)}
+          </div>
         </div>
 
-        <select id="folderSelect">
+        <label for="folderSelect" class="title" style="display:block;margin:12px 0 6px">
+          保存先を選択
+        </label>
+
+        <select id="folderSelect" style="width:100%;font-size:16px;font-weight:700">
 
           <option value="">
             共有ドライブ直下
@@ -4060,6 +4120,9 @@ function driveR(){
           ${folderOptions}
 
         </select>
+        <div class="meta" style="margin-top:6px">
+          選んだファイルはすべて同じ保存先に入ります
+        </div>
 
         <div class="row">
 
