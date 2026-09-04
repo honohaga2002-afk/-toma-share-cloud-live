@@ -12,6 +12,7 @@ let lastLoginEventId=0;
 let loginAnnounced=false;
 let busyCount=0;
 let taskFilter='all';
+let openMinuteId='';
 const storedYear=
   Number(
     localStorage.getItem(
@@ -4145,6 +4146,60 @@ function driveR(){
         )
       :[];
 
+  const folderFileKind=file=>{
+    const name=
+      String(file.name||'')
+        .toLowerCase();
+
+    if(name.endsWith('.pdf')){
+      return 'pdf';
+    }
+
+    if(
+      name.endsWith('.ppt')||
+      name.endsWith('.pptx')
+    ){
+      return 'powerpoint';
+    }
+
+    if(
+      name.endsWith('.doc')||
+      name.endsWith('.docx')
+    ){
+      return 'word';
+    }
+
+    return 'other';
+  };
+
+  const folderSection=(
+    icon,
+    title,
+    kind
+  )=>{
+    const sectionFiles=
+      selectedFolderFiles.filter(
+        file=>
+          folderFileKind(file)===kind
+      );
+
+    return `
+      <div class="item" style="margin-top:10px">
+        <div class="sectionTitle">
+          <div class="title">${icon} ${title}</div>
+          <div class="pill">${sectionFiles.length}件</div>
+        </div>
+        ${
+          sectionFiles.length
+            ?sectionFiles
+              .map(fileRow)
+              .join('')
+            :'<div class="empty">ファイルはありません</div>'
+        }
+      </div>
+    `;
+  };
+
   const folderDetailHtml=
     selectedFolder
       ?`
@@ -4153,18 +4208,13 @@ function driveR(){
             <button class="btn light" id="closeFolder" type="button">← 戻る</button>
             <div style="flex:1;min-width:0">
               <div class="title">📂 ${esc(selectedFolder.name)}</div>
-              <div class="meta">${selectedFolderFiles.length}ファイル</div>
+              <div class="meta">${selectedFolderFiles.length}ファイル｜種類別に自動保存</div>
             </div>
           </div>
-          <div style="margin-top:10px">
-            ${
-              selectedFolderFiles.length
-                ?selectedFolderFiles
-                  .map(fileRow)
-                  .join('')
-                :'<div class="empty">このフォルダーは空です</div>'
-            }
-          </div>
+          ${folderSection('📕','PDF','pdf')}
+          ${folderSection('📊','PowerPoint','powerpoint')}
+          ${folderSection('📘','Word','word')}
+          ${folderSection('📄','その他','other')}
         </div>
       `
       :'';
@@ -4475,7 +4525,7 @@ function driveR(){
 
       const name=
         prompt(
-          'フォルダ名'
+          '共有フォルダー名\nPDF・PowerPoint・Wordの保存先が自動作成されます'
         );
 
       if(!name)return;
@@ -5504,22 +5554,85 @@ function minuteR(){
 
   if(!el)return;
 
+  const sorted=[
+    ...(state.minutes||[])
+  ].sort((a,b)=>{
+    const aDate=
+      a.meeting_date||
+      a.created_at||
+      '';
+
+    const bDate=
+      b.meeting_date||
+      b.created_at||
+      '';
+
+    return new Date(bDate)-
+      new Date(aDate);
+  });
+
+  const selected=
+    sorted.find(
+      item=>sameId(
+        item.id,
+        openMinuteId
+      )
+    );
+
+  const historyRows=
+    sorted.map(item=>`
+      <div class="item recordItem">
+        <button
+          type="button"
+          class="btn light"
+          data-minute-open="${esc(item.id)}"
+          style="flex:1;text-align:left;white-space:normal"
+        >
+          <span class="title" style="display:block">📝 ${esc(item.title)}</span>
+          <span class="meta" style="display:block;margin-top:4px">
+            ${esc(item.meeting_date||'日付未設定')}｜${esc(item.updated_by||'')}
+          </span>
+        </button>
+        <button
+          class="btn danger"
+          data-rdel="${esc(item.id)}"
+          data-kind="minute"
+          type="button"
+        >削除</button>
+      </div>
+    `).join('');
+
   el.innerHTML=`
     ${subPageHeader('📝','議事録')}
 
+    ${
+      selected
+        ?`
+          <div class="panel">
+            <button class="btn light" id="closeMinuteDetail" type="button">← 履歴一覧へ</button>
+            <div class="panelHeading" style="margin-top:14px">${esc(selected.title)}</div>
+            <div class="meta">開催日：${esc(selected.meeting_date||'日付未設定')}｜記録：${esc(selected.updated_by||'')}</div>
+            <div class="item">
+              <div class="title">議事内容</div>
+              <div style="white-space:pre-wrap;margin-top:8px;line-height:1.7">${esc(selected.body||'記載なし')}</div>
+            </div>
+            <div class="item">
+              <div class="title">決定事項・担当</div>
+              <div style="white-space:pre-wrap;margin-top:8px;line-height:1.7">${esc(selected.action_items||'記載なし')}</div>
+            </div>
+          </div>
+        `
+        :''
+    }
+
     <div class="panel">
-      ${
-        state.minutes.length
-          ?state.minutes
-            .map(
-              x=>recordRow(
-                x,
-                'minute'
-              )
-            )
-            .join('')
-          :'<div class="empty">まだありません</div>'
-      }
+      <div class="panelHeading">📚 議事録の履歴</div>
+      <div class="meta" style="margin-bottom:10px">会議日の新しい順に表示しています</div>
+      ${historyRows||'<div class="empty">議事録はまだありません</div>'}
+    </div>
+
+    <div class="panel">
+      <div class="panelHeading">＋ 新しい議事録</div>
       <input id="mt" placeholder="会議名">
       <input id="md" type="date">
       <textarea id="mb" placeholder="議事内容"></textarea>
@@ -5529,6 +5642,29 @@ function minuteR(){
   `;
 
   bindSubPageNavigation();
+
+  if($('closeMinuteDetail')){
+    $('closeMinuteDetail').onclick=()=>{
+      openMinuteId='';
+      minuteR();
+    };
+  }
+
+  document
+    .querySelectorAll(
+      '[data-minute-open]'
+    )
+    .forEach(button=>{
+      button.onclick=()=>{
+        openMinuteId=
+          button.dataset.minuteOpen;
+        minuteR();
+        window.scrollTo({
+          top:0,
+          behavior:'smooth'
+        });
+      };
+    });
 
   $('addM').onclick=
     async()=>{
@@ -5555,8 +5691,8 @@ function minuteR(){
         }
       );
 
+      openMinuteId='';
       await load();
-
       go('minute');
 
       say(
@@ -5568,7 +5704,6 @@ function minuteR(){
     'minute'
   );
 }
-
 
 function reviewR(){
 
