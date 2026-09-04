@@ -1536,6 +1536,123 @@ async function sendLoginPush(
 }
 
 /* ==============================
+   Google Driveクラウドバックアップ
+============================== */
+
+async function saveCloudBackup(
+  workspaceId,
+  workspaceName,
+  by
+){
+  const [
+    schedules,
+    tasks,
+    minutes,
+    reviews,
+    permits,
+    items
+  ]=await Promise.all([
+    pool.query(
+      `select * from schedules
+       where workspace_id=$1 and deleted_at is null
+       order by starts_at nulls last`,
+      [workspaceId]
+    ),
+    pool.query(
+      `select * from workspace_tasks
+       where workspace_id=$1 and deleted_at is null
+       order by created_at`,
+      [workspaceId]
+    ),
+    pool.query(
+      `select * from minutes
+       where workspace_id=$1
+       order by created_at`,
+      [workspaceId]
+    ),
+    pool.query(
+      `select * from reviews
+       where workspace_id=$1
+       order by created_at`,
+      [workspaceId]
+    ),
+    pool.query(
+      `select * from permits
+       where workspace_id=$1
+       order by created_at`,
+      [workspaceId]
+    ),
+    pool.query(
+      `select id,parent_id,item_type,name,mime_type,content,version,updated_by,updated_at,fiscal_year
+       from shared_items
+       where workspace_id=$1 and trashed=false
+       order by updated_at`,
+      [workspaceId]
+    )
+  ]);
+
+  const backup={
+    workspace:
+      workspaceName||'TOMA SHARE',
+    workspace_id:workspaceId,
+    backed_up_at:
+      new Date().toISOString(),
+    backed_up_by:by,
+    schedules:schedules.rows,
+    tasks:tasks.rows,
+    minutes:minutes.rows,
+    reviews:reviews.rows,
+    permits:permits.rows,
+    items:items.rows
+  };
+
+  const body=Buffer.from(
+    JSON.stringify(backup,null,2),
+    'utf8'
+  );
+
+  const drive=driveClient();
+  const fileName=
+    'TOMA_SHARE_クラウドバックアップ.json';
+
+  const found=await drive.files.list({
+    q:
+      `name = '${fileName}' and trashed = false`,
+    spaces:'drive',
+    pageSize:1,
+    fields:'files(id,name,webViewLink)'
+  });
+
+  let result;
+
+  if(found.data.files?.[0]){
+    result=await drive.files.update({
+      fileId:found.data.files[0].id,
+      media:{
+        mimeType:'application/json',
+        body:Readable.from(body)
+      },
+      fields:'id,name,webViewLink,modifiedTime'
+    });
+  }else{
+    result=await drive.files.create({
+      requestBody:{
+        name:fileName,
+        mimeType:'application/json'
+      },
+      media:{
+        mimeType:'application/json',
+        body:Readable.from(body)
+      },
+      fields:'id,name,webViewLink,modifiedTime'
+    });
+  }
+
+  return result.data;
+}
+
+
+/* ==============================
    API
 ============================== */
 
@@ -2425,6 +2542,29 @@ async(req,res)=>{
       /* ==============================
          Google Drive変更同期
       ============================== */
+
+      case 'cloud_backup':{
+        const backup=
+          await saveCloudBackup(
+            ws.id,
+            ws.name,
+            by
+          );
+
+        return send(
+          res,
+          200,
+          {
+            ok:true,
+            name:backup.name,
+            updated_at:
+              backup.modifiedTime,
+            url:
+              backup.webViewLink||null
+          }
+        );
+      }
+
 
       case 'drive_sync':{
 
