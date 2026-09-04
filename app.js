@@ -222,6 +222,7 @@ let selectedUploadFiles=[];
 let selectedVersionId=null;
 let selectedFolderId='';
 let selectedMessageImage=null;
+let selectedMessageImages=[];
 
 let xlsxPromise=null;
 let editorCurrent=null;
@@ -1221,7 +1222,8 @@ function hasUnsavedFormInput(){
 
   if(
     selectedUploadFile||
-    selectedMessageImage
+    selectedMessageImage||
+    selectedMessageImages.length
   ){
     return true;
   }
@@ -1865,7 +1867,7 @@ function savePreviewFile(
   link.click();
   link.remove();
 
-  say('PDFを端末に保存します');
+  say('端末に保存します');
 }
 
 
@@ -2099,6 +2101,9 @@ function showFilePreview(f,blob){
       .toLowerCase()
       .endsWith('.pdf');
 
+  const isImage=
+    mime.startsWith('image/');
+
   const content=isPdf
     ?`
       <div data-pdf-pages style="width:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px;overflow:auto;-webkit-overflow-scrolling:touch"></div>
@@ -2114,9 +2119,9 @@ function showFilePreview(f,blob){
         <strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">${esc(f.name||'ファイル')}</strong>
         ${isPdf?'<span data-pdf-status class="meta">全ページを読み込み中…</span>':''}
       </div>
-      ${isPdf?`
+      ${isPdf||isImage?`
         <button type="button" data-save-preview class="btn light">保存</button>
-        <button type="button" data-print-preview class="btn" disabled>印刷</button>
+        <button type="button" data-print-preview class="btn" ${isPdf?'disabled':''}>印刷</button>
       `:''}
     </div>
     <div style="flex:1;min-height:0;display:flex;overflow:hidden">${content}</div>
@@ -2126,7 +2131,7 @@ function showFilePreview(f,blob){
     .querySelector('[data-close-preview]')
     .onclick=closeFilePreview;
 
-  if(isPdf){
+  if(isPdf||isImage){
     viewer
       .querySelector('[data-save-preview]')
       .onclick=()=>savePreviewFile(
@@ -2136,11 +2141,35 @@ function showFilePreview(f,blob){
 
     viewer
       .querySelector('[data-print-preview]')
-      .onclick=()=>printRenderedPdf(
-        viewer,
-        f.name,
-        blob
-      );
+      .onclick=()=>{
+        if(isPdf){
+          printRenderedPdf(
+            viewer,
+            f.name,
+            blob
+          );
+          return;
+        }
+
+        const printWindow=window.open('','_blank');
+        if(!printWindow){
+          alert('印刷画面を開けません。ポップアップを許可してください。');
+          return;
+        }
+
+        printWindow.document.write(
+          '<!doctype html><html><head><meta charset="utf-8"><title>'+
+          esc(f.name||'画像')+
+          '</title><style>@page{margin:10mm}html,body{margin:0}body{display:grid;place-items:center;min-height:100vh}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="'+
+          blobUrl+
+          '"></body></html>'
+        );
+        printWindow.document.close();
+        printWindow.document.querySelector('img').onload=()=>{
+          printWindow.focus();
+          printWindow.print();
+        };
+      };
   }
 
   document.body.appendChild(viewer);
@@ -4892,6 +4921,7 @@ function chatR(){
   if(!el)return;
 
   selectedMessageImage=null;
+  selectedMessageImages=[];
 
   const messages=
     state.messages
@@ -4957,6 +4987,7 @@ function chatR(){
           id="msgImage"
           type="file"
           accept="image/*"
+          multiple
           style="display:none"
         >
       </label>
@@ -4988,108 +5019,109 @@ function chatR(){
 
   $('msgImage').onchange=
     event=>{
-
-      selectedMessageImage=
-        event.target.files?.[0]||
-        null;
-
-      const preview=
-        $('msgImagePreview');
-
-      if(!selectedMessageImage){
-
-        preview.classList.add(
-          'hidden'
+      selectedMessageImages=
+        Array.from(
+          event.target.files||[]
         );
 
+      selectedMessageImage=
+        selectedMessageImages[0]||null;
+
+      const preview=$('msgImagePreview');
+
+      if(!selectedMessageImages.length){
+        preview.classList.add('hidden');
         preview.innerHTML='';
         return;
       }
 
-      const url=
-        URL.createObjectURL(
-          selectedMessageImage
+      const previewUrls=
+        selectedMessageImages.map(
+          file=>URL.createObjectURL(file)
         );
 
       preview.innerHTML=`
-        <div class="meta">選択：${esc(selectedMessageImage.name)}</div>
-        <img src="${url}" alt="送信する画像" style="display:block;width:100%;max-height:260px;object-fit:contain;border-radius:12px;margin-top:6px">
-        <button class="btn light" id="removeMsgImage" type="button" style="margin-top:8px">画像を外す</button>
+        <div class="meta">選択：${selectedMessageImages.length}枚</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px">
+          ${selectedMessageImages.map((file,i)=>`
+            <img src="${previewUrls[i]}" alt="${esc(file.name)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#eef5f8">
+          `).join('')}
+        </div>
+        <button class="btn light" id="removeMsgImage" type="button" style="margin-top:8px">選択した画像を外す</button>
       `;
 
-      preview.classList.remove(
-        'hidden'
-      );
+      preview.classList.remove('hidden');
 
-      $('removeMsgImage').onclick=
-        ()=>{
-
-          URL.revokeObjectURL(url);
-          selectedMessageImage=null;
-          $('msgImage').value='';
-          preview.innerHTML='';
-          preview.classList.add(
-            'hidden'
-          );
-        };
+      $('removeMsgImage').onclick=()=>{
+        previewUrls.forEach(url=>URL.revokeObjectURL(url));
+        selectedMessageImages=[];
+        selectedMessageImage=null;
+        $('msgImage').value='';
+        preview.innerHTML='';
+        preview.classList.add('hidden');
+      };
     };
 
   $('send').onclick=
     async()=>{
+      const text=$('msg').value.trim();
+      const images=
+        selectedMessageImages.length
+          ?selectedMessageImages
+          :selectedMessageImage
+            ?[selectedMessageImage]
+            :[];
 
-      const text=
-        $('msg').value.trim();
-
-      if(
-        !text&&
-        !selectedMessageImage
-      ){
-
-        alert(
-          'メッセージか画像を入力してください'
-        );
-
+      if(!text&&!images.length){
+        alert('メッセージか画像を入力してください');
         return;
       }
 
       const button=$('send');
       button.disabled=true;
-      button.textContent='送信中…';
+      button.textContent=
+        images.length>1
+          ?`0 / ${images.length} 送信中…`
+          :'送信中…';
 
       try{
+        if(images.length){
+          for(let i=0;i<images.length;i++){
+            button.textContent=
+              images.length>1
+                ?`${i+1} / ${images.length} 送信中…`
+                :'送信中…';
 
-        const imageData=
-          selectedMessageImage
-            ?await compressMessageImage(
-                selectedMessageImage
-              )
-            :'';
+            const imageData=
+              await compressMessageImage(
+                images[i]
+              );
 
-        await api(
-          'POST',
-          {
+            await api('POST',{
+              action:'message',
+              text:i===0?text:'',
+              image_data:imageData,
+              by:N
+            });
+          }
+        }else{
+          await api('POST',{
             action:'message',
             text,
-            image_data:imageData,
+            image_data:'',
             by:N
-          }
-        );
+          });
+        }
 
         await load();
-
         go('chat');
-
         say(
-          '送信しました'
+          images.length>1
+            ?`${images.length}枚の画像を送信しました`
+            :'送信しました'
         );
-
       }catch(e){
-
-        alert(
-          '送信できません：'+
-          e.message
-        );
-
+        alert('送信できません：'+e.message);
         button.disabled=false;
         button.textContent='送信';
       }
@@ -5140,97 +5172,49 @@ function chatR(){
     .querySelectorAll(
       '[data-message-save]'
     )
-    .forEach(
-      button=>{
-        button.onclick=
-          async()=>{
-            const message=
-              state.messages.find(
-                item=>sameId(
-                  item.id,
-                  button.dataset.messageSave
-                )
-              );
+    .forEach(button=>{
+      button.onclick=()=>{
+        const message=state.messages.find(
+          item=>sameId(item.id,button.dataset.messageSave)
+        );
+        const imageData=messageImageUrl(message);
 
-            const imageData=
-              messageImageUrl(message);
+        if(!imageData){
+          alert('画像が見つかりません');
+          return;
+        }
 
-            if(!imageData){
-              alert('画像が見つかりません');
-              return;
-            }
+        const mime=imageData.match(/^data:([^;]+)/)?.[1]||'image/jpeg';
+        const extension=
+          mime==='image/png'?'png':
+          mime==='image/webp'?'webp':
+          mime==='image/gif'?'gif':'jpg';
+        const created=new Date(message?.created_at||Date.now());
+        const stamp=[
+          created.getFullYear(),
+          String(created.getMonth()+1).padStart(2,'0'),
+          String(created.getDate()).padStart(2,'0'),
+          '_',
+          String(created.getHours()).padStart(2,'0'),
+          String(created.getMinutes()).padStart(2,'0'),
+          String(created.getSeconds()).padStart(2,'0')
+        ].join('');
 
-            const mime=
-              imageData.match(
-                /^data:([^;]+)/
-              )?.[1]||
-              'image/jpeg';
+        const blob=dataUrlToBlob(imageData);
+        const file=new File(
+          [blob],
+          `メッセージ画像_${stamp}.${extension}`,
+          {type:mime}
+        );
 
-            const extension=
-              mime==='image/png'
-                ?'png'
-                :mime==='image/webp'
-                  ?'webp'
-                  :mime==='image/gif'
-                    ?'gif'
-                    :'jpg';
-
-            const created=
-              new Date(
-                message?.created_at||
-                Date.now()
-              );
-
-            const stamp=[
-              created.getFullYear(),
-              String(created.getMonth()+1).padStart(2,'0'),
-              String(created.getDate()).padStart(2,'0'),
-              '_',
-              String(created.getHours()).padStart(2,'0'),
-              String(created.getMinutes()).padStart(2,'0'),
-              String(created.getSeconds()).padStart(2,'0')
-            ].join('');
-
-            button.disabled=true;
-            button.textContent='保存中…';
-
-            try{
-              await api(
-                'POST',
-                {
-                  action:'file',
-                  name:
-                    `メッセージ画像_${stamp}.${extension}`,
-                  mime_type:mime,
-                  data:imageData,
-                  size:
-                    dataUrlToBlob(
-                      imageData
-                    ).size,
-                  parent_id:
-                    await ensureImageFolder(),
-                  by:N
-                }
-              );
-
-              await load();
-              go('chat');
-              say(
-                '共有フォルダーに保存しました'
-              );
-
-            }catch(e){
-              alert(
-                '保存できません：'+
-                e.message
-              );
-              button.disabled=false;
-              button.textContent=
-                '共有フォルダーに保存';
-            }
-          };
-      }
-    );
+        selectedUploadFile=file;
+        selectedUploadFiles=[file];
+        selectedVersionId=null;
+        selectedFolderId='';
+        go('drive');
+        say('保存先を選択してください');
+      };
+    });
 
   document
     .querySelectorAll(
