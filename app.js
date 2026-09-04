@@ -4340,28 +4340,7 @@ function driveR(){
 
     ${folderDetailHtml}
 
-    <div class="panel">
-      <div class="sectionTitle">
-        <div>
-          <div class="title">🖼️ 画像データ</div>
-          <div class="meta">${mediaFiles.length}件（画像・動画）</div>
-        </div>
-        <button class="btn" id="openImageFolder" type="button" ${mediaFiles.length?'':'disabled'}>開く</button>
-      </div>
-      ${
-        mediaFiles.length
-          ?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
-              ${mediaFiles.slice(0,6).map(file=>`
-                <button type="button" data-gallery-file="${esc(file.id)}" aria-label="${esc(file.name)}を開く" style="border:0;padding:0;background:#e8eef2;border-radius:10px;overflow:hidden;aspect-ratio:1">
-                  ${isVideoFile(file)
-                    ?'<span style="display:grid;place-items:center;width:100%;height:100%;font-size:34px;background:#17212b;color:#fff">▶️</span>'
-                    :`<img src="${esc(driveUrl(file)||file.file_data||'')}" alt="${esc(file.name)}" style="width:100%;height:100%;object-fit:cover">`}
-                </button>
-              `).join('')}
-            </div>`
-          :'<div class="empty">画像・動画はまだありません</div>'
-      }
-    </div>
+
 
     <div class="panel">
 
