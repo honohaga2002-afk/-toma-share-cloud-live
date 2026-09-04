@@ -743,7 +743,7 @@ async function registerNotificationWorker(){
 
   return navigator.serviceWorker
     .register(
-      '/sw.js?v=20260903-2'
+      '/sw.js?v=20260904-1'
     );
 }
 
@@ -1136,7 +1136,9 @@ async function doLogin(){
           :'home'
     );
 
-    if(requestedPage){
+    await prepareSharedFile();
+
+    if(requestedPage||new URLSearchParams(location.search).has('shared')){
       history.replaceState(
         {},
         '',
@@ -1379,23 +1381,21 @@ function dataUrlToBlob(
 
 
 function isImageFile(file){
-  const mime=
-    String(
-      file?.mime_type||
-      ''
-    ).toLowerCase();
+  const mime=String(file?.mime_type||file?.type||'').toLowerCase();
+  const name=String(file?.name||'').toLowerCase();
+  return mime.startsWith('image/')||/\.(?:jpe?g|png|webp|gif|heic|heif)$/i.test(name);
+}
 
-  const name=
-    String(
-      file?.name||
-      ''
-    ).toLowerCase();
 
-  return (
-    mime.startsWith('image/')||
-    /\.(?:jpe?g|png|webp|gif|heic|heif)$/i
-      .test(name)
-  );
+function isVideoFile(file){
+  const mime=String(file?.mime_type||file?.type||'').toLowerCase();
+  const name=String(file?.name||'').toLowerCase();
+  return mime.startsWith('video/')||/\.(?:mp4|mov|m4v|webm)$/i.test(name);
+}
+
+
+function isMediaFile(file){
+  return isImageFile(file)||isVideoFile(file);
 }
 
 
@@ -1404,7 +1404,7 @@ async function ensureImageFolder(){
     state.items.find(
       item=>
         item.item_type==='folder'&&
-        item.name==='画像'
+        ['画像データ','画像'].includes(item.name)
     );
 
   if(folder){
@@ -1415,7 +1415,7 @@ async function ensureImageFolder(){
     'POST',
     {
       action:'folder',
-      name:'画像',
+      name:'画像データ',
       by:N
     }
   );
@@ -1426,12 +1426,12 @@ async function ensureImageFolder(){
     state.items.find(
       item=>
         item.item_type==='folder'&&
-        item.name==='画像'
+        ['画像データ','画像'].includes(item.name)
     );
 
   if(!folder){
     throw new Error(
-      '画像フォルダを作成できませんでした'
+      '画像データフォルダを作成できませんでした'
     );
   }
 
@@ -1461,96 +1461,54 @@ function closeImageGallery(){
 function showImageGallery(startId){
   closeImageGallery();
 
-  const images=
-    state.items.filter(
-      item=>
-        item.item_type==='file'&&
-        isImageFile(item)
-    );
+  const mediaFiles=state.items.filter(
+    item=>item.item_type==='file'&&isMediaFile(item)
+  );
 
-  if(!images.length){
-    alert(
-      '画像はまだありません'
-    );
+  if(!mediaFiles.length){
+    alert('画像・動画はまだありません');
     return;
   }
 
-  let index=Math.max(
-    0,
-    images.findIndex(
-      item=>sameId(
-        item.id,
-        startId
-      )
-    )
-  );
-
-  const gallery=
-    document.createElement('div');
-
+  let index=Math.max(0,mediaFiles.findIndex(item=>sameId(item.id,startId)));
+  const gallery=document.createElement('div');
   gallery.id='tomaImageGallery';
-  gallery.style.cssText=`
-    position:fixed;
-    inset:0;
-    z-index:10001;
-    background:#000;
-    color:#fff;
-    display:flex;
-    flex-direction:column;
-    touch-action:pan-y;
-  `;
-
+  gallery.style.cssText='position:fixed;inset:0;z-index:10001;background:#000;color:#fff;display:flex;flex-direction:column;touch-action:pan-y';
   gallery.innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;padding:max(12px,env(safe-area-inset-top)) 14px 12px;background:rgba(0,0,0,.92)">
       <button type="button" data-gallery-close style="border:0;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:10px 16px;font-size:16px;font-weight:800">閉じる</button>
       <strong data-gallery-title style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></strong>
       <span data-gallery-count style="font-size:14px;color:#ddd"></span>
     </div>
-    <div data-gallery-stage style="position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
+    <div style="position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
       <div data-gallery-loading style="color:#bbb;font-weight:700">読み込み中…</div>
       <img data-gallery-image alt="" style="display:none;width:100%;height:100%;object-fit:contain">
-      <button type="button" data-gallery-prev aria-label="前の画像" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:0;border-radius:999px;background:rgba(0,0,0,.48);color:#fff;font-size:30px">‹</button>
-      <button type="button" data-gallery-next aria-label="次の画像" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:0;border-radius:999px;background:rgba(0,0,0,.48);color:#fff;font-size:30px">›</button>
+      <video data-gallery-video controls playsinline style="display:none;width:100%;height:100%;object-fit:contain"></video>
+      <button type="button" data-gallery-prev aria-label="前のデータ" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:0;border-radius:999px;background:rgba(0,0,0,.48);color:#fff;font-size:30px">‹</button>
+      <button type="button" data-gallery-next aria-label="次のデータ" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border:0;border-radius:999px;background:rgba(0,0,0,.48);color:#fff;font-size:30px">›</button>
     </div>
-    <div style="padding:10px 16px max(10px,env(safe-area-inset-bottom));text-align:center;background:rgba(0,0,0,.92);font-size:14px;color:#ddd">左右にスワイプして画像を切り替え</div>
+    <div style="padding:10px 16px max(10px,env(safe-area-inset-bottom));text-align:center;background:rgba(0,0,0,.92);font-size:14px;color:#ddd">左右にスワイプして画像・動画を切り替え</div>
   `;
-
   document.body.appendChild(gallery);
 
-  const image=
-    gallery.querySelector(
-      '[data-gallery-image]'
-    );
-
-  const loading=
-    gallery.querySelector(
-      '[data-gallery-loading]'
-    );
-
-  const title=
-    gallery.querySelector(
-      '[data-gallery-title]'
-    );
-
-  const count=
-    gallery.querySelector(
-      '[data-gallery-count]'
-    );
+  const image=gallery.querySelector('[data-gallery-image]');
+  const video=gallery.querySelector('[data-gallery-video]');
+  const loading=gallery.querySelector('[data-gallery-loading]');
+  const title=gallery.querySelector('[data-gallery-title]');
+  const count=gallery.querySelector('[data-gallery-count]');
 
   async function display(nextIndex){
-    index=(
-      nextIndex+
-      images.length
-    )%images.length;
-
-    const file=images[index];
-    title.textContent=file.name||'画像';
-    count.textContent=
-      `${index+1} / ${images.length}`;
-
+    index=(nextIndex+mediaFiles.length)%mediaFiles.length;
+    const file=mediaFiles[index];
+    const videoFile=isVideoFile(file);
+    title.textContent=file.name||(videoFile?'動画':'画像');
+    count.textContent=`${index+1} / ${mediaFiles.length}`;
     loading.style.display='block';
     loading.textContent='読み込み中…';
     image.style.display='none';
+    video.style.display='none';
+    video.pause();
+    video.removeAttribute('src');
 
     const oldUrl=gallery.dataset.blobUrl;
     if(oldUrl){
@@ -1560,113 +1518,51 @@ function showImageGallery(startId){
 
     try{
       let blob;
-
       const url=driveUrl(file);
-
       if(url){
-        const response=
-          await fetch(
-            url,
-            {
-              credentials:'same-origin',
-              cache:'no-store'
-            }
-          );
-
-        if(!response.ok){
-          throw new Error(
-            `取得エラー（${response.status}）`
-          );
-        }
-
+        const response=await fetch(url,{credentials:'same-origin',cache:'no-store'});
+        if(!response.ok)throw new Error(`取得エラー（${response.status}）`);
         blob=await response.blob();
       }else{
-        blob=dataUrlToBlob(
-          file.file_data
-        );
+        blob=dataUrlToBlob(file.file_data);
       }
 
-      const blobUrl=
-        URL.createObjectURL(blob);
-
+      const blobUrl=URL.createObjectURL(blob);
       gallery.dataset.blobUrl=blobUrl;
-      image.src=blobUrl;
-      image.alt=file.name||'画像';
-      image.style.display='block';
-      loading.style.display='none';
-
+      if(videoFile){
+        video.src=blobUrl;
+        video.style.display='block';
+        video.onloadeddata=()=>{loading.style.display='none';};
+      }else{
+        image.src=blobUrl;
+        image.alt=file.name||'画像';
+        image.style.display='block';
+        image.onload=()=>{loading.style.display='none';};
+      }
     }catch(e){
-      loading.textContent=
-        '画像を開けません：'+
-        e.message;
+      loading.textContent='開けません：'+e.message;
     }
 
-    gallery
-      .querySelector('[data-gallery-prev]')
-      .style.display=
-        images.length>1
-          ?'block'
-          :'none';
-
-    gallery
-      .querySelector('[data-gallery-next]')
-      .style.display=
-        images.length>1
-          ?'block'
-          :'none';
+    gallery.querySelector('[data-gallery-prev]').style.display=mediaFiles.length>1?'block':'none';
+    gallery.querySelector('[data-gallery-next]').style.display=mediaFiles.length>1?'block':'none';
   }
 
-  gallery
-    .querySelector('[data-gallery-close]')
-    .onclick=closeImageGallery;
-
-  gallery
-    .querySelector('[data-gallery-prev]')
-    .onclick=()=>display(index-1);
-
-  gallery
-    .querySelector('[data-gallery-next]')
-    .onclick=()=>display(index+1);
+  gallery.querySelector('[data-gallery-close]').onclick=closeImageGallery;
+  gallery.querySelector('[data-gallery-prev]').onclick=()=>display(index-1);
+  gallery.querySelector('[data-gallery-next]').onclick=()=>display(index+1);
 
   let touchStartX=0;
-
-  gallery.addEventListener(
-    'touchstart',
-    event=>{
-      touchStartX=
-        event.changedTouches?.[0]?.clientX||
-        0;
-    },
-    {
-      passive:true
-    }
-  );
-
-  gallery.addEventListener(
-    'touchend',
-    event=>{
-      const endX=
-        event.changedTouches?.[0]?.clientX||
-        touchStartX;
-
-      const distance=endX-touchStartX;
-
-      if(Math.abs(distance)<50)return;
-
-      display(
-        distance<0
-          ?index+1
-          :index-1
-      );
-    },
-    {
-      passive:true
-    }
-  );
+  gallery.addEventListener('touchstart',event=>{
+    touchStartX=event.changedTouches?.[0]?.clientX||0;
+  },{passive:true});
+  gallery.addEventListener('touchend',event=>{
+    const endX=event.changedTouches?.[0]?.clientX||touchStartX;
+    const distance=endX-touchStartX;
+    if(Math.abs(distance)>=50)display(distance<0?index+1:index-1);
+  },{passive:true});
 
   display(index);
 }
-
 
 function isPreviewable(f){
 
@@ -3472,6 +3368,64 @@ async function editFile(
    アップロード
 ========================================================= */
 
+
+function openShareInbox(){
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open('toma-share-inbox',1);
+    request.onupgradeneeded=()=>{
+      if(!request.result.objectStoreNames.contains('shares')){
+        request.result.createObjectStore('shares',{keyPath:'id'});
+      }
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error);
+  });
+}
+
+
+async function takeSharedFile(){
+  if(!new URLSearchParams(location.search).has('shared'))return null;
+  try{
+    const db=await openShareInbox();
+    const item=await new Promise((resolve,reject)=>{
+      const tx=db.transaction('shares','readwrite');
+      const store=tx.objectStore('shares');
+      const request=store.get('latest');
+      request.onsuccess=()=>{
+        const value=request.result||null;
+        store.delete('latest');
+        resolve(value);
+      };
+      request.onerror=()=>reject(request.error);
+    });
+    db.close();
+    if(!item?.file)return null;
+    return new File([item.file],item.name||'共有ファイル',{
+      type:item.type||item.file.type||'application/octet-stream'
+    });
+  }catch(e){
+    console.error('Shared file could not be read:',e);
+    return null;
+  }
+}
+
+
+async function prepareSharedFile(){
+  const file=await takeSharedFile();
+  if(!file)return false;
+  if(file.size>2500000){
+    alert('共有されたファイルは2.5MBを超えているため保存できません。');
+    return false;
+  }
+  selectedUploadFile=file;
+  selectedVersionId=null;
+  selectedFolderId='';
+  go('drive');
+  say('共有されたファイルを受け取りました');
+  return true;
+}
+
+
 function pickFile(
   id=null
 ){
@@ -3493,7 +3447,7 @@ function pickFile(
   );
 
   input.accept=
-    '.xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.pdf,image/*';
+    '.xlsx,.xls,.csv,.doc,.docx,.ppt,.pptx,.pdf,image/*,video/*';
 
   input.style.position=
     'fixed';
@@ -3665,7 +3619,7 @@ async function saveSelectedFile(){
         parent_id:
           (
             !selectedVersionId&&
-            isImageFile(f)&&
+            isMediaFile(f)&&
             !selectedFolderId
           )
             ?await ensureImageFolder()
@@ -4017,7 +3971,7 @@ function driveR(){
         }
 
         if(driveType==='image'){
-          return isImageFile(x);
+          return isMediaFile(x);
         }
 
         if(driveType==='sheet'){
@@ -4047,14 +4001,14 @@ function driveR(){
           new Date(a.updated_at||0)
   );
 
-  const imageFiles=
+  const mediaFiles=
     files.filter(
-      isImageFile
+      isMediaFile
     );
 
   const regularFolders=
     folders.filter(
-      folder=>folder.name!=='画像'
+      folder=>!['画像データ','画像'].includes(folder.name)
     );
 
   let uploadBox='';
@@ -4152,6 +4106,10 @@ function driveR(){
       String(file.name||'')
         .toLowerCase();
 
+    if(isMediaFile(file)){
+      return 'media';
+    }
+
     if(
       name.endsWith('.xlsx')||
       name.endsWith('.xls')||
@@ -4240,6 +4198,7 @@ function driveR(){
           ${folderSection('📘','Word','word')}
           ${folderSection('📕','PDF','pdf')}
           ${folderSection('📊','PowerPoint','powerpoint')}
+          ${folderSection('🖼️','画像データ','media')}
           ${folderSection('📄','その他','other')}
         </div>
       `
@@ -4324,7 +4283,7 @@ function driveR(){
                   <option value="all" ${driveType==='all'?'selected':''}>すべて</option>
                   <option value="sheet" ${driveType==='sheet'?'selected':''}>表計算</option>
                   <option value="pdf" ${driveType==='pdf'?'selected':''}>PDF</option>
-                  <option value="image" ${driveType==='image'?'selected':''}>画像</option>
+                  <option value="image" ${driveType==='image'?'selected':''}>画像・動画</option>
                 </select>
                 <select id="driveSort" style="margin:0">
                   <option value="updated" ${driveSort==='updated'?'selected':''}>更新順</option>
@@ -4384,26 +4343,23 @@ function driveR(){
     <div class="panel">
       <div class="sectionTitle">
         <div>
-          <div class="title">🖼️ 画像</div>
-          <div class="meta">${imageFiles.length}枚</div>
+          <div class="title">🖼️ 画像データ</div>
+          <div class="meta">${mediaFiles.length}件（画像・動画）</div>
         </div>
-        <button
-          class="btn"
-          id="openImageFolder"
-          type="button"
-          ${imageFiles.length?'':'disabled'}
-        >開く</button>
+        <button class="btn" id="openImageFolder" type="button" ${mediaFiles.length?'':'disabled'}>開く</button>
       </div>
       ${
-        imageFiles.length
+        mediaFiles.length
           ?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
-              ${imageFiles.slice(0,6).map(file=>`
-                <button type="button" data-gallery-file="${esc(file.id)}" style="border:0;padding:0;background:#e8eef2;border-radius:10px;overflow:hidden;aspect-ratio:1">
-                  <img src="${esc(driveUrl(file)||file.file_data||'')}" alt="${esc(file.name)}" style="width:100%;height:100%;object-fit:cover">
+              ${mediaFiles.slice(0,6).map(file=>`
+                <button type="button" data-gallery-file="${esc(file.id)}" aria-label="${esc(file.name)}を開く" style="border:0;padding:0;background:#e8eef2;border-radius:10px;overflow:hidden;aspect-ratio:1">
+                  ${isVideoFile(file)
+                    ?'<span style="display:grid;place-items:center;width:100%;height:100%;font-size:34px;background:#17212b;color:#fff">▶️</span>'
+                    :`<img src="${esc(driveUrl(file)||file.file_data||'')}" alt="${esc(file.name)}" style="width:100%;height:100%;object-fit:cover">`}
                 </button>
               `).join('')}
             </div>`
-          :'<div class="empty">画像はまだありません</div>'
+          :'<div class="empty">画像・動画はまだありません</div>'
       }
     </div>
 
@@ -4480,7 +4436,7 @@ function driveR(){
   if($('openImageFolder')){
     $('openImageFolder').onclick=
       ()=>showImageGallery(
-        imageFiles[0]?.id
+        mediaFiles[0]?.id
       );
   }
 
@@ -4571,7 +4527,7 @@ function driveR(){
 
       const name=
         prompt(
-          '共有フォルダー名\nPDF・PowerPoint・Wordの保存先が自動作成されます'
+          '共有フォルダー名\nExcel・Word・PDF・PowerPoint・画像データの保存先が自動作成されます'
         );
 
       if(!name)return;
