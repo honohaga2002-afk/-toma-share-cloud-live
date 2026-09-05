@@ -3471,63 +3471,100 @@ async(req,res)=>{
          議事録
       ============================== */
 
-      case 'minute':
+      case 'minute':{
+        const linkedTask=
+          b.linked_task&&
+          typeof b.linked_task==='object'
+            ?b.linked_task
+            :null;
 
+        const taskTitle=
+          String(
+            linkedTask?.title||''
+          ).trim();
+
+        const taskAssignee=
+          String(
+            linkedTask?.assignee||''
+          ).trim();
+
+        const taskSummary=
+          taskTitle
+            ?[
+                `やること：${taskTitle}`,
+                `担当：${taskAssignee||'未定'}`,
+                linkedTask?.due_at
+                  ?`期限：${String(linkedTask.due_at).slice(0,10)}`
+                  :'期限：未設定'
+              ].join('\n')
+            :'';
+
+        const actionItems=
+          [
+            String(b.action_items||'').trim(),
+            taskSummary
+          ]
+          .filter(Boolean)
+          .join('\n\n');
 
         await pool.query(
           `
           insert into minutes
           (
             workspace_id,
-
             title,
-
             meeting_date,
-
             body,
-
             action_items,
-
             updated_by,
-
             fiscal_year
           )
-
           values
           (
-            $1,
-            $2,
-            $3,
-            $4,
-            $5,
-            $6,
-            $7
+            $1,$2,$3,$4,$5,$6,$7
           )
           `,
           [
-
             ws.id,
-
             b.title,
-
-            b.meeting_date ||
-            null,
-
-            b.body ||
-            null,
-
-            b.action_items ||
-            null,
-
+            b.meeting_date||null,
+            b.body||null,
+            actionItems||null,
             by,
-
             fiscalYear
           ]
         );
 
+        if(taskTitle){
+          await ensureTasksTable();
+          await pool.query(
+            `
+            insert into workspace_tasks
+            (
+              workspace_id,
+              title,
+              due_at,
+              assignee,
+              notes,
+              created_by,
+              fiscal_year
+            )
+            values($1,$2,$3,$4,$5,$6,$7)
+            `,
+            [
+              ws.id,
+              taskTitle,
+              linkedTask.due_at||null,
+              taskAssignee||null,
+              `議事録「${String(b.title||'')}」から追加`,
+              by,
+              fiscalYear
+            ]
+          );
+        }
 
         break;
-
+      }
 
       /* ==============================
          反省点
