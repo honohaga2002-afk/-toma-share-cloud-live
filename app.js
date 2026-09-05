@@ -5645,7 +5645,7 @@ function minuteR(){
               <div style="white-space:pre-wrap;margin-top:8px;line-height:1.7">${esc(selected.body||'記載なし')}</div>
             </div>
             <div class="item">
-              <div class="title">決定事項・担当</div>
+              <div class="title">決定事項・やること</div>
               <div style="white-space:pre-wrap;margin-top:8px;line-height:1.7">${esc(selected.action_items||'記載なし')}</div>
             </div>
           </div>
@@ -5664,8 +5664,24 @@ function minuteR(){
       <input id="mt" placeholder="会議名">
       <input id="md" type="date">
       <textarea id="mb" placeholder="議事内容"></textarea>
-      <textarea id="ma" placeholder="決定事項・担当"></textarea>
-      <button class="btn wide" id="addM">議事録を保存</button>
+      <textarea id="ma" placeholder="決定事項"></textarea>
+
+      <div class="item" style="margin-top:12px">
+        <div class="title">☑️ この議事録からやることを追加</div>
+        <label class="meta" for="minuteTaskTitle">何をする</label>
+        <input id="minuteTaskTitle" placeholder="例：保健所へ申請書を提出">
+
+        <label class="meta" for="minuteTaskAssignee">誰がする（担当名）</label>
+        <input id="minuteTaskAssignee" placeholder="担当者名">
+
+        <label class="meta" for="minuteTaskDate">いつまでに（期限）</label>
+        <input id="minuteTaskDate" type="date">
+
+        <label class="meta" for="minuteTaskTime">期限時間</label>
+        <input id="minuteTaskTime" type="time" value="18:00">
+      </div>
+
+      <button class="btn wide" id="addM">議事録とやることを保存</button>
     </div>
   `;
 
@@ -5705,6 +5721,26 @@ function minuteR(){
         );
       }
 
+      const taskTitle=
+        $('minuteTaskTitle').value.trim();
+
+      const taskAssignee=
+        $('minuteTaskAssignee').value.trim();
+
+      if(taskTitle&&!taskAssignee){
+        $('minuteTaskAssignee').focus();
+        return alert(
+          'やることの担当名を入力してください'
+        );
+      }
+
+      const taskDate=
+        $('minuteTaskDate').value;
+
+      const taskTime=
+        $('minuteTaskTime').value||
+        '18:00';
+
       await api(
         'POST',
         {
@@ -5715,6 +5751,17 @@ function minuteR(){
           body:$('mb').value,
           action_items:
             $('ma').value,
+          linked_task:
+            taskTitle
+              ?{
+                  title:taskTitle,
+                  assignee:taskAssignee,
+                  due_at:
+                    taskDate
+                      ?`${taskDate}T${taskTime}:00+09:00`
+                      :null
+                }
+              :null,
           by:N
         }
       );
@@ -5724,7 +5771,9 @@ function minuteR(){
       go('minute');
 
       say(
-        '議事録を保存しました'
+        taskTitle
+          ?'議事録とやることを保存しました'
+          :'議事録を保存しました'
       );
     };
 
@@ -6683,7 +6732,6 @@ function go(p){
       'review',
       'permit',
       'events',
-      'tasks',
       'search',
       'trash',
       'activity'
