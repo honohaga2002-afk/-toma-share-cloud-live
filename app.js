@@ -7,6 +7,13 @@ let C='';
 let N='';
 let cur='home';
 let presenceTimer=null;
+let minuteSyncTimer=null;
+let minuteRevision=0;
+let minuteDraft={};
+let minuteEditors=[];
+let minutePendingFields=new Set();
+let minutePatchTimers=new Map();
+let minutePatchRequests=new Set();
 let driveSyncing=false;
 let lastLoginEventId=0;
 let loginAnnounced=false;
@@ -137,6 +144,10 @@ async function addWorkspaceYear(){
 
     window.TOMA_SELECTED_YEAR=year;
 
+    minuteDraft={};
+    minuteRevision=0;
+    minuteEditors=[];
+
     await load();
     go(cur);
 
@@ -198,6 +209,10 @@ async function changeYear(value){
 
   window.TOMA_SELECTED_YEAR=
     selectedYear;
+
+  minuteDraft={};
+  minuteRevision=0;
+  minuteEditors=[];
 
   await load();
   go(cur);
@@ -381,7 +396,8 @@ function setBusy(active){
 
 async function api(
   method='GET',
-  body=null
+  body=null,
+  silent=false
 ){
 
   const headers={
@@ -423,7 +439,7 @@ async function api(
       JSON.stringify(body);
   }
 
-  setBusy(true);
+  if(!silent)setBusy(true);
 
   try{
 
@@ -481,7 +497,7 @@ async function api(
 
     throw e;
   }finally{
-    setBusy(false);
+    if(!silent)setBusy(false);
   }
 }
 
@@ -5575,6 +5591,201 @@ function bindRecordDeletes(
 }
 
 
+function minuteTaskRow(task={}){
+  return `
+    <tr data-minute-task>
+      <td><textarea data-task-key="what" aria-label="何をする">${esc(task.what||'')}</textarea></td>
+      <td><textarea data-task-key="where" aria-label="どこへ">${esc(task.where||'')}</textarea></td>
+      <td><textarea data-task-key="person" aria-label="担当者">${esc(task.person||'')}</textarea></td>
+      <td><input data-task-key="due" type="date" aria-label="期限" value="${esc(task.due||'')}"></td>
+    </tr>
+  `;
+}
+
+
+function minuteTasksFromScreen(){
+  return [...document.querySelectorAll('[data-minute-task]')]
+    .map(row=>{
+      const task={};
+      row.querySelectorAll('[data-task-key]').forEach(field=>{
+        task[field.dataset.taskKey]=field.value;
+      });
+      return task;
+    });
+}
+
+
+function minutePresenceHtml(editors=minuteEditors){
+  if(!editors.length){
+    return '<span class="minutePerson">共有待機中</span>';
+  }
+
+  return editors.map(editor=>`
+    <span class="minutePerson ${editor.mode==='editing'?'editing':''}">
+      ${editor.mode==='editing'?'●':'○'} ${esc(editor.member_name)}・${editor.mode==='editing'?'編集中':'閲覧中'}
+    </span>
+  `).join('');
+}
+
+
+function autoGrowMinute(field){
+  field.style.height='auto';
+  field.style.height=Math.max(
+    field.dataset.taskKey?58:240,
+    field.scrollHeight
+  )+'px';
+}
+
+
+function queueMinutePatch(field,value){
+  minutePendingFields.add(field);
+  clearTimeout(minutePatchTimers.get(field));
+
+  minutePatchTimers.set(field,setTimeout(()=>{
+    const request=(async()=>{
+      try{
+        const result=await api(
+          'POST',
+          {action:'minute_live_patch',field,value,by:N},
+          true
+        );
+
+        minuteDraft=result.draft?.data||minuteDraft;
+        minuteEditors=result.editors||minuteEditors;
+        minuteRevision=Number(
+          result.draft?.revision||minuteRevision
+        );
+
+        if($('minuteSyncStatus')){
+          $('minuteSyncStatus').textContent='共有保存済み';
+        }
+        if($('minutePeople')){
+          $('minutePeople').innerHTML=minutePresenceHtml();
+        }
+      }catch(error){
+        if($('minuteSyncStatus')){
+          $('minuteSyncStatus').textContent=
+            '同期できません：'+error.message;
+        }
+      }finally{
+        minutePendingFields.delete(field);
+        minutePatchTimers.delete(field);
+      }
+    })();
+
+    minutePatchRequests.add(request);
+    request.finally(()=>minutePatchRequests.delete(request));
+  },650));
+}
+
+
+function bindMinuteTaskFields(){
+  document.querySelectorAll('[data-minute-task] textarea')
+    .forEach(field=>{
+      autoGrowMinute(field);
+      field.oninput=()=>{
+        autoGrowMinute(field);
+        if($('minuteSyncStatus')){
+          $('minuteSyncStatus').textContent='共有保存中…';
+        }
+        queueMinutePatch('tasks',minuteTasksFromScreen());
+      };
+    });
+
+  document.querySelectorAll('[data-minute-task] input')
+    .forEach(field=>{
+      field.oninput=()=>{
+        queueMinutePatch('tasks',minuteTasksFromScreen());
+      };
+    });
+}
+
+
+function applyMinuteLive(live){
+  const draft=live.draft||{};
+  const revision=Number(draft.revision||0);
+  minuteEditors=live.editors||[];
+
+  if($('minutePeople')){
+    $('minutePeople').innerHTML=minutePresenceHtml();
+  }
+
+  if(revision<=minuteRevision)return;
+
+  const data=draft.data||{};
+  [
+    'title','meeting_date','location',
+    'attendees','discussion','decision'
+  ].forEach(name=>{
+    const field=document.querySelector(
+      `[data-minute-field="${name}"]`
+    );
+
+    if(
+      !field||
+      field===document.activeElement||
+      minutePendingFields.has(name)
+    )return;
+
+    field.value=data[name]||'';
+    if(field.tagName==='TEXTAREA')autoGrowMinute(field);
+  });
+
+  const taskBody=$('minuteTaskBody');
+  if(
+    taskBody&&
+    !taskBody.contains(document.activeElement)&&
+    !minutePendingFields.has('tasks')
+  ){
+    const tasks=
+      Array.isArray(data.tasks)&&data.tasks.length
+        ?data.tasks
+        :[{}];
+    taskBody.innerHTML=tasks.map(minuteTaskRow).join('');
+    bindMinuteTaskFields();
+  }
+
+  minuteDraft=data;
+  minuteRevision=revision;
+  if($('minuteSyncStatus')){
+    $('minuteSyncStatus').textContent=
+      `${draft.updated_by||'メンバー'}さんの変更を反映`;
+  }
+}
+
+
+async function refreshMinuteLive(){
+  if(cur!=='minute'||!$('minuteWorkspace'))return;
+
+  try{
+    const editing=$('minuteWorkspace').contains(
+      document.activeElement
+    );
+    const live=await api(
+      'POST',
+      {
+        action:'minute_live_get',
+        mode:editing?'editing':'viewing',
+        by:N
+      },
+      true
+    );
+    applyMinuteLive(live);
+  }catch(error){
+    if($('minuteSyncStatus')){
+      $('minuteSyncStatus').textContent='再接続中…';
+    }
+  }
+}
+
+
+function startMinuteSync(){
+  clearInterval(minuteSyncTimer);
+  refreshMinuteLive();
+  minuteSyncTimer=setInterval(refreshMinuteLive,2000);
+}
+
+
 function minuteR(){
 
   const el=
@@ -5659,29 +5870,48 @@ function minuteR(){
       ${historyRows||'<div class="empty">議事録はまだありません</div>'}
     </div>
 
-    <div class="panel">
-      <div class="panelHeading">＋ 新しい議事録</div>
-      <input id="mt" placeholder="会議名">
-      <input id="md" type="date">
-      <textarea id="mb" placeholder="議事内容"></textarea>
-      <textarea id="ma" placeholder="決定事項"></textarea>
-
-      <div class="item" style="margin-top:12px">
-        <div class="title">☑️ この議事録からやることを追加</div>
-        <label class="meta" for="minuteTaskTitle">何をする</label>
-        <input id="minuteTaskTitle" placeholder="例：保健所へ申請書を提出">
-
-        <label class="meta" for="minuteTaskAssignee">誰がする（担当名）</label>
-        <input id="minuteTaskAssignee" placeholder="担当者名">
-
-        <label class="meta" for="minuteTaskDate">いつまでに（期限）</label>
-        <input id="minuteTaskDate" type="date">
-
-        <label class="meta" for="minuteTaskTime">期限時間</label>
-        <input id="minuteTaskTime" type="time" value="18:00">
+    <div class="panel minutePanel" id="minuteWorkspace">
+      <div class="minuteTop">
+        <div>
+          <div class="panelHeading">＋ 新しい議事録</div>
+          <div class="meta" id="minuteSyncStatus">リアルタイム共有中</div>
+        </div>
+        <div class="minutePeople" id="minutePeople">${minutePresenceHtml()}</div>
       </div>
 
-      <button class="btn wide" id="addM">議事録とやることを保存</button>
+      <div class="minuteScroll">
+        <div class="minuteSheet">
+          <div class="minuteInfoGrid">
+            <label><span>会議タイトル</span><input data-minute-field="title" value="${esc(minuteDraft.title||'')}"></label>
+            <label><span>開催日</span><input data-minute-field="meeting_date" type="date" value="${esc(minuteDraft.meeting_date||'')}"></label>
+            <label><span>記録者</span><input value="${esc(N)}" readonly></label>
+            <label><span>開催場所</span><input data-minute-field="location" value="${esc(minuteDraft.location||'')}"></label>
+            <label class="minuteAttendees"><span>出席者</span><input data-minute-field="attendees" value="${esc(minuteDraft.attendees||'')}"></label>
+          </div>
+
+          <div class="minuteMainGrid">
+            <label><span>話した内容</span><textarea data-minute-field="discussion">${esc(minuteDraft.discussion||'')}</textarea></label>
+            <label><span>決定事項</span><textarea data-minute-field="decision">${esc(minuteDraft.decision||'')}</textarea></label>
+          </div>
+
+          <div class="minuteTaskTitle">やることリストへ反映</div>
+          <table class="minuteTaskTable">
+            <thead><tr><th>何をする</th><th>どこへ</th><th>担当者</th><th>期限</th></tr></thead>
+            <tbody id="minuteTaskBody">${(
+              Array.isArray(minuteDraft.tasks)&&minuteDraft.tasks.length
+                ?minuteDraft.tasks
+                :[{}]
+            ).map(minuteTaskRow).join('')}</tbody>
+          </table>
+
+          <div class="minuteActions">
+            <button class="btn light" id="minuteAddTask" type="button">やること欄追加</button>
+            <button class="btn" id="minuteSaveTasks" type="button">やることリストを保存</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn wide" id="addM">議事録を保存</button>
     </div>
   `;
 
@@ -5710,76 +5940,137 @@ function minuteR(){
       };
     });
 
-  $('addM').onclick=
-    async()=>{
-
-      if(
-        !$('mt').value.trim()
-      ){
-        return alert(
-          '会議名を入力してください'
+  document.querySelectorAll('[data-minute-field]')
+    .forEach(field=>{
+      if(field.tagName==='TEXTAREA')autoGrowMinute(field);
+      field.oninput=()=>{
+        if(field.tagName==='TEXTAREA')autoGrowMinute(field);
+        if($('minuteSyncStatus')){
+          $('minuteSyncStatus').textContent='共有保存中…';
+        }
+        queueMinutePatch(
+          field.dataset.minuteField,
+          field.value
         );
-      }
+      };
+    });
 
-      const taskTitle=
-        $('minuteTaskTitle').value.trim();
+  bindMinuteTaskFields();
 
-      const taskAssignee=
-        $('minuteTaskAssignee').value.trim();
+  $('minuteAddTask').onclick=()=>{
+    $('minuteTaskBody').insertAdjacentHTML(
+      'beforeend',
+      minuteTaskRow({})
+    );
+    bindMinuteTaskFields();
+    queueMinutePatch('tasks',minuteTasksFromScreen());
+  };
 
-      if(taskTitle&&!taskAssignee){
-        $('minuteTaskAssignee').focus();
-        return alert(
-          'やることの担当名を入力してください'
-        );
-      }
+  $('minuteSaveTasks').onclick=async()=>{
+    const button=$('minuteSaveTasks');
+    button.disabled=true;
+    try{
+      clearTimeout(minutePatchTimers.get('tasks'));
+      minutePatchTimers.delete('tasks');
+      const result=await api(
+        'POST',
+        {
+          action:'minute_live_patch',
+          field:'tasks',
+          value:minuteTasksFromScreen(),
+          by:N
+        },
+        true
+      );
+      minuteDraft=result.draft?.data||minuteDraft;
+      minuteRevision=Number(
+        result.draft?.revision||minuteRevision
+      );
+      say('やることリストを共有保存しました');
+    }finally{
+      minutePendingFields.delete('tasks');
+      button.disabled=false;
+    }
+  };
 
-      const taskDate=
-        $('minuteTaskDate').value;
+  $('addM').onclick=async()=>{
+    const button=$('addM');
+    button.disabled=true;
 
-      const taskTime=
-        $('minuteTaskTime').value||
-        '18:00';
+    await new Promise(resolve=>setTimeout(resolve,700));
+    await Promise.allSettled([...minutePatchRequests]);
 
+    const title=document.querySelector(
+      '[data-minute-field="title"]'
+    ).value.trim();
+
+    if(!title){
+      button.disabled=false;
+      return alert('会議タイトルを入力してください');
+    }
+
+    const tasks=minuteTasksFromScreen()
+      .filter(task=>
+        task.what||task.where||task.person||task.due
+      );
+
+    const noAssignee=tasks.find(task=>
+      task.what&&!task.person
+    );
+    if(noAssignee){
+      button.disabled=false;
+      return alert('やることの担当者を入力してください');
+    }
+
+    try{
       await api(
         'POST',
         {
           action:'minute',
-          title:$('mt').value,
-          meeting_date:
-            $('md').value||null,
-          body:$('mb').value,
-          action_items:
-            $('ma').value,
-          linked_task:
-            taskTitle
-              ?{
-                  title:taskTitle,
-                  assignee:taskAssignee,
-                  due_at:
-                    taskDate
-                      ?`${taskDate}T${taskTime}:00+09:00`
-                      :null
-                }
-              :null,
+          title,
+          meeting_date:document.querySelector(
+            '[data-minute-field="meeting_date"]'
+          ).value||null,
+          body:document.querySelector(
+            '[data-minute-field="discussion"]'
+          ).value,
+          action_items:document.querySelector(
+            '[data-minute-field="decision"]'
+          ).value,
+          linked_tasks:tasks.map(task=>({
+            title:task.what,
+            destination:task.where,
+            assignee:task.person,
+            due_at:task.due
+              ?`${task.due}T18:00:00+09:00`
+              :null
+          })),
+          clear_live_draft:true,
           by:N
         }
       );
 
+      minuteDraft={};
+      minuteRevision=0;
       openMinuteId='';
       await load();
       go('minute');
-
       say(
-        taskTitle
+        tasks.length
           ?'議事録とやることを保存しました'
           :'議事録を保存しました'
       );
-    };
+    }catch(error){
+      button.disabled=false;
+      alert('保存できません：'+error.message);
+    }
+  };
 
   bindRecordDeletes(
     'minute'
   );
+
+  startMinuteSync();
 }
 
 function reviewR(){
@@ -6707,6 +6998,11 @@ function render(){
 
 
 function go(p){
+
+  if(p!=='minute'&&minuteSyncTimer){
+    clearInterval(minuteSyncTimer);
+    minuteSyncTimer=null;
+  }
 
   cur=p;
 
