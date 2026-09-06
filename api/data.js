@@ -496,6 +496,95 @@ async function getOnlineMembers(
 }
 
 
+/* ==============================
+   議事録リアルタイム同期
+============================== */
+
+async function ensureMinuteLiveTables(){
+  await pool.query(
+    `create table if not exists workspace_minute_drafts
+     (
+       workspace_id uuid not null,
+       fiscal_year integer not null default 2026,
+       data jsonb not null default '{}'::jsonb,
+       revision bigint not null default 0,
+       updated_by text,
+       updated_at timestamptz not null default now(),
+       primary key(workspace_id,fiscal_year)
+     )`
+  );
+
+  await pool.query(
+    `create table if not exists workspace_minute_editors
+     (
+       workspace_id uuid not null,
+       fiscal_year integer not null default 2026,
+       member_name text not null,
+       mode text not null default 'viewing',
+       last_seen timestamptz not null default now(),
+       primary key(workspace_id,fiscal_year,member_name)
+     )`
+  );
+}
+
+
+async function touchMinuteEditor(
+  workspaceId,
+  fiscalYear,
+  memberName,
+  mode='viewing'
+){
+  const name=String(memberName||'').trim();
+  if(!name)return;
+
+  await ensureMinuteLiveTables();
+  await pool.query(
+    `insert into workspace_minute_editors
+       (workspace_id,fiscal_year,member_name,mode,last_seen)
+     values($1,$2,$3,$4,now())
+     on conflict(workspace_id,fiscal_year,member_name)
+     do update set mode=excluded.mode,last_seen=now()`,
+    [
+      workspaceId,
+      fiscalYear,
+      name,
+      mode==='editing'?'editing':'viewing'
+    ]
+  );
+}
+
+
+async function getMinuteLive(workspaceId,fiscalYear){
+  await ensureMinuteLiveTables();
+
+  const [draft,editors]=await Promise.all([
+    pool.query(
+      `select data,revision,updated_by,updated_at
+       from workspace_minute_drafts
+       where workspace_id=$1 and fiscal_year=$2
+       limit 1`,
+      [workspaceId,fiscalYear]
+    ),
+    pool.query(
+      `select member_name,mode,last_seen
+       from workspace_minute_editors
+       where workspace_id=$1
+         and fiscal_year=$2
+         and last_seen>now()-interval '45 seconds'
+       order by case when mode='editing' then 0 else 1 end,member_name`,
+      [workspaceId,fiscalYear]
+    )
+  ]);
+
+  return {
+    draft:draft.rows[0]||{
+      data:{},revision:0,updated_by:null,updated_at:null
+    },
+    editors:editors.rows
+  };
+}
+
+
 
 /* ==============================
    Driveリンク共有
@@ -2492,6 +2581,80 @@ async(req,res)=>{
         break;
 
 
+      case 'minute_live_get':{
+        await touchMinuteEditor(
+          ws.id,
+          fiscalYear,
+          by,
+          b.mode
+        );
+
+        const live=await getMinuteLive(
+          ws.id,
+          fiscalYear
+        );
+
+        return send(res,200,{ok:true,...live});
+      }
+
+
+      case 'minute_live_patch':{
+        const allowed=new Set([
+          'title','meeting_date','location','attendees',
+          'discussion','decision','tasks'
+        ]);
+        const field=String(b.field||'');
+
+        if(!allowed.has(field)){
+          return send(
+            res,
+            400,
+            {error:'同期する項目が正しくありません'}
+          );
+        }
+
+        await ensureMinuteLiveTables();
+        await touchMinuteEditor(
+          ws.id,
+          fiscalYear,
+          by,
+          'editing'
+        );
+
+        const q=await pool.query(
+          `insert into workspace_minute_drafts
+             (workspace_id,fiscal_year,data,revision,updated_by,updated_at)
+           values
+             ($1,$2,jsonb_build_object($3,$4::jsonb),1,$5,now())
+           on conflict(workspace_id,fiscal_year)
+           do update set
+             data=workspace_minute_drafts.data || jsonb_build_object($3,$4::jsonb),
+             revision=workspace_minute_drafts.revision+1,
+             updated_by=$5,
+             updated_at=now()
+           returning data,revision,updated_by,updated_at`,
+          [
+            ws.id,
+            fiscalYear,
+            field,
+            JSON.stringify(b.value===undefined?'':b.value),
+            by
+          ]
+        );
+
+        const live=await getMinuteLive(
+          ws.id,
+          fiscalYear
+        );
+
+        return send(
+          res,
+          200,
+          {ok:true,draft:q.rows[0],editors:live.editors}
+        );
+      }
+
+
       /* ==============================
          プッシュ通知設定
       ============================== */
@@ -3472,32 +3635,28 @@ async(req,res)=>{
       ============================== */
 
       case 'minute':{
-        const linkedTask=
-          b.linked_task&&
-          typeof b.linked_task==='object'
-            ?b.linked_task
-            :null;
+        const linkedTasks=(
+          Array.isArray(b.linked_tasks)
+            ?b.linked_tasks
+            :b.linked_task?[b.linked_task]:[]
+        )
+        .filter(task=>task&&typeof task==='object')
+        .map(task=>({
+          title:String(task.title||'').trim(),
+          destination:String(task.destination||'').trim(),
+          assignee:String(task.assignee||'').trim(),
+          due_at:task.due_at||null
+        }))
+        .filter(task=>task.title);
 
-        const taskTitle=
-          String(
-            linkedTask?.title||''
-          ).trim();
-
-        const taskAssignee=
-          String(
-            linkedTask?.assignee||''
-          ).trim();
-
-        const taskSummary=
-          taskTitle
-            ?[
-                `やること：${taskTitle}`,
-                `担当：${taskAssignee||'未定'}`,
-                linkedTask?.due_at
-                  ?`期限：${String(linkedTask.due_at).slice(0,10)}`
-                  :'期限：未設定'
-              ].join('\n')
-            :'';
+        const taskSummary=linkedTasks.map(task=>[
+          `やること：${task.title}`,
+          `どこへ：${task.destination||'未設定'}`,
+          `担当：${task.assignee||'未定'}`,
+          task.due_at
+            ?`期限：${String(task.due_at).slice(0,10)}`
+            :'期限：未設定'
+        ].join('\n')).join('\n\n');
 
         const actionItems=
           [
@@ -3535,31 +3694,42 @@ async(req,res)=>{
           ]
         );
 
-        if(taskTitle){
+        if(linkedTasks.length){
           await ensureTasksTable();
+          for(const task of linkedTasks){
+            await pool.query(
+              `insert into workspace_tasks
+               (workspace_id,title,due_at,assignee,notes,created_by,fiscal_year)
+               values($1,$2,$3,$4,$5,$6,$7)`,
+              [
+                ws.id,
+                task.title,
+                task.due_at,
+                task.assignee||null,
+                [
+                  task.destination?`提出先：${task.destination}`:'',
+                  `議事録「${String(b.title||'')}」から追加`
+                ].filter(Boolean).join('\n'),
+                by,
+                fiscalYear
+              ]
+            );
+          }
+        }
+
+        if(b.clear_live_draft){
+          await ensureMinuteLiveTables();
           await pool.query(
-            `
-            insert into workspace_tasks
-            (
-              workspace_id,
-              title,
-              due_at,
-              assignee,
-              notes,
-              created_by,
-              fiscal_year
-            )
-            values($1,$2,$3,$4,$5,$6,$7)
-            `,
-            [
-              ws.id,
-              taskTitle,
-              linkedTask.due_at||null,
-              taskAssignee||null,
-              `議事録「${String(b.title||'')}」から追加`,
-              by,
-              fiscalYear
-            ]
+            `insert into workspace_minute_drafts
+               (workspace_id,fiscal_year,data,revision,updated_by,updated_at)
+             values($1,$2,'{}'::jsonb,1,$3,now())
+             on conflict(workspace_id,fiscal_year)
+             do update set
+               data='{}'::jsonb,
+               revision=workspace_minute_drafts.revision+1,
+               updated_by=$3,
+               updated_at=now()`,
+            [ws.id,fiscalYear,by]
           );
         }
 
