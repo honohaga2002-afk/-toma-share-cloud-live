@@ -2625,10 +2625,10 @@ async(req,res)=>{
           `insert into workspace_minute_drafts
              (workspace_id,fiscal_year,data,revision,updated_by,updated_at)
            values
-             ($1,$2,jsonb_build_object($3,$4::jsonb),1,$5,now())
+             ($1,$2,jsonb_build_object($3::text,$4::jsonb),1,$5,now())
            on conflict(workspace_id,fiscal_year)
            do update set
-             data=workspace_minute_drafts.data || jsonb_build_object($3,$4::jsonb),
+             data=workspace_minute_drafts.data || jsonb_build_object($3::text,$4::jsonb),
              revision=workspace_minute_drafts.revision+1,
              updated_by=$5,
              updated_at=now()
