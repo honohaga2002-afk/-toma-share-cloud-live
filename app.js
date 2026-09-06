@@ -20,6 +20,7 @@ let loginAnnounced=false;
 let busyCount=0;
 let taskFilter='all';
 let openMinuteId='';
+let minuteEditingOpen=false;
 const storedYear=
   Number(
     localStorage.getItem(
@@ -5845,7 +5846,7 @@ function minuteR(){
     ${subPageHeader('📝','議事録')}
 
     ${
-      selected
+      !minuteEditingOpen&&selected
         ?`
           <div class="panel">
             <button class="btn light" id="closeMinuteDetail" type="button">← 履歴一覧へ</button>
@@ -5864,55 +5865,66 @@ function minuteR(){
         :''
     }
 
-    <div class="panel">
-      <div class="panelHeading">📚 議事録の履歴</div>
-      <div class="meta" style="margin-bottom:10px">会議日の新しい順に表示しています</div>
-      ${historyRows||'<div class="empty">議事録はまだありません</div>'}
-    </div>
-
-    <div class="panel minutePanel" id="minuteWorkspace">
-      <div class="minuteTop">
-        <div>
-          <div class="panelHeading">＋ 新しい議事録</div>
-          <div class="meta" id="minuteSyncStatus">リアルタイム共有中</div>
-        </div>
-        <div class="minutePeople" id="minutePeople">${minutePresenceHtml()}</div>
-      </div>
-
-      <div class="minuteScroll">
-        <div class="minuteSheet">
-          <div class="minuteInfoGrid">
-            <label><span>会議タイトル</span><input data-minute-field="title" value="${esc(minuteDraft.title||'')}"></label>
-            <label><span>開催日</span><input data-minute-field="meeting_date" type="date" value="${esc(minuteDraft.meeting_date||'')}"></label>
-            <label><span>記録者</span><input value="${esc(N)}" readonly></label>
-            <label><span>開催場所</span><input data-minute-field="location" value="${esc(minuteDraft.location||'')}"></label>
-            <label class="minuteAttendees"><span>出席者</span><input data-minute-field="attendees" value="${esc(minuteDraft.attendees||'')}"></label>
+    ${
+      !minuteEditingOpen
+        ?`
+          <div class="panel">
+            <button class="btn wide" id="startMinuteEntry" type="button">＋ 新規議事録開始</button>
           </div>
 
-          <div class="minuteMainGrid">
-            <label><span>話した内容</span><textarea data-minute-field="discussion">${esc(minuteDraft.discussion||'')}</textarea></label>
-            <label><span>決定事項</span><textarea data-minute-field="decision">${esc(minuteDraft.decision||'')}</textarea></label>
+          <div class="panel">
+            <div class="panelHeading">📚 議事録の履歴</div>
+            <div class="meta" style="margin-bottom:10px">会議日の新しい順に表示しています</div>
+            ${historyRows||'<div class="empty">議事録はまだありません</div>'}
           </div>
+        `
+        :`
+          <div class="panel minutePanel" id="minuteWorkspace">
+            <div class="minuteTop">
+              <div>
+                <button class="btn light" id="closeMinuteEntry" type="button">← 履歴一覧へ</button>
+                <div class="panelHeading" style="margin-top:12px">新規議事録</div>
+                <div class="meta" id="minuteSyncStatus">リアルタイム共有中</div>
+              </div>
+              <div class="minutePeople" id="minutePeople">${minutePresenceHtml()}</div>
+            </div>
 
-          <div class="minuteTaskTitle">やることリストへ反映</div>
-          <table class="minuteTaskTable">
-            <thead><tr><th>何をする</th><th>どこへ</th><th>担当者</th><th>期限</th></tr></thead>
-            <tbody id="minuteTaskBody">${(
-              Array.isArray(minuteDraft.tasks)&&minuteDraft.tasks.length
-                ?minuteDraft.tasks
-                :[{}]
-            ).map(minuteTaskRow).join('')}</tbody>
-          </table>
+            <div class="minuteScroll">
+              <div class="minuteSheet">
+                <div class="minuteInfoGrid">
+                  <label><span>会議タイトル</span><input data-minute-field="title" value="${esc(minuteDraft.title||'')}"></label>
+                  <label><span>開催日</span><input data-minute-field="meeting_date" type="date" value="${esc(minuteDraft.meeting_date||'')}"></label>
+                  <label><span>記録者</span><input value="${esc(N)}" readonly></label>
+                  <label><span>開催場所</span><input data-minute-field="location" value="${esc(minuteDraft.location||'')}"></label>
+                  <label class="minuteAttendees"><span>出席者</span><input data-minute-field="attendees" value="${esc(minuteDraft.attendees||'')}"></label>
+                </div>
 
-          <div class="minuteActions">
-            <button class="btn light" id="minuteAddTask" type="button">やること欄追加</button>
-            <button class="btn" id="minuteSaveTasks" type="button">やることリストを保存</button>
+                <div class="minuteMainGrid">
+                  <label><span>話した内容</span><textarea data-minute-field="discussion">${esc(minuteDraft.discussion||'')}</textarea></label>
+                  <label><span>決定事項</span><textarea data-minute-field="decision">${esc(minuteDraft.decision||'')}</textarea></label>
+                </div>
+
+                <div class="minuteTaskTitle">やることリストへ反映</div>
+                <table class="minuteTaskTable">
+                  <thead><tr><th>何をする</th><th>どこへ</th><th>担当者</th><th>期限</th></tr></thead>
+                  <tbody id="minuteTaskBody">${(
+                    Array.isArray(minuteDraft.tasks)&&minuteDraft.tasks.length
+                      ?minuteDraft.tasks
+                      :[{}]
+                  ).map(minuteTaskRow).join('')}</tbody>
+                </table>
+
+                <div class="minuteActions">
+                  <button class="btn light" id="minuteAddTask" type="button">やること欄追加</button>
+                  <button class="btn" id="minuteSaveTasks" type="button">やることリストを保存</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn wide" id="addM">議事録を保存</button>
           </div>
-        </div>
-      </div>
-
-      <button class="btn wide" id="addM">議事録を保存</button>
-    </div>
+        `
+    }
   `;
 
   bindSubPageNavigation();
@@ -5939,6 +5951,28 @@ function minuteR(){
         });
       };
     });
+
+  if($('startMinuteEntry')){
+    $('startMinuteEntry').onclick=()=>{
+      minuteEditingOpen=true;
+      openMinuteId='';
+      minuteR();
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+  }
+
+  if(!minuteEditingOpen){
+    bindRecordDeletes('minute');
+    return;
+  }
+
+  $('closeMinuteEntry').onclick=()=>{
+    minuteEditingOpen=false;
+    clearInterval(minuteSyncTimer);
+    minuteSyncTimer=null;
+    minuteR();
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
 
   document.querySelectorAll('[data-minute-field]')
     .forEach(field=>{
@@ -6052,6 +6086,7 @@ function minuteR(){
 
       minuteDraft={};
       minuteRevision=0;
+      minuteEditingOpen=false;
       openMinuteId='';
       await load();
       go('minute');
@@ -7002,6 +7037,10 @@ function go(p){
   if(p!=='minute'&&minuteSyncTimer){
     clearInterval(minuteSyncTimer);
     minuteSyncTimer=null;
+  }
+
+  if(p!=='minute'){
+    minuteEditingOpen=false;
   }
 
   cur=p;
