@@ -5539,8 +5539,8 @@ function subPageHeader(
       <button
         class="btn light"
         type="button"
-        data-go="more"
-      >← その他へ戻る</button>
+        data-go="home"
+      >← ホームへ戻る</button>
       <div
         class="panelHeading"
         style="margin-top:14px"
