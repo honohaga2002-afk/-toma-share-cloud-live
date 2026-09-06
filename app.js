@@ -5593,11 +5593,16 @@ function bindRecordDeletes(
 
 
 function minuteTaskRow(task={}){
+  const assignee=
+    task.person===undefined||task.person===null
+      ?N
+      :task.person;
+
   return `
     <tr data-minute-task>
       <td><textarea data-task-key="what" aria-label="何をする">${esc(task.what||'')}</textarea></td>
       <td><textarea data-task-key="where" aria-label="どこへ">${esc(task.where||'')}</textarea></td>
-      <td><textarea data-task-key="person" aria-label="担当者">${esc(task.person||'')}</textarea></td>
+      <td><textarea data-task-key="person" aria-label="担当者">${esc(assignee||'')}</textarea></td>
       <td><input data-task-key="due" type="date" aria-label="期限" value="${esc(task.due||'')}"></td>
     </tr>
   `;
@@ -6352,6 +6357,22 @@ function bindTaskDraft(){
 }
 
 
+function normalizedMemberName(value){
+  return String(value||'')
+    .normalize('NFKC')
+    .replace(/\s+/g,'')
+    .toLocaleLowerCase('ja-JP');
+}
+
+
+function isMyTask(task){
+  const loginName=normalizedMemberName(N);
+  const assignee=normalizedMemberName(task?.assignee);
+
+  return Boolean(loginName)&&assignee===loginName;
+}
+
+
 function taskR(){
 
   const draft=readTaskDraft();
@@ -6368,7 +6389,7 @@ function taskR(){
         taskFilter==='all'||
         (taskFilter==='open'&&!task.completed)||
         (taskFilter==='done'&&task.completed)||
-        (taskFilter==='mine'&&task.assignee===N)
+        (taskFilter==='mine'&&isMyTask(task))
     );
 
   const rows=
@@ -6458,7 +6479,7 @@ function taskR(){
       <input id="taskTime" type="time" value="${esc(draft.time||'18:00')}">
 
       <label class="meta" for="taskAssignee">担当名</label>
-      <input id="taskAssignee" value="${esc(draft.assignee||'')}" placeholder="担当者名">
+      <input id="taskAssignee" value="${esc(draft.assignee||N)}" placeholder="担当者名">
 
       <label class="meta" for="taskNotes">メモ</label>
       <textarea id="taskNotes" placeholder="補足・必要なもの（任意）">${esc(draft.notes||'')}</textarea>
