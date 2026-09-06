@@ -3932,6 +3932,52 @@ async(req,res)=>{
       }
 
 
+      case 'trash_delete':{
+        const kind=String(b.kind||'');
+
+        if(kind==='item'){
+          const target=await pool.query(
+            `select id from shared_items
+             where id=$1 and workspace_id=$2 and trashed=true
+             limit 1`,
+            [b.id,ws.id]
+          );
+          if(!target.rows[0])return send(res,404,{error:'削除対象が見つかりません'});
+
+          await pool.query(
+            `with recursive targets as (
+               select id from shared_items
+               where id=$1 and workspace_id=$2
+               union all
+               select child.id from shared_items child
+               join targets parent on child.parent_id=parent.id
+               where child.workspace_id=$2
+             )
+             delete from shared_items
+             where workspace_id=$2 and id in (select id from targets)`,
+            [b.id,ws.id]
+          );
+        }else if(kind==='schedule'){
+          const result=await pool.query(
+            `delete from schedules
+             where id=$1 and workspace_id=$2 and deleted_at is not null`,
+            [b.id,ws.id]
+          );
+          if(!result.rowCount)return send(res,404,{error:'削除対象が見つかりません'});
+        }else if(kind==='task'){
+          const result=await pool.query(
+            `delete from workspace_tasks
+             where id=$1 and workspace_id=$2 and deleted_at is not null`,
+            [b.id,ws.id]
+          );
+          if(!result.rowCount)return send(res,404,{error:'削除対象が見つかりません'});
+        }else{
+          return send(res,400,{error:'削除対象が不正です'});
+        }
+        break;
+      }
+
+
       /* ==============================
          記録削除
       ============================== */
@@ -4008,7 +4054,7 @@ async(req,res)=>{
       'message','message_delete','schedule',
       'schedule_delete','minute','review','permit',
       'task','task_toggle','task_delete',
-      'record_delete','trash_restore'
+      'record_delete','trash_restore','trash_delete'
     ];
 
     if(auditable.includes(b.action)){
