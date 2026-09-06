@@ -1660,9 +1660,8 @@ async function sendWorkspacePush(
     select endpoint,subscription
     from workspace_push_subscriptions
     where workspace_id=$1
-      and member_name<>$2
       and notify_all=true
-      and case $3
+      and case $2
         when 'login' then notify_login
         when 'file' then notify_file
         when 'message' then notify_message
@@ -1672,7 +1671,6 @@ async function sendWorkspacePush(
     `,
     [
       workspaceId,
-      memberName,
       type
     ]
   );
@@ -1701,6 +1699,15 @@ async function sendWorkspacePush(
 
   results.forEach(
     (result,index)=>{
+      if(result.status==='rejected'){
+        console.error(
+          'Push delivery failed:',
+          type,
+          result.reason?.statusCode||'',
+          result.reason?.message||String(result.reason||'unknown')
+        );
+      }
+
       if(
         result.status==='rejected' &&
         (
@@ -1724,6 +1731,13 @@ async function sendWorkspacePush(
       [expired]
     );
   }
+
+  console.log(
+    'Push delivery result:',
+    type,
+    `targets=${q.rows.length}`,
+    `sent=${results.filter(result=>result.status==='fulfilled').length}`
+  );
 
   return results.filter(
     result=>result.status==='fulfilled'
