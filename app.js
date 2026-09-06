@@ -3828,6 +3828,21 @@ function homeR(){
 
     </div>
 
+    <div class="grid" style="grid-template-columns:1fr;margin-bottom:12px">
+      <button
+        class="card"
+        data-go="search"
+        type="button"
+        style="display:flex;align-items:center;gap:14px;text-align:left"
+      >
+        <div class="ico" style="margin:0">🔎</div>
+        <div>
+          <div class="ct">資料等を検索</div>
+          <div class="meta">資料・予定・メッセージ・やることをまとめて検索</div>
+        </div>
+      </button>
+    </div>
+
     <div class="grid">
 
       <button
@@ -6972,12 +6987,6 @@ function moreR(){
           <div class="ico">☑️</div>
           <div class="ct">やることリスト</div>
           <div class="meta">${state.tasks.filter(x=>!x.completed).length}件 未完了</div>
-        </button>
-
-        <button class="card" data-go="search">
-          <div class="ico">🔎</div>
-          <div class="ct">全体検索</div>
-          <div class="meta">まとめて検索</div>
         </button>
 
         <button class="card" data-go="trash">
