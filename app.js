@@ -5879,12 +5879,14 @@ function minuteR(){
           </div>
         `
         :`
-          <div class="panel minutePanel" id="minuteWorkspace">
+          <div class="panel minutePanel minuteFullScreen" id="minuteWorkspace">
             <div class="minuteTop">
               <div>
                 <button class="btn light" id="closeMinuteEntry" type="button">← 履歴一覧へ</button>
-                <div class="panelHeading" style="margin-top:12px">新規議事録</div>
-                <div class="meta" id="minuteSyncStatus">リアルタイム共有中</div>
+                <div class="minuteEditorHeading">
+                  <strong>議事録</strong>
+                  <span class="meta" id="minuteSyncStatus">リアルタイム共有中</span>
+                </div>
               </div>
               <div class="minutePeople" id="minutePeople">${minutePresenceHtml()}</div>
             </div>
@@ -5921,7 +5923,10 @@ function minuteR(){
               </div>
             </div>
 
-            <button class="btn wide" id="addM">議事録を保存</button>
+            <div class="minuteSaveBar">
+              <span class="meta">入力内容は自動で共有保存されます</span>
+              <button class="btn" id="addM">議事録を保存</button>
+            </div>
           </div>
         `
     }
