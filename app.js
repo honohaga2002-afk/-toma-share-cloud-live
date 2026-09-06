@@ -440,7 +440,10 @@ async function api(
       JSON.stringify(body);
   }
 
-  if(!silent)setBusy(true);
+  const showBusy=
+    !silent&&method!=='GET';
+
+  if(showBusy)setBusy(true);
 
   try{
 
@@ -498,7 +501,7 @@ async function api(
 
     throw e;
   }finally{
-    if(!silent)setBusy(false);
+    if(showBusy)setBusy(false);
   }
 }
 
@@ -6709,7 +6712,10 @@ function trashR(){
         <div class="title">${esc(item.title||'名称なし')}</div>
         <div class="meta">${item.kind==='schedule'?'予定':item.kind==='task'?'やること':item.item_type==='folder'?'フォルダ':'資料'}｜削除：${esc(new Date(item.deleted_at).toLocaleString('ja-JP'))}</div>
       </div>
-      <button class="btn" type="button" data-trash-restore="${esc(item.id)}" data-trash-kind="${esc(item.kind)}">復元</button>
+      <div class="actions">
+        <button class="btn" type="button" data-trash-restore="${esc(item.id)}" data-trash-kind="${esc(item.kind)}">復元</button>
+        <button class="btn danger" type="button" data-trash-delete="${esc(item.id)}" data-trash-kind="${esc(item.kind)}" data-trash-title="${esc(item.title||'名称なし')}">完全に削除</button>
+      </div>
     </div>
   `).join('');
 
@@ -6744,6 +6750,31 @@ function trashR(){
       };
     }
   );
+
+  document.querySelectorAll('[data-trash-delete]').forEach(
+    button=>{
+      button.onclick=async()=>{
+        const title=button.dataset.trashTitle||'この項目';
+        if(!confirm(`「${title}」を完全に削除しますか？\nこの操作は取り消せません。`))return;
+
+        button.disabled=true;
+        try{
+          await api('POST',{
+            action:'trash_delete',
+            id:button.dataset.trashDelete,
+            kind:button.dataset.trashKind,
+            by:N
+          });
+          await load();
+          go('trash');
+          say('完全に削除しました');
+        }catch(e){
+          alert('完全に削除できません：'+e.message);
+          button.disabled=false;
+        }
+      };
+    }
+  );
 }
 
 
@@ -6767,7 +6798,8 @@ function activityR(){
     task_toggle:'完了状態変更',
     task_delete:'やること削除',
     record_delete:'記録削除',
-    trash_restore:'ゴミ箱から復元'
+    trash_restore:'ゴミ箱から復元',
+    trash_delete:'ゴミ箱から完全削除'
   };
 
   const rows=(state.activities||[]).map(item=>`
