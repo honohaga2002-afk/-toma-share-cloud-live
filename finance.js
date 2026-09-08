@@ -18,8 +18,7 @@ function inject(container){
   const grid=container.querySelector('.grid');
   if(!grid)return;
 
-  const budget=grid.querySelector('[data-budget-go]');
-  if(budget)return;
+  if(grid.querySelector('[data-budget-go]'))return;
 
   const existing=grid.querySelector('[data-finance-go]');
   if(existing){
@@ -32,6 +31,8 @@ function inject(container){
     old.replaceWith(makeCard());
     return;
   }
+
+  grid.appendChild(makeCard());
 }
 
 function apply(){
@@ -41,6 +42,7 @@ function apply(){
 
 document.addEventListener('DOMContentLoaded',apply);
 setTimeout(apply,0);
-setTimeout(apply,500);
-setTimeout(apply,1500);
+setTimeout(apply,300);
+setTimeout(apply,1000);
+setTimeout(apply,2500);
 })();
