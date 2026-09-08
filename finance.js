@@ -14,35 +14,41 @@ function makeCard(){
 }
 
 function inject(container){
-  if(!container)return;
+  if(!container)return false;
   const grid=container.querySelector('.grid');
-  if(!grid)return;
+  if(!grid)return false;
 
-  if(grid.querySelector('[data-budget-go]'))return;
+  if(grid.querySelector('[data-budget-go]'))return true;
 
   const existing=grid.querySelector('[data-finance-go]');
   if(existing){
     existing.replaceWith(makeCard());
-    return;
+    return true;
   }
 
   const old=[...grid.querySelectorAll('button.card')].find(el=>/イベント収支管理/.test(el.textContent||''));
   if(old){
     old.replaceWith(makeCard());
-    return;
+    return true;
   }
 
   grid.appendChild(makeCard());
+  return true;
 }
 
 function apply(){
-  inject(document.getElementById('home'));
-  inject(document.getElementById('more'));
+  const a=inject(document.getElementById('home'));
+  const b=inject(document.getElementById('more'));
+  return a||b;
 }
 
 document.addEventListener('DOMContentLoaded',apply);
-setTimeout(apply,0);
-setTimeout(apply,300);
-setTimeout(apply,1000);
-setTimeout(apply,2500);
+apply();
+
+let tries=0;
+const timer=setInterval(()=>{
+  tries++;
+  apply();
+  if(tries>=40)clearInterval(timer);
+},500);
 })();
