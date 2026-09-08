@@ -3,13 +3,24 @@
 
 const BUDGET_URL='https://toma-budget-preview.hagajyo.chatgpt.site/?utm_source=chatgpt.com';
 
+function openBudget(){
+  const a=document.createElement('a');
+  a.href=BUDGET_URL;
+  a.target='_blank';
+  a.rel='noopener noreferrer';
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 function makeCard(){
   const b=document.createElement('button');
   b.className='card';
   b.type='button';
   b.setAttribute('data-budget-go','1');
   b.innerHTML='<div class="ico">💰</div><div class="ct">予算管理</div><div class="meta">予算書・収支・年度管理</div>';
-  b.onclick=()=>{ window.location.href=BUDGET_URL; };
+  b.addEventListener('click',openBudget);
   return b;
 }
 
@@ -18,7 +29,12 @@ function inject(container){
   const grid=container.querySelector('.grid');
   if(!grid)return false;
 
-  if(grid.querySelector('[data-budget-go]'))return true;
+  const existingBudget=grid.querySelector('[data-budget-go]');
+  if(existingBudget){
+    existingBudget.onclick=null;
+    existingBudget.addEventListener('click',openBudget,{once:false});
+    return true;
+  }
 
   const existing=grid.querySelector('[data-finance-go]');
   if(existing){
