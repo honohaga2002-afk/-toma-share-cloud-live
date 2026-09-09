@@ -120,6 +120,19 @@
   body.ui-desktop #drive .pcDriveFilePanel .fileItem{grid-template-columns:minmax(300px,1fr) auto!important;padding:10px 18px!important;border-bottom:1px solid #e4edf4!important}
   body.ui-desktop #drive .pcDriveFilePanel .fileItem:last-child{border-bottom:0!important}
   body.ui-desktop #drive .pcDriveFilePanel .fileInfo .title{font-size:14px!important;color:#17364d!important}
+  body.ui-desktop #drive .pcDriveTableHead{display:grid;grid-template-columns:180px minmax(240px,1fr) 120px 165px 90px 230px;gap:12px;align-items:center;padding:11px 18px;background:#eaf3fa;border-bottom:1px solid #d6e4ef;color:#183957;font-size:13px;font-weight:850}
+  body.ui-desktop #drive .fileItem{display:grid!important;grid-template-columns:180px minmax(240px,1fr) 120px 165px 90px 230px!important;gap:12px!important;align-items:center!important}
+  body.ui-desktop #drive .fileItem .pcDriveFolderName,body.ui-desktop #drive .fileItem .pcDriveCategory,body.ui-desktop #drive .fileItem .pcDriveUpdated,body.ui-desktop #drive .fileItem .pcDriveSize{font-size:12px;color:#36546b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.ui-desktop #drive .fileItem .fileInfo{margin:0!important;min-width:0}
+  body.ui-desktop #drive .fileItem .fileInfo .meta{display:none!important}
+  body.ui-desktop #drive .fileItem .fileActions{display:flex!important;justify-content:flex-end!important;gap:6px!important}
+  body.ui-desktop #drive .fileItem .fileActions .btn{min-width:52px!important;padding:6px 8px!important}
+  body.ui-desktop #drive .pcDriveFolderTableHead{display:grid;grid-template-columns:minmax(300px,1fr) 140px 90px;gap:12px;padding:11px 18px;background:#eaf3fa;border-bottom:1px solid #d6e4ef;color:#183957;font-size:13px;font-weight:850}
+  body.ui-desktop #drive .pcDriveFolderPanel>.item>.row{display:grid!important;grid-template-columns:minmax(300px,1fr) 90px!important;gap:12px!important}
+  body.ui-desktop #drive .pcDriveFolderPanel [data-folder-open] .meta{display:inline-block!important;margin-left:22px!important}
+  body.ui-desktop #drive .pcDriveFolderDetail{padding:0!important;overflow:hidden}
+  body.ui-desktop #drive .pcDriveFolderDetail>.sectionTitle{padding:14px 18px;margin:0!important;border-bottom:1px solid #dbe7f0}
+  body.ui-desktop #drive .pcDriveFolderDetail>.item{padding:8px 18px!important;margin:0!important}
 }
 
 @media(min-width:901px) and (max-width:1180px){
