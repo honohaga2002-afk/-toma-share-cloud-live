@@ -63,8 +63,16 @@ function bind(){
   if(nav)nav.onclick=openBudget;
 }
 
+function watchForRenders(){
+  const observer=new MutationObserver(()=>injectAll());
+  [$('home'),$('more')].filter(Boolean).forEach(section=>{
+    observer.observe(section,{childList:true});
+  });
+}
+
 document.addEventListener('DOMContentLoaded',bind);
 bind();
+watchForRenders();
 let tries=0;
 const timer=setInterval(()=>{tries++;injectAll();if(tries>40)clearInterval(timer);},500);
 })();
