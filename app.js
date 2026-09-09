@@ -3960,9 +3960,24 @@ function fileRow(file){
   const openLabel=
     '開く';
 
+  const fileName=String(file.name||'');
+  const lowerName=fileName.toLowerCase();
+  const category=
+    lowerName.endsWith('.pdf')?'PDF':
+    /\.(xlsx?|csv)$/.test(lowerName)?'表計算':
+    /\.(docx?)$/.test(lowerName)?'Word':
+    /\.(pptx?)$/.test(lowerName)?'PowerPoint':
+    isMediaFile(file)?'画像・動画':'その他';
+  const updated=file.updated_at
+    ?new Date(file.updated_at).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    :'-';
+  const folderName=(state.items.find(item=>item.item_type==='folder'&&sameId(item.id,file.parent_id))||{}).name||'共有ドライブ直下';
+
   return `
 
     <div class="item fileItem">
+
+      <div class="pcDriveFolderName">📁 ${esc(folderName)}</div>
 
       <div class="fileInfo">
 
@@ -3985,6 +4000,10 @@ function fileRow(file){
           }
 
       </div>
+
+      <div class="pcDriveCategory">${esc(category)}</div>
+      <div class="pcDriveUpdated">${esc(updated)}</div>
+      <div class="pcDriveSize">${file.size?formatBytes(file.size):'-'}</div>
 
       <div class="fileActions">
 
@@ -4314,7 +4333,7 @@ function driveR(){
   const folderDetailHtml=
     selectedFolder
       ?`
-        <div class="panel">
+        <div class="panel pcDriveFolderDetail">
           <div class="sectionTitle">
             <button class="btn light" id="closeFolder" type="button">← 戻る</button>
             <div style="flex:1;min-width:0">
@@ -4322,6 +4341,7 @@ function driveR(){
               <div class="meta">${selectedFolderFiles.length}ファイル｜種類別に自動保存</div>
             </div>
           </div>
+          <div class="pcDriveTableHead"><span>フォルダ</span><span>ファイル名</span><span>カテゴリー</span><span>更新日時</span><span>サイズ</span><span>操作</span></div>
           ${folderSection('📗','Excel','excel')}
           ${folderSection('📘','Word','word')}
           ${folderSection('📕','PDF','pdf')}
@@ -4487,6 +4507,8 @@ function driveR(){
         📁 フォルダ
       </div>
 
+      <div class="pcDriveFolderTableHead"><span>フォルダ名</span><span>ファイル数</span><span>操作</span></div>
+
       ${folderHtml}
 
     </div>
@@ -4496,6 +4518,8 @@ function driveR(){
       <div class="title">
         📄 共有ドライブ直下
       </div>
+
+      <div class="pcDriveTableHead"><span>フォルダ</span><span>ファイル名</span><span>カテゴリー</span><span>更新日時</span><span>サイズ</span><span>操作</span></div>
 
       ${
         rootFiles.length
