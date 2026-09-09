@@ -23,7 +23,9 @@
 
   function decorate(){
     const section=home();
-    if(busy||!desktop()||!section||section.classList.contains('hidden')||section.dataset.pcHomeReady==='1')return;
+    if(busy||!desktop()||!section||section.classList.contains('hidden'))return;
+    if(section.dataset.pcHomeReady==='1'&&section.querySelector('.pcHomeStats'))return;
+    delete section.dataset.pcHomeReady;
 
     const cards=[...section.querySelectorAll('button.card')];
     const budget=findCard(cards,'予算管理');
