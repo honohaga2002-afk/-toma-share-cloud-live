@@ -19,7 +19,7 @@
   body.ui-desktop #nav .nav span{display:inline!important;width:16px!important;font-size:14px!important;line-height:1!important;text-align:center!important}
   body.ui-desktop #nav .nav:hover{background:rgba(255,255,255,.07)!important;color:#fff!important}
   body.ui-desktop #nav .nav.on{background:var(--pc-blue)!important;color:#fff!important}
-  body.ui-desktop #nav .nav[data-p="chat"],body.ui-desktop #nav .nav[data-p="cal"],body.ui-desktop #nav .nav[data-p="tasks"]{display:none!important}
+  body.ui-desktop #nav .nav[data-p="chat"],body.ui-desktop #nav .nav[data-p="tasks"],body.ui-desktop #nav .mobileCalNav{display:none!important}
   body.ui-desktop #nav .pcOnlyNav{display:flex!important}
   body.ui-desktop #nav .nav[data-p="more"]{margin-top:auto!important}
 
