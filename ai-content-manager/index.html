@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2167f3">
+<title>AI Content Manager</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">AI Content Manager<small>SNS動画運用管理</small></div>
+    <nav id="sideNav" class="nav"></nav>
+    <section class="connected-card">
+      <div class="section-label">連携中のSNS</div>
+      <div id="sidebarAccounts"></div>
+      <button class="btn btn-primary btn-full" data-action="add-account">＋ アカウント追加</button>
+    </section>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">ホーム</h1>
+        <p id="pageSubtitle">今日の確認だけで運用を進めます。</p>
+      </div>
+      <div class="top-actions">
+        <select id="accountFilter" class="control"></select>
+        <button class="btn btn-primary" data-action="new-content">＋ 新規作成</button>
+      </div>
+    </header>
+
+    <section id="homeScreen" class="screen active"></section>
+    <section id="videosScreen" class="screen"></section>
+    <section id="articlesScreen" class="screen"></section>
+    <section id="accountsScreen" class="screen"></section>
+    <section id="revenueScreen" class="screen"></section>
+    <section id="scheduleScreen" class="screen"></section>
+    <section id="settingsScreen" class="screen"></section>
+  </main>
+</div>
+
+<nav id="bottomNav" class="bottom-nav"></nav>
+<div id="toast" class="toast"></div>
+<div id="modalRoot"></div>
+<script src="./app.js"></script>
+</body>
+</html>
