@@ -1240,6 +1240,8 @@ async function streamFile(
 
         mime_type,
 
+        file_data,
+
         content
 
       from shared_items
@@ -1286,6 +1288,21 @@ async function streamFile(
 
   const driveFileId =
     content.driveFileId;
+
+
+  /* Drive連携が切れている場合はDB保存データを返す */
+  if(!driveFileId&&/^data:[^;]+;base64,/i.test(String(item.file_data||''))){
+    const match=String(item.file_data).match(/^data:([^;]+);base64,(.+)$/s);
+    if(!match)return send(res,404,{error:'ファイルデータがありません'});
+    const buffer=Buffer.from(match[2],'base64');
+    const filename=safeFilename(item.name);
+    res.setHeader('Cache-Control','private, no-store');
+    res.setHeader('X-Content-Type-Options','nosniff');
+    res.setHeader('Content-Type',item.mime_type||match[1]||'application/octet-stream');
+    res.setHeader('Content-Length',buffer.length);
+    res.setHeader('Content-Disposition',`inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(item.name||filename)}`);
+    return res.end(buffer);
+  }
 
 
   if(!driveFileId){
@@ -2913,10 +2930,11 @@ async(req,res)=>{
           );
         }
 
-        const driveFolder=
-          await createDriveFolder(
-            name
-          );
+        let driveFolder=null;
+        let createdCategories=[];
+
+        try{
+          driveFolder=await createDriveFolder(name);
 
         const categoryDefinitions=[
           ['excel','Excel'],
@@ -2926,8 +2944,7 @@ async(req,res)=>{
           ['media','画像データ']
         ];
 
-        const createdCategories=
-          await Promise.all(
+          createdCategories=await Promise.all(
             categoryDefinitions.map(
               async([key,label])=>{
                 const folder=
@@ -2948,14 +2965,17 @@ async(req,res)=>{
               }
             )
           );
+        }catch(driveError){
+          console.error('Drive folder fallback:',driveError.message);
+        }
 
         const content={
           driveFolderId:
-            driveFolder.id,
+            driveFolder?.id||null,
           webViewLink:
-            driveFolder.webViewLink||null,
+            driveFolder?.webViewLink||null,
           googleMimeType:
-            driveFolder.mimeType,
+            driveFolder?.mimeType||null,
           autoOrganize:true,
           autoFolders:
             Object.fromEntries(
@@ -2985,7 +3005,7 @@ async(req,res)=>{
             ws.id,
             name,
             'application/vnd.google-apps.folder',
-            driveFolder.webViewLink||null,
+            driveFolder?.webViewLink||null,
             JSON.stringify(content),
             by,
             fiscalYear
@@ -3002,33 +3022,15 @@ async(req,res)=>{
       case 'file':{
 
 
-        const driveFolderId =
+        let driveFolderId=null;
+        let driveFile=null;
 
-          await getDriveFolder(
-
-            ws.id,
-
-            b.parent_id ||
-            null,
-
-            by,
-
-            b.name
-          );
-
-
-        const driveFile =
-
-          await uploadToDrive(
-
-            b.name,
-
-            b.mime_type,
-
-            b.data,
-
-            driveFolderId
-          );
+        try{
+          driveFolderId=await getDriveFolder(ws.id,b.parent_id||null,by,b.name);
+          driveFile=await uploadToDrive(b.name,b.mime_type,b.data,driveFolderId);
+        }catch(driveError){
+          console.error('Drive upload fallback:',driveError.message);
+        }
 
 
         const content = {
@@ -3038,17 +3040,17 @@ async(req,res)=>{
             null,
 
           driveFileId:
-            driveFile.id,
+            driveFile?.id||null,
 
           webViewLink:
-            driveFile.webViewLink ||
+            driveFile?.webViewLink ||
             null,
 
           googleMimeType:
-            driveFile.mimeType,
+            driveFile?.mimeType||b.mime_type||null,
 
           driveModifiedTime:
-            driveFile.modifiedTime ||
+            driveFile?.modifiedTime ||
             null,
 
           driveFolderId:
@@ -3113,8 +3115,7 @@ async(req,res)=>{
             b.mime_type ||
             null,
 
-            driveFile.webViewLink ||
-            null,
+            driveFile?.webViewLink||b.data||null,
 
             JSON.stringify(
               content
