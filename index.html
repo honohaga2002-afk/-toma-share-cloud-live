@@ -11,6 +11,7 @@
   <title>TOMA SHARE</title>
   <link rel="stylesheet" href="/style.css?v=20260909-1">
   <link rel="stylesheet" href="/responsive-layout.css?v=20260909-3">
+  <link rel="stylesheet" href="/pc-reference.css?v=20260909-1">
   <style>
     .fileItem{padding:16px 0}.fileInfo{width:100%;min-width:0;margin-bottom:12px}.fileInfo .title{font-size:17px;line-height:1.45;word-break:break-word}.fileInfo .meta{margin-top:4px}.fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}.fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}.permitNotice{background:#f0f9ff;border-radius:10px;padding:10px;margin-bottom:6px}.officialPermitList{display:grid}.officialPermit{display:flex;align-items:center;gap:11px;padding:14px 2px;border-bottom:1px solid #e3edf2;color:#17364d;text-decoration:none}.officialPermit:last-child{border-bottom:0}.officialPermit:active{background:#f0f9ff}.officialPermitIcon{font-size:25px;flex:0 0 32px;text-align:center}.officialPermitBody{flex:1;min-width:0}.officialPermitBody .meta{margin-top:5px}.officialPermitBody .pill{margin-bottom:3px}.officialPermitArrow{font-size:30px;color:#78a2ba;line-height:1}@media(max-width:520px){.officialPermit{padding:14px 0}.officialPermitBody .title{font-size:16px}.officialPermitBody .meta{font-size:12px}}@media(min-width:700px){.fileActions{grid-template-columns:repeat(4,minmax(120px,auto));justify-content:end}.officialPermitList{grid-template-columns:1fr 1fr;column-gap:20px}}
   </style>
@@ -23,6 +24,17 @@
       <label style="display:flex;align-items:center;gap:6px;color:#fff;font-weight:800;white-space:nowrap"><span>年度</span><select id="workspaceYear" aria-label="表示年度" style="width:auto;margin:0;padding:9px 28px 9px 10px;border:0;border-radius:10px;font-size:16px;font-weight:800"><option value="2026">2026年</option><option value="2027">2027年</option></select><button id="addWorkspaceYear" type="button" aria-label="年度を追加" style="border:0;border-radius:10px;background:#fff;color:#0b76d1;width:40px;height:40px;font-size:25px;font-weight:900;line-height:1">＋</button></label>
     </div>
   </header>
+
+  <aside class="desktopSidebar" aria-label="PCメニュー">
+    <button class="active" data-target="home" type="button"><span class="i">⌂</span>ホーム</button>
+    <button data-target="drive" type="button"><span class="i">▣</span>ファイル共有</button>
+    <button data-target="events" type="button"><span class="i">▦</span>イベント一覧</button>
+    <button data-target="budgetNative" type="button"><span class="i">▥</span>予算管理</button>
+    <button data-target="permit" type="button"><span class="i">▤</span>申請・申し込み</button>
+    <div class="spacer"></div>
+    <button data-target="more" type="button"><span class="i">⚙</span>設定</button>
+  </aside>
+
   <main>
     <section id="login"><div class="card"><h2>TOMA SHARE</h2><div class="meta">名前を入力して共有スペースに入る</div><input id="code" type="hidden" value="TOMA-2026" autocomplete="off"><input id="memberName" placeholder="あなたの名前" autocomplete="name" enterkeyhint="go"><button class="btn" id="enter" type="button">ログイン</button><div id="loginStatus" class="meta">同じ共有コードの端末は同じデータを表示します。</div></div></section>
     <section id="home" class="hidden"></section><section id="drive" class="hidden"></section><section id="chat" class="hidden"></section><section id="cal" class="hidden"></section><section id="more" class="hidden"></section><section id="minute" class="hidden"></section><section id="review" class="hidden"></section><section id="permit" class="hidden"></section><section id="events" class="hidden"></section><section id="tasks" class="hidden"></section><section id="search" class="hidden"></section><section id="trash" class="hidden"></section><section id="activity" class="hidden"></section>
@@ -35,5 +47,6 @@
   <script src="/events.js?v=20260903-2"></script>
   <script src="/events-extra.js?v=20260908-1"></script>
   <script src="/finance.js?v=20260909-2"></script>
+  <script src="/pc-reference.js?v=20260909-1"></script>
 </body>
 </html>
