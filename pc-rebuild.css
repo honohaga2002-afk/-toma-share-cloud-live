@@ -94,3 +94,35 @@
   body.ui-desktop .pcHomeStats{grid-template-columns:repeat(2,minmax(0,1fr))}
   body.ui-desktop .pcHomeColumns{grid-template-columns:1fr}
 }
+
+@media(min-width:901px){
+  body.ui-desktop #drive{max-width:1420px!important}
+  body.ui-desktop #drive>.pcDriveTopPanel{position:relative;padding:0 0 14px!important;margin-bottom:14px!important;background:transparent!important;border:0!important;box-shadow:none!important}
+  body.ui-desktop #drive .pcDriveTopPanel>.sectionTitle{margin-bottom:22px;padding-right:110px}
+  body.ui-desktop #drive .pcDriveTitle{font-size:28px!important;font-weight:900!important;color:#102f50!important}
+  body.ui-desktop #drive .pcDriveSubtitle{margin-top:5px!important;font-size:14px!important;color:#58718a!important}
+  body.ui-desktop #drive #refreshD{position:absolute;right:0;top:4px;min-width:94px}
+  body.ui-desktop #drive .driveModeSwitch,body.ui-desktop #drive #openSheet,body.ui-desktop #drive .driveEditHint{display:none!important}
+  body.ui-desktop #drive .pcDriveFilters{display:grid;grid-template-columns:minmax(320px,1fr) 160px 88px;gap:12px;align-items:center;margin-right:330px}
+  body.ui-desktop #drive .pcDriveFilters input,body.ui-desktop #drive .pcDriveFilters select{height:42px!important;margin:0!important;background:#fff!important;border:1px solid #cdddea!important;font-size:14px!important}
+  body.ui-desktop #drive .pcDriveFilters #applyDriveSearch{height:42px!important}
+  body.ui-desktop #drive .pcDriveActions{position:absolute;right:0;bottom:14px;width:310px;margin:0!important;gap:10px!important;flex-direction:row-reverse}
+  body.ui-desktop #drive .pcDriveActions .btn{height:42px!important;min-width:145px!important;font-size:13px!important}
+  body.ui-desktop #drive .pcDriveActions #newF{background:#fff!important;color:#0876db!important;border:1px solid #1684e8!important}
+  body.ui-desktop #drive .pcDriveActions #up{background:#087bf0!important;border-color:#087bf0!important}
+  body.ui-desktop #drive>.pcDriveFolderPanel,body.ui-desktop #drive>.pcDriveFilePanel{padding:0!important;margin-bottom:14px!important;overflow:hidden}
+  body.ui-desktop #drive>.pcDriveFolderPanel>.title,body.ui-desktop #drive>.pcDriveFilePanel>.title{padding:14px 18px!important;margin:0!important;background:#eef5fb!important;border-bottom:1px solid #dbe7f0!important;font-size:15px!important}
+  body.ui-desktop #drive .pcDriveFolderPanel>.item{padding:0 16px!important}
+  body.ui-desktop #drive .pcDriveFolderPanel>.item>.row{margin:0!important;padding:7px 0!important;border-bottom:1px solid #e4edf4!important}
+  body.ui-desktop #drive .pcDriveFolderPanel [data-folder-open]{min-height:48px!important;background:#fff!important;border:0!important;box-shadow:none!important;color:#17364d!important}
+  body.ui-desktop #drive .pcDriveFolderPanel [data-folder-open]:hover{background:#f3f8fc!important}
+  body.ui-desktop #drive .pcDriveFolderPanel [data-del]{min-width:68px!important}
+  body.ui-desktop #drive .pcDriveFilePanel .fileItem{grid-template-columns:minmax(300px,1fr) auto!important;padding:10px 18px!important;border-bottom:1px solid #e4edf4!important}
+  body.ui-desktop #drive .pcDriveFilePanel .fileItem:last-child{border-bottom:0!important}
+  body.ui-desktop #drive .pcDriveFilePanel .fileInfo .title{font-size:14px!important;color:#17364d!important}
+}
+
+@media(min-width:901px) and (max-width:1180px){
+  body.ui-desktop #drive .pcDriveFilters{margin-right:0;grid-template-columns:minmax(260px,1fr) 140px 80px}
+  body.ui-desktop #drive .pcDriveActions{position:static;width:auto;margin-top:12px!important;justify-content:flex-end}
+}
