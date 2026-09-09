@@ -1,11 +1,10 @@
 (()=>{
 'use strict';
 const EVENTS=[
-{date:'9/8(火)〜9/13(日)',time:'時間は公式ページ確認',title:'手織りサークルゆのみ 第17回作品展「小さい手織りとの出会い」',place:'苫小牧市内',tag:'小規模・展示',url:'https://www.city.tomakomai.hokkaido.jp/calendar/'},
-{date:'9/9(水)',time:'10:00〜',title:'ベビープラネタリウム',place:'苫小牧市科学センター',tag:'親子・無料',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/R0809.html'},
-{date:'9/9(水)',time:'14:30〜15:30／16:00〜17:00',title:'プレスクール工作体験「ゆらゆらひかるおばけをつくろう」',place:'苫小牧市科学センター',tag:'未就学児',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/R0809.html'},
+{date:'9/9(水)〜9/15(火)',time:'イオン苫小牧店営業時間内',title:'食育啓発コーナー「イオンがおすすめする朝食習慣！」',place:'イオン苫小牧店1階（パン工場付近）',tag:'健康・食育',url:'https://www.city.tomakomai.hokkaido.jp/kenko/iryo/kenkokenkoday.html'},
 {date:'9/11(金)',time:'16:30〜17:30',title:'星空観望会「天文台で欠けた金星を見よう」',place:'苫小牧市科学センター',tag:'天文・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/R0809.html'},
 {date:'9/12(土)〜9/13(日)',time:'9:30〜20:00（予定）',title:'とまこまいミライフェスト2026',place:'キラキラ公園',tag:'大型イベント',url:'https://www.city.tomakomai.hokkaido.jp/calendar/'},
+{date:'9/12(土)',time:'10:00〜16:00',title:'健考・健幸DAY2026',place:'イオンモール苫小牧 イーストコート・セントラルコート',tag:'健康・体験・無料',url:'https://www.city.tomakomai.hokkaido.jp/kenko/iryo/kenkokenkoday.html'},
 {date:'9/12(土)',time:'時間は公式ページ確認',title:'苫小牧バレエ研究所 創立52周年記念公演 TWINS☆★BALLET',place:'苫小牧市民文化ホール ART CUBES',tag:'舞台',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/bunkageijutsu/shinkojoseijigyo/jigyoitiran.html'},
 {date:'9/14(月)',time:'時間は公式ページ確認',title:'あなたの街でミーティング（弥生町・錦町・本町・元中野町・旭町地区）',place:'苫小牧市内',tag:'地域・交流',url:'https://www.city.tomakomai.hokkaido.jp/calendar/'},
 {date:'9/16(水)',time:'10:00〜',title:'ベビープラネタリウム',place:'苫小牧市科学センター',tag:'親子・無料',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/R0809.html'},
