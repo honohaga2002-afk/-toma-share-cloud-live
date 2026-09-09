@@ -1,23 +1,61 @@
-/* TOMA SHARE responsive shell: auto + manual desktop/mobile override */
-:root{--desktop-nav:150px;--desktop-top:52px;--desktop-bg:#f5f8fb;--desktop-navy:#12385b;--desktop-blue:#1678d3}
-.viewModeControl{display:flex;align-items:center;gap:6px;color:#fff;font-weight:800;white-space:nowrap}.viewModeControl span{font-size:12px;opacity:.9}.viewModeControl select{width:auto!important;margin:0!important;min-height:34px;padding:6px 28px 6px 9px!important;border:1px solid rgba(255,255,255,.18)!important;border-radius:6px!important;font-size:12px!important;font-weight:800!important;background:#214b70!important;color:#fff!important}
+/* TOMA SHARE responsive shell: approved PC layout + mobile layout */
+:root{--desktop-nav:184px;--desktop-top:58px;--pc-navy:#153654;--pc-blue:#2c78be;--pc-bg:#f6f8fb;--pc-line:#dbe3ea;--pc-text:#17364d}
+.viewModeControl{display:flex;align-items:center;gap:6px;color:#fff;font-weight:800;white-space:nowrap}.viewModeControl span{font-size:12px;opacity:.9}.viewModeControl select{width:auto!important;margin:0!important;min-height:36px;padding:6px 28px 6px 9px!important;border:1px solid rgba(255,255,255,.22)!important;border-radius:6px!important;font-size:13px!important;font-weight:800!important;background:#fff!important;color:#17364d!important}
 
-/* Desktop: approved TOMA SHARE PC layout */
-body.ui-desktop{background:var(--desktop-bg);font-size:14px}body.ui-desktop header.top{height:var(--desktop-top);padding:6px 14px;display:flex!important;align-items:center;position:fixed;left:0;right:0;top:0;z-index:20;background:var(--desktop-navy);box-shadow:0 1px 5px rgba(0,0,0,.18)}body.ui-desktop header.top>div:first-child{display:flex;align-items:center;gap:14px}body.ui-desktop header.top .brand{font-size:18px;letter-spacing:.02em}body.ui-desktop header.top .meta{font-size:11px;color:#d9e7f2;white-space:nowrap}body.ui-desktop header.top label{font-size:11px!important}body.ui-desktop header.top select{min-height:32px!important;border-radius:5px!important;padding-top:5px!important;padding-bottom:5px!important;font-size:12px!important}body.ui-desktop header.top button{width:32px!important;height:32px!important;border-radius:5px!important;font-size:18px!important}
+/* ======================= PC ======================= */
+body.ui-desktop{background:var(--pc-bg);color:var(--pc-text)}
+body.ui-desktop header.top{height:var(--desktop-top);padding:0 18px;display:flex!important;align-items:center;position:fixed;left:0;right:0;top:0;z-index:30;background:var(--pc-navy)!important;box-shadow:none;border-bottom:1px solid rgba(255,255,255,.08)}
+body.ui-desktop header.top>div:first-child{display:flex;align-items:center;gap:12px;min-width:var(--desktop-nav)}
+body.ui-desktop header.top .brand{font-size:19px;line-height:1;font-weight:900;letter-spacing:.02em}
+body.ui-desktop header.top>div:first-child>.meta{font-size:11px;opacity:.78;color:#d7e5ef}
+body.ui-desktop header.top select{border-radius:6px!important;min-height:34px!important;font-size:13px!important}
+body.ui-desktop header.top #addWorkspaceYear{width:34px!important;height:34px!important;border-radius:6px!important;font-size:20px!important}
 
-body.ui-desktop main{max-width:none;margin:0;padding:calc(var(--desktop-top) + 12px) 14px 18px calc(var(--desktop-nav) + 14px);min-height:100vh;background:var(--desktop-bg)}body.ui-desktop main>section:not(.hidden){max-width:1450px;margin:0 auto}body.ui-desktop #login:not(.hidden){max-width:520px;margin:70px auto 0}
+body.ui-desktop main{max-width:none;margin:0;padding:calc(var(--desktop-top) + 24px) 26px 34px calc(var(--desktop-nav) + 28px);min-height:100vh;background:var(--pc-bg)}
+body.ui-desktop main>section:not(.hidden){animation:pcFade .12s ease-out}@keyframes pcFade{from{opacity:.65}to{opacity:1}}
 
-body.ui-desktop .bottom{position:fixed;left:0;top:var(--desktop-top);bottom:0;right:auto;width:var(--desktop-nav);display:flex;flex-direction:column;gap:2px;padding:8px 7px;background:var(--desktop-navy);border:0;box-shadow:1px 0 6px rgba(0,0,0,.12);z-index:15}body.ui-desktop .nav{display:flex;align-items:center;gap:8px;min-height:38px;padding:7px 9px;border-radius:4px;color:#e1ebf3;text-align:left;font-size:12px;font-weight:800;transition:.12s ease}body.ui-desktop .nav:hover{background:rgba(255,255,255,.08)}body.ui-desktop .nav span{display:inline;font-size:14px;width:19px;text-align:center}body.ui-desktop .nav.on{background:var(--desktop-blue);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}body.ui-desktop .nav:last-child{margin-top:auto}
+body.ui-desktop .bottom{position:fixed;left:0;top:var(--desktop-top);bottom:0;right:auto;width:var(--desktop-nav);display:flex;flex-direction:column;gap:2px;padding:16px 10px;background:var(--pc-navy);border:0;box-shadow:none;z-index:20;overflow-y:auto}
+body.ui-desktop .nav{display:flex;align-items:center;gap:10px;min-height:42px;padding:9px 11px;border-radius:5px;color:#d6e2eb;text-align:left;font-size:13px;font-weight:700;letter-spacing:.01em}
+body.ui-desktop .nav span{display:inline;font-size:17px;width:22px;text-align:center;filter:saturate(.85)}
+body.ui-desktop .nav:hover{background:rgba(255,255,255,.07);color:#fff}
+body.ui-desktop .nav.on{background:var(--pc-blue);color:#fff;font-weight:800}
+body.ui-desktop .nav.pc-hide{display:none!important}
+body.ui-desktop .nav.pc-settings{margin-top:auto;border-top:1px solid rgba(255,255,255,.12);padding-top:12px}
 
-body.ui-desktop .panel,body.ui-desktop .card{border-radius:6px;border:1px solid #dbe5ee;box-shadow:0 1px 4px rgba(20,58,88,.05);background:#fff}body.ui-desktop .panel{padding:13px;margin-bottom:10px}body.ui-desktop .panelHeading{font-size:16px;margin-bottom:8px}body.ui-desktop .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}body.ui-desktop .card{min-height:92px;padding:12px}body.ui-desktop .card .ico{font-size:22px}body.ui-desktop .card .ct{font-size:14px}body.ui-desktop .card .meta{font-size:11px}body.ui-desktop .item{padding:8px 0}body.ui-desktop .title{font-size:14px}body.ui-desktop .meta{font-size:11px;line-height:1.4}body.ui-desktop .btn{min-height:34px;padding:7px 11px;border-radius:5px;font-size:12px}body.ui-desktop input,body.ui-desktop textarea,body.ui-desktop select{padding:8px 9px;font-size:13px;border-radius:5px;margin:4px 0}body.ui-desktop textarea{min-height:72px}body.ui-desktop .pill{font-size:10px;padding:3px 7px}body.ui-desktop .toast{bottom:18px}
+body.ui-desktop .panel,body.ui-desktop .card{background:#fff;border:1px solid var(--pc-line);border-radius:7px;box-shadow:none}
+body.ui-desktop .panel{padding:18px 20px;margin-bottom:16px}
+body.ui-desktop .panelHeading{font-size:18px;margin-bottom:12px;color:#1d3d59}
+body.ui-desktop .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+body.ui-desktop .card{min-height:112px;padding:15px 16px}
+body.ui-desktop .card:hover{border-color:#b9cbd9;background:#fbfdff}
+body.ui-desktop .ico{font-size:25px}
+body.ui-desktop .ct{font-size:14px;margin-top:5px}
+body.ui-desktop .meta{font-size:12px}
+body.ui-desktop .btn{min-height:38px;border-radius:6px;padding:8px 12px;font-size:13px}
+body.ui-desktop input,body.ui-desktop textarea,body.ui-desktop select{border-radius:6px;padding:9px 10px;font-size:14px}
+body.ui-desktop .item{padding:10px 0}
+body.ui-desktop .pill{border-radius:999px;padding:3px 8px;font-size:11px}
+body.ui-desktop .toast{bottom:24px}
 
-/* Data-heavy desktop views: use the width instead of stacking */
-body.ui-desktop .recordItem{gap:8px}body.ui-desktop .sectionTitle{margin-bottom:6px}body.ui-desktop .fileItem{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:9px 0!important}body.ui-desktop .fileInfo{margin:0!important}body.ui-desktop .fileActions{display:flex!important;gap:6px!important;width:auto!important}body.ui-desktop .fileActions .btn{width:auto!important;min-width:82px}body.ui-desktop .officialPermitList{grid-template-columns:1fr 1fr 1fr!important;gap:0 14px}body.ui-desktop .officialPermit{padding:10px 2px}
+/* File workspace on PC: tree/list friendly spacing */
+body.ui-desktop #drive .panel{padding:18px}
+body.ui-desktop #drive .fileItem{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:18px;align-items:center;padding:11px 4px}
+body.ui-desktop #drive .fileInfo{margin:0}
+body.ui-desktop #drive .fileActions{display:flex;gap:6px;width:auto;justify-content:flex-end}
+body.ui-desktop #drive .fileActions .btn{width:auto;min-width:86px}
 
-/* Keep budget workspace inside the desktop shell */
-body.ui-desktop .budgetSheetHost{left:var(--desktop-nav)!important;bottom:0!important;top:var(--desktop-top)!important;background:var(--desktop-bg)!important}body.ui-desktop .budgetSheetFrame{background:var(--desktop-bg)!important}
+/* Event / permit lists use wide PC canvas */
+body.ui-desktop #events .panel,body.ui-desktop #permit .panel,body.ui-desktop #cal .panel{padding:18px 20px}
+body.ui-desktop .officialPermitList{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px}
 
-/* Manual mobile mode remains the touch-first layout */
-body.ui-mobile main{max-width:1000px;margin:auto;padding:14px 14px calc(104px + env(safe-area-inset-bottom))}body.ui-mobile .bottom{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;display:grid;grid-template-columns:repeat(7,1fr);padding:7px 2px calc(7px + env(safe-area-inset-bottom));background:#fffffff5;border-top:1px solid #cfe0e8}body.ui-mobile .nav{display:block;min-height:52px;border-radius:0;color:#536d7d;font-size:10px;padding:2px;text-align:center}body.ui-mobile .nav span{display:block;font-size:21px;width:auto}.ui-mobile .grid{grid-template-columns:1fr 1fr}.ui-mobile .budgetSheetHost{left:0!important;bottom:calc(67px + env(safe-area-inset-bottom))!important;top:0!important}
+/* Budget iframe keeps the PC sidebar/header visible */
+body.ui-desktop .budgetSheetHost{left:var(--desktop-nav)!important;bottom:0!important;top:var(--desktop-top)!important;background:var(--pc-bg)!important}
+body.ui-desktop .budgetSheetFrame{background:var(--pc-bg)!important}
+
+/* ======================= MOBILE ======================= */
+body.ui-mobile main{max-width:1000px;margin:auto;padding:14px 14px calc(104px + env(safe-area-inset-bottom))}
+body.ui-mobile .bottom{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;display:grid;grid-template-columns:repeat(7,1fr);padding:7px 2px calc(7px + env(safe-area-inset-bottom));background:#fffffff5;border-top:1px solid #cfe0e8}
+body.ui-mobile .nav{display:block;min-height:52px;border-radius:0;color:#536d7d;font-size:10px;padding:2px;text-align:center}
+body.ui-mobile .nav span{display:block;font-size:21px;width:auto}.ui-mobile .grid{grid-template-columns:1fr 1fr}.ui-mobile .budgetSheetHost{left:0!important;bottom:calc(67px + env(safe-area-inset-bottom))!important;top:0!important}
 
 @media(max-width:620px){.viewModeControl span{display:none}.viewModeControl select{font-size:13px!important;padding-left:8px!important}.ui-mobile .grid{grid-template-columns:1fr 1fr}}
