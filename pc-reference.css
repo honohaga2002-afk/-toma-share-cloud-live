@@ -1,4 +1,4 @@
-/* PC layout based on the approved TOMA SHARE reference image */
+/* Approved TOMA SHARE PC reference layout */
 :root{--pc-top:58px;--pc-side:150px;--pc-navy:#0f3152;--pc-navy2:#123b61;--pc-blue:#1d73d4;--pc-bg:#f5f8fc;--pc-line:#dce7f1;--pc-text:#17364d}
 .desktopSidebar{display:none}
 body.ui-desktop{background:var(--pc-bg);color:var(--pc-text)}
@@ -15,29 +15,81 @@ body.ui-desktop .desktopSidebar button .i{width:18px;text-align:center;font-size
 body.ui-desktop .desktopSidebar button.active{background:var(--pc-blue);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
 body.ui-desktop .desktopSidebar .spacer{flex:1}
 body.ui-desktop .bottom{display:none!important}
-body.ui-desktop main{max-width:none!important;width:auto!important;margin:0!important;padding:calc(var(--pc-top) + 12px) 12px 16px calc(var(--pc-side) + 12px)!important;min-height:100vh;background:var(--pc-bg)}
+body.ui-desktop main{max-width:none!important;width:auto!important;margin:0!important;padding:calc(var(--pc-top) + 10px) 10px 12px calc(var(--pc-side) + 10px)!important;min-height:100vh;background:var(--pc-bg)}
 body.ui-desktop main>section:not(#login):not(.budgetSheetHost){max-width:none!important;width:100%!important}
-body.ui-desktop .panel,body.ui-desktop .card{background:#fff!important;border:1px solid var(--pc-line)!important;border-radius:8px!important;box-shadow:none!important}
-body.ui-desktop .panel{padding:12px!important;margin-bottom:10px!important}
-body.ui-desktop .card{padding:13px!important;min-height:92px!important}
-body.ui-desktop .grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important}
-body.ui-desktop h1,body.ui-desktop h2,body.ui-desktop .panelHeading{color:#12324d}
-body.ui-desktop .panelHeading{font-size:16px!important;margin-bottom:8px!important}
-body.ui-desktop .meta{font-size:12px;line-height:1.45;color:#6d8194}
-body.ui-desktop .ct,body.ui-desktop .title{font-size:14px}
-body.ui-desktop .ico{font-size:22px}
-body.ui-desktop .btn{min-height:36px!important;border-radius:5px!important;padding:8px 12px!important;font-size:12px!important}
-body.ui-desktop input,body.ui-desktop textarea,body.ui-desktop select{border-radius:5px!important;font-size:13px!important;padding:9px 10px!important}
-body.ui-desktop .item{padding:9px 0!important}
-body.ui-desktop .pill{font-size:11px;padding:3px 8px}
 body.ui-desktop .budgetSheetHost{left:var(--pc-side)!important;top:var(--pc-top)!important;bottom:0!important}
-/* Home: approximate the approved 4 KPI cards + two-column content rhythm */
-body.ui-desktop #home .grid:first-of-type{grid-template-columns:repeat(4,minmax(0,1fr))!important}
-body.ui-desktop #home .card{border-radius:7px!important}
-/* File area: wider table/list space */
+
+/* Exact-reference desktop home */
+body.ui-desktop #home{padding:0!important}
+body.ui-desktop .pcApprovedPage{width:100%;max-width:none;margin:0}
+body.ui-desktop .pcPageHead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:3px 6px 10px}
+body.ui-desktop .pcPageHead h1{margin:0 0 3px;font-size:25px;line-height:1.05;color:#12324d;font-weight:900;letter-spacing:.1px}
+body.ui-desktop .pcPageHead p{margin:0;color:#5f7890;font-size:12px;font-weight:600}
+body.ui-desktop .pcGreeting{width:250px;min-height:56px;border:1px solid #e1eaf2;background:linear-gradient(135deg,#f8fbff,#eef8ff);border-radius:7px;padding:8px 11px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+body.ui-desktop .pcGreeting:after{content:'▥';position:absolute;right:16px;bottom:-3px;font-size:46px;color:#7bd3e7;opacity:.5;transform:rotate(2deg)}
+body.ui-desktop .pcGreeting strong{font-size:11px;color:#153955;z-index:1}
+body.ui-desktop .pcGreeting span{font-size:9px;color:#52738d;margin-top:2px;z-index:1}
+body.ui-desktop .pcGreeting small{font-size:9px;color:#52738d;z-index:1}
+body.ui-desktop .pcKpiGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:0 6px 10px}
+body.ui-desktop .pcKpi{appearance:none;text-align:left;min-height:102px;border-radius:7px;border:1px solid #e1e9f1;padding:14px 16px;position:relative;cursor:pointer;background:#fff;color:#163750;box-shadow:none}
+body.ui-desktop .pcKpiIcon{position:absolute;right:16px;top:12px;font-size:21px;opacity:.78}
+body.ui-desktop .pcKpi b{display:block;font-size:12px;margin-bottom:7px;color:#183d59}
+body.ui-desktop .pcKpi strong{display:block;font-size:23px;line-height:1.05;font-weight:900;color:#153d5c}
+body.ui-desktop .pcKpi strong em{font-style:normal;font-size:14px;margin-left:4px}
+body.ui-desktop .pcKpi small{display:block;margin-top:7px;font-size:10px;font-weight:700;opacity:.72}
+body.ui-desktop .pcKpiBlue{background:linear-gradient(135deg,#f5fbff,#edf7ff)}
+body.ui-desktop .pcKpiBlue .pcKpiIcon,body.ui-desktop .pcKpiBlue small{color:#1674d6}
+body.ui-desktop .pcKpiGreen{background:linear-gradient(135deg,#f2fff8,#edf9f2)}
+body.ui-desktop .pcKpiGreen .pcKpiIcon,body.ui-desktop .pcKpiGreen small{color:#159a57}
+body.ui-desktop .pcKpiRed{background:linear-gradient(135deg,#fff7f7,#fff0f0)}
+body.ui-desktop .pcKpiRed .pcKpiIcon,body.ui-desktop .pcKpiRed small{color:#e43838}
+body.ui-desktop .pcKpiRed strong{color:#df2d2d}
+body.ui-desktop .pcKpiPurple{background:linear-gradient(135deg,#faf7ff,#f3efff)}
+body.ui-desktop .pcKpiPurple .pcKpiIcon,body.ui-desktop .pcKpiPurple small{color:#6750c8}
+body.ui-desktop .pcKpiPurple strong{color:#5138b8}
+body.ui-desktop .pcBudgetValue{font-size:18px!important;margin-top:4px}
+body.ui-desktop .pcHomeColumns{display:grid;grid-template-columns:1.08fr .92fr;gap:10px;padding:0 6px 6px}
+body.ui-desktop .pcRefPanel{background:#fff;border:1px solid #dfe8f1;border-radius:7px;overflow:hidden;min-height:290px}
+body.ui-desktop .pcRefPanelHead{height:44px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #edf1f5}
+body.ui-desktop .pcRefPanelHead h2{margin:0;font-size:14px;color:#183852;font-weight:900}
+body.ui-desktop .pcRefPanelHead button{border:0;background:transparent;color:#1676d2;font-size:10px;font-weight:800;cursor:pointer;padding:6px}
+body.ui-desktop .pcActivityList{padding:0 14px}
+body.ui-desktop .pcActivity{min-height:57px;display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:center;border-bottom:1px solid #edf2f6}
+body.ui-desktop .pcActivity:last-child{border-bottom:0}
+body.ui-desktop .pcActivityIcon{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900}
+body.ui-desktop .pcActivityIcon.blue{background:#eaf4ff;color:#1674d6}
+body.ui-desktop .pcActivityIcon.green{background:#eaf9f0;color:#16965a}
+body.ui-desktop .pcActivityIcon.purple{background:#f1edff;color:#6d55ca}
+body.ui-desktop .pcActivityIcon.red{background:#fff0f0;color:#df3939}
+body.ui-desktop .pcActivity b{display:block;font-size:10.5px;color:#23435b;margin-bottom:2px}
+body.ui-desktop .pcActivity small{display:block;font-size:9px;color:#74899b}
+body.ui-desktop .pcActivity time{font-size:9px;color:#8b9cac}
+body.ui-desktop .pcEventList{padding:0 13px}
+body.ui-desktop .pcEventRow{min-height:72px;display:grid;grid-template-columns:48px 1fr auto;gap:10px;align-items:center;border-bottom:1px solid #edf2f6}
+body.ui-desktop .pcEventRow:last-child{border-bottom:0}
+body.ui-desktop .pcDateBox{width:43px;height:43px;border-radius:7px;background:#eef6ff;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#146ece}
+body.ui-desktop .pcDateBox b{font-size:11px;line-height:1.1}
+body.ui-desktop .pcDateBox small{font-size:8px;margin-top:2px}
+body.ui-desktop .pcEventRow>div b{display:block;font-size:10.5px;color:#203f57;margin-bottom:3px}
+body.ui-desktop .pcEventRow>div small{display:block;font-size:9px;color:#72889b}
+body.ui-desktop .pcStatus{border-radius:999px;padding:4px 8px;font-size:8.5px;font-weight:900}
+body.ui-desktop .pcStatus.blue{background:#eaf4ff;color:#1873cf}
+body.ui-desktop .pcStatus.green{background:#e9f9ef;color:#16965a}
+body.ui-desktop .pcStatus.red{background:#fff0f0;color:#e13737}
+
+/* Keep the other PC screens dense and reference-like */
+body.ui-desktop .panel,body.ui-desktop .card{background:#fff!important;border:1px solid var(--pc-line)!important;border-radius:7px!important;box-shadow:none!important}
+body.ui-desktop .panel{padding:12px!important;margin-bottom:10px!important}
+body.ui-desktop .card{padding:13px!important;min-height:88px!important}
+body.ui-desktop .grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important}
+body.ui-desktop .panelHeading{font-size:15px!important;margin-bottom:8px!important}
+body.ui-desktop .meta{font-size:11px;line-height:1.4;color:#6d8194}
+body.ui-desktop .btn{min-height:34px!important;border-radius:5px!important;padding:7px 11px!important;font-size:11px!important}
+body.ui-desktop input,body.ui-desktop textarea,body.ui-desktop select{border-radius:5px!important;font-size:12px!important;padding:8px 9px!important}
+body.ui-desktop .item{padding:8px 0!important}
+body.ui-desktop .pill{font-size:10px;padding:3px 7px}
 body.ui-desktop #drive .panel{overflow:hidden}
-body.ui-desktop #drive .fileItem{padding:10px 0!important}
+body.ui-desktop #drive .fileItem{padding:9px 0!important}
 body.ui-desktop #drive .fileActions{grid-template-columns:repeat(4,minmax(90px,auto))!important;gap:6px!important}
-/* Event/permit pages: compact data-dense PC presentation */
-body.ui-desktop #events .item,body.ui-desktop #permit .item{padding:8px 0!important}
+body.ui-desktop #events .item,body.ui-desktop #permit .item{padding:7px 0!important}
 @media(max-width:899px){.desktopSidebar{display:none!important}}
