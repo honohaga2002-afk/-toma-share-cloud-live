@@ -3960,24 +3960,9 @@ function fileRow(file){
   const openLabel=
     '開く';
 
-  const fileName=String(file.name||'');
-  const lowerName=fileName.toLowerCase();
-  const category=
-    lowerName.endsWith('.pdf')?'PDF':
-    /\.(xlsx?|csv)$/.test(lowerName)?'表計算':
-    /\.(docx?)$/.test(lowerName)?'Word':
-    /\.(pptx?)$/.test(lowerName)?'PowerPoint':
-    isMediaFile(file)?'画像・動画':'その他';
-  const updated=file.updated_at
-    ?new Date(file.updated_at).toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
-    :'-';
-  const folderName=(state.items.find(item=>item.item_type==='folder'&&sameId(item.id,file.parent_id))||{}).name||'共有ドライブ直下';
-
   return `
 
     <div class="item fileItem">
-
-      <div class="pcDriveFolderName">📁 ${esc(folderName)}</div>
 
       <div class="fileInfo">
 
@@ -4000,10 +3985,6 @@ function fileRow(file){
           }
 
       </div>
-
-      <div class="pcDriveCategory">${esc(category)}</div>
-      <div class="pcDriveUpdated">${esc(updated)}</div>
-      <div class="pcDriveSize">${file.size?formatBytes(file.size):'-'}</div>
 
       <div class="fileActions">
 
@@ -4062,9 +4043,8 @@ function driveR(){
 
   if(!el)return;
 
-  /* ファイル共有は通常版に統一 */
-  driveMode='normal';
-  const isPro=false;
+  const isPro=
+    driveMode==='pro';
 
   const query=
     driveSearch.trim().toLowerCase();
@@ -4333,7 +4313,7 @@ function driveR(){
   const folderDetailHtml=
     selectedFolder
       ?`
-        <div class="panel pcDriveFolderDetail">
+        <div class="panel">
           <div class="sectionTitle">
             <button class="btn light" id="closeFolder" type="button">← 戻る</button>
             <div style="flex:1;min-width:0">
@@ -4341,7 +4321,6 @@ function driveR(){
               <div class="meta">${selectedFolderFiles.length}ファイル｜種類別に自動保存</div>
             </div>
           </div>
-          <div class="pcDriveTableHead"><span>フォルダ</span><span>ファイル名</span><span>カテゴリー</span><span>更新日時</span><span>サイズ</span><span>操作</span></div>
           ${folderSection('📗','Excel','excel')}
           ${folderSection('📘','Word','word')}
           ${folderSection('📕','PDF','pdf')}
@@ -4399,13 +4378,12 @@ function driveR(){
 
   el.innerHTML=`
 
-    <div class="panel pcDriveTopPanel">
+    <div class="panel">
 
       <div class="sectionTitle">
 
-        <div>
-          <div class="title pcDriveTitle">ファイル共有</div>
-          <div class="meta pcDriveSubtitle">資料や画像をフォルダごとに整理・共有できます。</div>
+        <div class="title">
+          📁 共有ドライブ
         </div>
 
         <button
@@ -4417,19 +4395,9 @@ function driveR(){
 
       </div>
 
-      <div class="row driveModeSwitch" style="margin-bottom:10px">
+      <div class="row" style="margin-bottom:10px">
         <button class="btn ${isPro?'light':''}" id="driveNormalMode" type="button">通常版</button>
         <button class="btn ${isPro?'':'light'}" id="driveProMode" type="button">高機能編集版</button>
-      </div>
-
-      <div class="pcDriveFilters">
-        <input id="driveSearch" value="${esc(driveSearch)}" placeholder="ファイル名・フォルダ名で検索">
-        <select id="driveType" aria-label="種類" style="display:none"><option value="all" selected>すべて</option></select>
-        <select id="driveSort" aria-label="並び順">
-          <option value="updated" ${driveSort==='updated'?'selected':''}>更新順</option>
-          <option value="name" ${driveSort==='name'?'selected':''}>名前順</option>
-        </select>
-        <button class="btn light" id="applyDriveSearch" type="button">検索</button>
       </div>
 
       ${
@@ -4458,20 +4426,20 @@ function driveR(){
           :''
       }
 
-      <div class="row pcDriveActions">
+      <div class="row">
 
         <button
           class="btn"
           id="up"
         >
-          ＋ ファイル追加
+          ＋ファイル
         </button>
 
         <button
           class="btn light"
           id="newF"
         >
-          ＋ 新規フォルダ
+          ＋フォルダ
         </button>
 
       </div>
@@ -4483,7 +4451,7 @@ function driveR(){
         Googleスプレッドシート共同編集
       </button>
 
-      <div class="meta driveEditHint">
+      <div class="meta">
         Excel・CSVは「編集」から直接編集できます。1ファイル2.5MBまで。
       </div>
 
@@ -4501,25 +4469,21 @@ function driveR(){
 
 
 
-    <div class="panel pcDriveFolderPanel">
+    <div class="panel">
 
       <div class="title">
         📁 フォルダ
       </div>
 
-      <div class="pcDriveFolderTableHead"><span>フォルダ名</span><span>ファイル数</span><span>操作</span></div>
-
       ${folderHtml}
 
     </div>
 
-    <div class="panel pcDriveFilePanel">
+    <div class="panel">
 
       <div class="title">
         📄 共有ドライブ直下
       </div>
-
-      <div class="pcDriveTableHead"><span>フォルダ</span><span>ファイル名</span><span>カテゴリー</span><span>更新日時</span><span>サイズ</span><span>操作</span></div>
 
       ${
         rootFiles.length
