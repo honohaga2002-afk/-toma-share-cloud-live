@@ -12,42 +12,21 @@ function parseContent(value){
 }
 
 function derivedGoogleEditUrl(file,content){
-  const driveFileId=String(
-    content?.driveFileId||
-    file?.driveFileId||
-    ''
-  ).trim();
-
+  const driveFileId=String(content?.driveFileId||file?.driveFileId||'').trim();
   if(!driveFileId)return '';
 
-  const googleMimeType=String(
-    content?.googleMimeType||
-    file?.googleMimeType||
-    ''
-  );
-  const name=String(file?.name||'').toLowerCase();
-
-  if(
-    googleMimeType.includes('spreadsheet')||
-    /\.(xlsx?|csv)$/i.test(name)
-  ){
+  const googleMimeType=String(content?.googleMimeType||file?.googleMimeType||'');
+  if(googleMimeType==='application/vnd.google-apps.spreadsheet'){
     return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(driveFileId)}/edit`;
   }
-
-  if(
-    googleMimeType.includes('presentation')||
-    /\.(pptx?)$/i.test(name)
-  ){
+  if(googleMimeType==='application/vnd.google-apps.presentation'){
     return `https://docs.google.com/presentation/d/${encodeURIComponent(driveFileId)}/edit`;
   }
-
-  if(
-    googleMimeType.includes('document')||
-    /\.(docx?)$/i.test(name)
-  ){
+  if(googleMimeType==='application/vnd.google-apps.document'){
     return `https://docs.google.com/document/d/${encodeURIComponent(driveFileId)}/edit`;
   }
 
+  // For non-native Office files let Drive choose the correct editor/viewer.
   return `https://drive.google.com/open?id=${encodeURIComponent(driveFileId)}`;
 }
 
@@ -59,16 +38,16 @@ function editUrl(file){
     file?.googleEditLink,
     file?.webViewLink
   ];
-
-  const googleUrl=candidates.find(
-    url=>typeof url==='string'&&GOOGLE_HOST_RE.test(url)
-  );
-
+  const googleUrl=candidates.find(url=>typeof url==='string'&&GOOGLE_HOST_RE.test(url));
   return googleUrl||derivedGoogleEditUrl(file,content);
 }
 
 function canGoogleEdit(file){
   return OFFICE_RE.test(String(file?.name||''))&&!!editUrl(file);
+}
+
+function isMobile(){
+  return document.body.classList.contains('ui-mobile')||/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||window.innerWidth<700;
 }
 
 let cachedItems=[];
@@ -78,10 +57,7 @@ async function loadItems(){
   if(loading)return;
   loading=true;
   try{
-    const workspaceCode=
-      localStorage.getItem('tomaCode')||
-      document.getElementById('code')?.value||
-      'TOMA-2026';
+    const workspaceCode=localStorage.getItem('tomaCode')||document.getElementById('code')?.value||'TOMA-2026';
     const response=await fetch('/api/data',{
       headers:{'x-workspace-code':workspaceCode},
       cache:'no-store',
@@ -98,25 +74,38 @@ async function loadItems(){
   }
 }
 
-function openGoogleEdit(file){
-  const url=editUrl(file);
-  if(!url)return;
-
+function rememberSession(){
   try{
     localStorage.setItem('tomaLastPage','drive');
+    const name=document.getElementById('memberName')?.value||localStorage.getItem('tomaName')||'';
+    if(name)localStorage.setItem('tomaName',name);
+    localStorage.setItem('tomaCode',localStorage.getItem('tomaCode')||'TOMA-2026');
   }catch(e){}
+}
 
-  const opened=window.open(url,'_blank','noopener,noreferrer');
-  if(!opened){
-    const a=document.createElement('a');
-    a.href=url;
-    a.target='_blank';
-    a.rel='noopener noreferrer';
-    a.style.display='none';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+function openGoogleEdit(file){
+  const url=editUrl(file);
+  if(!url){
+    alert('このファイルのGoogle編集リンクを取得できませんでした。');
+    return;
   }
+
+  rememberSession();
+
+  // iPhone/iPad/PWA/in-app browsers can block scripted new tabs.
+  // On mobile, same-window navigation is the most reliable; session restore handles return.
+  if(isMobile()){
+    window.location.assign(url);
+    return;
+  }
+
+  const opened=window.open(url,'_blank');
+  if(opened){
+    try{opened.opener=null;}catch(e){}
+    return;
+  }
+
+  window.location.assign(url);
 }
 
 function apply(){
@@ -131,7 +120,6 @@ function apply(){
     actions.querySelectorAll('[data-edit]').forEach(button=>button.remove());
 
     let button=actions.querySelector('[data-google-drive-edit]');
-
     if(!file||!canGoogleEdit(file)){
       button?.remove();
       return;
