@@ -21,6 +21,7 @@ const EVENTS=[
 {date:'9/26(土)',time:'時間は公式ページ確認',title:'パラスポーツ体験教室（ボッチャ）',place:'苫小牧市内スポーツ施設',tag:'スポーツ',url:'https://www.city.tomakomai.hokkaido.jp/calendar/'},
 {date:'9/26(土)',time:'時間は公式ページ確認',title:'ウォーキングフェスティバル（駅前まちなかオレンジウォークコース）',place:'苫小牧駅前・まちなか',tag:'健康・スポーツ',url:'https://www.city.tomakomai.hokkaido.jp/calendar/'},
 {date:'9/26(土)',time:'時間は公式ページ確認',title:'ハルナギFES2026',place:'苫小牧市文化交流センター',tag:'音楽・地域',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/bunkageijutsu/shinkojoseijigyo/jigyoitiran.html'},
+{date:'9/27(日)',time:'8:00〜12:00',title:'令和8年度 とまこまい青果市場感謝祭',place:'苫小牧市公設地方卸売市場 青果棟（港町2丁目2番2号）',tag:'地域・食・体験',url:'https://www.city.tomakomai.hokkaido.jp/kanko/nosui/nogyo/ichiba/seika.html'},
 {date:'9/30(水)',time:'10:00〜',title:'ベビープラネタリウム',place:'苫小牧市科学センター',tag:'親子・無料',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/R0809.html'},
 {date:'10/3(土)',time:'10:00〜12:00',title:'科学ふれあい教室「回転の科学！フシギなコマを作ろう」',place:'苫小牧市科学センター',tag:'科学・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/r8list_m.html'},
 {date:'10/3(土)',time:'13:30〜16:50',title:'市民交流将棋大会',place:'苫小牧市民文化ホール ART CUBES ルーム5',tag:'文化・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/eventannai/siminbunkasai.html'},
