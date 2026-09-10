@@ -55,13 +55,17 @@ function apply(){
 
     const id=String(open.dataset.open||'');
     const file=cachedItems.find(item=>String(item.id)===id);
-    if(!file||!canGoogleEdit(file))return;
 
-    // Keep only one Google edit button.
-    const existing=[...actions.querySelectorAll('[data-edit],[data-google-drive-edit]')];
-    existing.slice(1).forEach(button=>button.remove());
+    // Remove the old/hidden Google button so there is never a duplicate.
+    actions.querySelectorAll('[data-edit]').forEach(button=>button.remove());
 
-    let button=existing[0];
+    let button=actions.querySelector('[data-google-drive-edit]');
+
+    if(!file||!canGoogleEdit(file)){
+      button?.remove();
+      return;
+    }
+
     if(!button){
       button=document.createElement('button');
       button.type='button';
@@ -78,8 +82,7 @@ function apply(){
       event.preventDefault();
       event.stopPropagation();
       const url=editUrl(file);
-      if(!url)return;
-      window.open(url,'_blank','noopener,noreferrer');
+      if(url)window.open(url,'_blank','noopener,noreferrer');
     };
   });
 }
