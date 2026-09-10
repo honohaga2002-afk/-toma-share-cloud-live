@@ -144,7 +144,7 @@ async function uploadOne(file,parentId,replaceId,status,index,total){
   if(!driveId)throw new Error('Google DriveのファイルIDを取得できませんでした');
 
   status.textContent=`${index+1}/${total} ${file.name} をTOMA SHAREへ登録中…`;
-  await postUpload({
+  return postUpload({
     action:'finalize',
     drive_file_id:driveId,
     name:file.name,
@@ -176,8 +176,22 @@ async function saveAll(){
         pickedFiles.length
       );
     }
-    status.textContent='保存しました。画面を更新します…';
-    setTimeout(()=>location.reload(),500);
+
+    // Do not reload the whole app after saving. Keeping the current DOM prevents
+    // the old layout from flashing back in while CSS/JS are re-applied.
+    status.textContent='保存しました。';
+    save.textContent='完了';
+    save.disabled=false;
+    save.onclick=()=>{
+      closeOverlay();
+      document.dispatchEvent(new CustomEvent('toma:file-saved'));
+    };
+    cancel.textContent='閉じる';
+    cancel.disabled=false;
+    cancel.onclick=()=>{
+      closeOverlay();
+      document.dispatchEvent(new CustomEvent('toma:file-saved'));
+    };
   }catch(e){
     console.error('50MB upload failed:',e);
     status.textContent='保存に失敗しました';
@@ -202,7 +216,7 @@ document.addEventListener('click',event=>{
   }
 },true);
 
-// app.jsの2.5MB/Base64保存処理より先にファイル選択を受け取り、直接Drive保存へ切り替える。
+// app.jsの旧Base64保存処理より先にファイル選択を受け取り、直接Drive保存へ切り替える。
 document.addEventListener('change',event=>{
   const input=event.target;
   if(!(input instanceof HTMLInputElement))return;
