@@ -11,7 +11,7 @@
   <title>TOMA SHARE</title>
   <link rel="stylesheet" href="/style.css?v=20260911-ui9">
   <link rel="stylesheet" href="/responsive-layout.css?v=20260911-ui9">
-  <link rel="stylesheet" href="/pc-rebuild.css?v=20260911-ui9">
+  <link rel="stylesheet" href="/pc-rebuild.css?v=20260913-nav1">
   <style>
     .fileItem{padding:16px 0}.fileInfo{width:100%;min-width:0;margin-bottom:12px}.fileInfo .title{font-size:17px;line-height:1.45;word-break:break-word}.fileInfo .meta{margin-top:4px}.fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}.fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}.fileActions [data-edit]{display:none!important}.permitNotice{background:#f0f9ff;border-radius:10px;padding:10px;margin-bottom:6px}.officialPermitList{display:grid}.officialPermit{display:flex;align-items:center;gap:11px;padding:14px 2px;border-bottom:1px solid #e3edf2;color:#17364d;text-decoration:none}.officialPermit:last-child{border-bottom:0}.officialPermit:active{background:#f0f9ff}.officialPermitIcon{font-size:25px;flex:0 0 32px;text-align:center}.officialPermitBody{flex:1;min-width:0}.officialPermitBody .meta{margin-top:5px}.officialPermitBody .pill{margin-bottom:3px}.officialPermitArrow{font-size:30px;color:#78a2ba;line-height:1}
     @media(max-width:620px){body.ui-mobile{overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}body.ui-mobile main{overflow:visible!important;min-height:100dvh!important;padding-top:14px!important;padding-bottom:calc(124px + env(safe-area-inset-bottom))!important}body.ui-mobile #chat{overflow:visible!important;max-height:none!important;min-height:calc(100dvh - 180px)!important;padding-top:2px!important;padding-bottom:24px!important}body.ui-mobile #chat .panel,body.ui-mobile #chat .item,body.ui-mobile #chat .recordItem{overflow:visible!important;max-height:none!important}body.ui-mobile #chat [data-message-delete]{position:relative!important;z-index:2!important;flex:0 0 auto!important;min-width:76px!important}body.ui-mobile #chat .recordItem{align-items:flex-start!important}}
@@ -25,6 +25,7 @@
   </script>
   <header class="top" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
     <div><div class="brand">TOMA SHARE</div><div class="meta">情報共有ワークスペース</div></div>
+    <button id="desktopHomeButton" class="desktopHomeButton" type="button"><span>🏠</span> ホーム</button>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <label class="viewModeControl"><span>表示</span><select id="viewModeSelect" aria-label="表示モード"><option value="auto">自動</option><option value="desktop">PC</option><option value="mobile">モバイル</option></select></label>
       <label style="display:flex;align-items:center;gap:6px;color:#fff;font-weight:800;white-space:nowrap"><span>年度</span><select id="workspaceYear" aria-label="表示年度" style="width:auto;margin:0;padding:9px 28px 9px 10px;border:0;border-radius:10px;font-size:16px;font-weight:800"><option value="2026">2026年</option><option value="2027">2027年</option></select><button id="addWorkspaceYear" type="button" aria-label="年度を追加" style="border:0;border-radius:10px;background:#fff;color:#0b76d1;width:40px;height:40px;font-size:25px;font-weight:900;line-height:1">＋</button></label>
@@ -35,6 +36,7 @@
     <section id="home" class="hidden"></section><section id="drive" class="hidden"></section><section id="chat" class="hidden"></section><section id="cal" class="hidden"></section><section id="more" class="hidden"></section><section id="minute" class="hidden"></section><section id="review" class="hidden"></section><section id="permit" class="hidden"></section><section id="events" class="hidden"></section><section id="tasks" class="hidden"></section><section id="search" class="hidden"></section><section id="trash" class="hidden"></section><section id="activity" class="hidden"></section>
   </main>
   <nav class="bottom hidden" id="nav">
+    <button id="desktopMenuClose" class="desktopMenuClose" type="button">× メニューを閉じる</button>
     <button class="nav on" data-p="home" type="button"><span>🏠</span>ホーム</button>
     <button class="nav" data-p="drive" type="button"><span>📁</span>ファイル共有</button>
     <button class="nav pcOnlyNav" data-p="events" type="button"><span>📅</span>イベント一覧</button>
@@ -45,6 +47,8 @@
     <button class="nav pcOnlyNav" data-p="permit" type="button"><span>📄</span>申請・申し込み</button>
     <button class="nav" data-p="more" type="button"><span>⚙️</span>設定</button>
   </nav>
+  <button id="desktopMenuToggle" class="desktopMenuToggle" type="button" aria-controls="nav" aria-expanded="false"><span>☰</span><b>メニュー</b></button>
+  <button id="desktopMenuBackdrop" class="desktopMenuBackdrop" type="button" aria-label="メニューを閉じる"></button>
   <div id="toast" class="toast hidden"></div>
   <script>try{localStorage.setItem('tomaCode','TOMA-2026');}catch(e){}</script>
   <script src="/responsive-layout.js?v=20260911-ui9"></script>
@@ -59,5 +63,6 @@
   <script src="/events-mount-fix.js?v=20260911-ui9"></script>
   <script src="/finance.js?v=20260913-undo1"></script>
   <script src="/pc-home-dashboard.js?v=20260911-ui9"></script>
+  <script src="/pc-nav-drawer.js?v=20260913-nav1"></script>
 </body>
 </html>
