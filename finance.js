@@ -9,7 +9,7 @@ function ensureSection(){
   section=document.createElement('section');
   section.id='budgetNative';
   section.className='hidden budgetSheetHost';
-  section.innerHTML='<iframe class="budgetSheetFrame" title="TOMA SHARE 予算管理" src="/budget-sheet/"></iframe>';
+  section.innerHTML='<iframe class="budgetSheetFrame" title="TOMA SHARE 予算管理" src="/budget-sheet/?v=20260913-sync2"></iframe>';
   document.querySelector('main')?.appendChild(section);
   return section;
 }
