@@ -740,6 +740,21 @@ async function ensureTasksTable(){
   );
 }
 
+async function ensureBudgetTable(){
+  await pool.query(
+    `create table if not exists workspace_budgets
+     (
+       workspace_id uuid not null,
+       fiscal_year integer not null default 2026,
+       data jsonb not null default '{}'::jsonb,
+       revision bigint not null default 0,
+       updated_by text,
+       updated_at timestamptz not null default now(),
+       primary key(workspace_id,fiscal_year)
+     )`
+  );
+}
+
 async function ensureActivityTable(){
   await pool.query(
     `create table if not exists workspace_activity
@@ -2001,6 +2016,29 @@ async(req,res)=>{
       );
     }
 
+    if(
+      req.method === 'GET' &&
+      req.query &&
+      req.query.budget
+    ){
+      const budgetYear=Number(req.query.budget);
+      if(!Number.isInteger(budgetYear)||budgetYear<2000||budgetYear>2100){
+        return send(res,400,{error:'年度が正しくありません'});
+      }
+      await ensureBudgetTable();
+      const budgetResult=await pool.query(
+        `select data,revision,updated_by,updated_at
+         from workspace_budgets
+         where workspace_id=$1 and fiscal_year=$2
+         limit 1`,
+        [ws.id,budgetYear]
+      );
+      return send(res,200,{
+        ok:true,
+        budget:budgetResult.rows[0]||null
+      });
+    }
+
 
     /* ==============================
        通常GET
@@ -2504,6 +2542,31 @@ async(req,res)=>{
     switch(
       b.action
     ){
+
+      case 'budget_save':{
+        if(!b.data||typeof b.data!=='object'||Array.isArray(b.data)){
+          return send(res,400,{error:'予算データが正しくありません'});
+        }
+        const serialized=JSON.stringify(b.data);
+        if(Buffer.byteLength(serialized,'utf8')>2*1024*1024){
+          return send(res,413,{error:'予算データの容量が大きすぎます'});
+        }
+        await ensureBudgetTable();
+        const savedBudget=await pool.query(
+          `insert into workspace_budgets
+             (workspace_id,fiscal_year,data,revision,updated_by,updated_at)
+           values($1,$2,$3::jsonb,1,$4,now())
+           on conflict(workspace_id,fiscal_year)
+           do update set
+             data=excluded.data,
+             revision=workspace_budgets.revision+1,
+             updated_by=excluded.updated_by,
+             updated_at=now()
+           returning revision,updated_by,updated_at`,
+          [ws.id,fiscalYear,serialized,by]
+        );
+        return send(res,200,{ok:true,budget:savedBudget.rows[0]});
+      }
 
 
       case 'year_add':{
