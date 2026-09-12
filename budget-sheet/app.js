@@ -6,7 +6,7 @@ const ACCOUNTS=[
 const TABS=[['overview','収支概要'],['basic','基本情報'],['incomeBudget','収入予算'],['sponsors','協賛者リスト'],['ticketList','返礼金券リスト'],['expenseBudget','支出予算'],['entry','かんたん入力'],['bulk','連続入力'],['ledger','取引一覧'],['sales','収入集計'],['expenses','支出集計'],['settlement','決算書'],['accounts','勘定科目']];
 const blankBulk=()=>({date:'',type:'支出',code:'501',amount:'',description:'',partner:'',method:'振込'});
 const S={year:2026,tab:'overview',data:{},draft:{type:'支出',date:new Date().toISOString().slice(0,10)},bulk:Array.from({length:8},blankBulk)};
-const n=v=>Number(String(v??'').replace(/,/g,''))||0,m=v=>n(v).toLocaleString('ja-JP')+'円',esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const n=v=>Number(String(v??'').replace(/[¥￥円,\s]/g,''))||0,m=v=>'¥'+n(v).toLocaleString('ja-JP'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const incomes=()=>ACCOUNTS.filter(a=>a.type==='収入'),expenses=()=>ACCOUNTS.filter(a=>a.type==='支出');
 function fresh(){return{basic:{event:'第3回とまこまい氷夏フェス2026',venue:'nepiaアイスアリーナ',date:'',manager:'羽賀 城',note:''},budget:ACCOUNTS.map(a=>({code:a.code,qty:a.code==='101'?1:0,price:0,note:''})),sponsors:[],detail:[]}}
 function data(y=S.year){const d=S.data[y]||(S.data[y]=fresh());d.sponsors=d.sponsors||[];return d}function account(code){return ACCOUNTS.find(a=>a.code===code)||{type:'',name:''}}
