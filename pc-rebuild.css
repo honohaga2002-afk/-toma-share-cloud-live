@@ -61,7 +61,7 @@
   body.ui-desktop .budgetSheetHost{left:0!important;top:var(--pc-top)!important;bottom:0!important;background:var(--pc-bg)!important}
   body.ui-desktop .budgetSheetFrame{background:var(--pc-bg)!important}
 
-  body.ui-desktop .desktopHomeButton{display:flex!important;align-items:center;justify-content:center;gap:7px;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:112px;height:38px;padding:0 16px;border:1px solid #b8d2e5;border-radius:8px;background:#fff;color:var(--pc-navy);font-size:13px;font-weight:850;box-shadow:0 2px 8px rgba(0,0,0,.11);cursor:pointer}
+  body.ui-desktop .desktopHomeButton{display:flex!important;align-items:center;justify-content:center;gap:7px;position:absolute;left:56%;top:50%;transform:translate(-50%,-50%);min-width:112px;height:38px;padding:0 16px;border:1px solid #b8d2e5;border-radius:8px;background:#fff;color:var(--pc-navy);font-size:13px;font-weight:850;box-shadow:0 2px 8px rgba(0,0,0,.11);cursor:pointer}
   body.ui-desktop .desktopHomeButton:hover{background:#edf7ff;border-color:#75b6e2}
   body.ui-desktop .desktopMenuToggle{display:flex!important;position:fixed;left:0;top:62%;z-index:68;width:42px;min-height:112px;border:0;border-radius:0 10px 10px 0;background:var(--pc-navy);color:#fff;box-shadow:3px 3px 14px rgba(13,45,68,.25);align-items:center;justify-content:center;flex-direction:column;gap:7px;cursor:pointer;transition:opacity .15s,transform .15s}
   body.ui-desktop .desktopMenuToggle span{font-size:20px;line-height:1}
