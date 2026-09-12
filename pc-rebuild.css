@@ -1,8 +1,7 @@
 /* TOMA SHARE desktop workspace — based on the approved reference layout. */
-.desktopHomeButton,.desktopMenuToggle,.desktopMenuClose,.desktopMenuBackdrop{display:none}
 @media (min-width:901px){
   body.ui-desktop{
-    --pc-nav:184px;--pc-top:58px;--pc-navy:#123a5a;--pc-navy-2:#0e304b;
+    --pc-top:58px;--pc-menu:48px;--pc-navy:#123a5a;--pc-navy-2:#0e304b;
     --pc-blue:#1676c5;--pc-bg:#f3f7fb;--pc-line:#dbe5ee;--pc-text:#17364d;
     background:var(--pc-bg)!important;color:var(--pc-text);overflow:auto!important
   }
@@ -20,20 +19,19 @@
   body.ui-desktop header.top #workspaceYear{height:32px!important;min-height:32px!important;width:92px!important;margin:0!important;padding:4px 28px 4px 9px!important;border:1px solid #52718a!important;border-radius:5px!important;background:#fff!important;font-size:12px!important}
   body.ui-desktop header.top #addWorkspaceYear{width:32px!important;height:32px!important;border-radius:5px!important;font-size:19px!important}
 
-  body.ui-desktop main{max-width:none!important;width:auto!important;min-height:100vh!important;margin:0!important;padding:calc(var(--pc-top) + 24px) 28px 32px!important;background:var(--pc-bg)!important;transition:padding-left .22s ease!important}
+  body.ui-desktop main{max-width:none!important;width:auto!important;min-height:100vh!important;margin:0!important;padding:calc(var(--pc-top) + var(--pc-menu) + 24px) 28px 32px!important;background:var(--pc-bg)!important}
   body.ui-desktop main>section{max-width:1500px!important;margin:0 auto!important}
   body.ui-desktop main>section:not(.hidden){animation:none!important}
 
-  body.ui-desktop #nav.bottom{position:fixed!important;left:0!important;top:var(--pc-top)!important;bottom:0!important;right:auto!important;width:var(--pc-nav)!important;display:flex!important;grid-template-columns:none!important;flex-direction:column!important;gap:4px!important;padding:12px 10px 14px!important;background:linear-gradient(180deg,var(--pc-navy),var(--pc-navy-2))!important;border:0!important;box-shadow:7px 0 24px rgba(13,45,68,.24)!important;z-index:72!important;overflow-y:auto!important;transform:translateX(calc(-100% - 12px))!important;visibility:hidden!important;transition:transform .22s ease,visibility .22s!important}
-  body.ui-desktop.pc-menu-open #nav.bottom{transform:translateX(0)!important;visibility:visible!important}
-  body.ui-desktop #nav .nav[data-p="home"]{display:none!important}
-  body.ui-desktop #nav .nav{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:11px!important;width:100%!important;min-height:42px!important;height:42px!important;padding:0 12px!important;border-radius:6px!important;color:#d8e6ef!important;background:transparent!important;font-size:13px!important;font-weight:700!important;text-align:left!important;white-space:nowrap!important}
-  body.ui-desktop #nav .nav span{display:inline!important;width:19px!important;font-size:16px!important;line-height:1!important;text-align:center!important}
+  body.ui-desktop #nav.bottom{position:fixed!important;left:0!important;top:var(--pc-top)!important;right:0!important;bottom:auto!important;width:100%!important;height:var(--pc-menu)!important;display:flex!important;grid-template-columns:none!important;align-items:stretch!important;justify-content:center!important;gap:2px!important;padding:5px 18px!important;background:var(--pc-navy-2)!important;border:0!important;border-top:1px solid rgba(255,255,255,.08)!important;box-shadow:0 4px 14px rgba(13,45,68,.18)!important;z-index:72!important;overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch!important}
+  body.ui-desktop #nav.bottom.hidden{display:none!important}
+  body.ui-desktop #nav .nav{display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;flex:0 0 auto!important;min-width:126px!important;width:auto!important;min-height:38px!important;height:38px!important;padding:0 14px!important;border-radius:6px!important;color:#d8e6ef!important;background:transparent!important;font-size:13px!important;font-weight:750!important;text-align:center!important;white-space:nowrap!important}
+  body.ui-desktop #nav .nav span{display:inline!important;width:auto!important;font-size:16px!important;line-height:1!important;text-align:center!important}
   body.ui-desktop #nav .nav:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
   body.ui-desktop #nav .nav.on{background:var(--pc-blue)!important;color:#fff!important;box-shadow:inset 3px 0 0 #75c6ff!important}
   body.ui-desktop #nav .nav[data-p="chat"],body.ui-desktop #nav .nav[data-p="tasks"],body.ui-desktop #nav .mobileCalNav{display:none!important}
   body.ui-desktop #nav .pcOnlyNav{display:flex!important}
-  body.ui-desktop #nav .nav[data-p="more"]{margin-top:auto!important}
+  body.ui-desktop #nav .nav[data-p="more"]{margin:0!important}
 
   body.ui-desktop h1,body.ui-desktop h2,body.ui-desktop h3{color:var(--pc-text)!important}
   body.ui-desktop h2{font-size:24px!important;margin:0 0 8px!important;letter-spacing:.01em}
@@ -58,21 +56,12 @@
   body.ui-desktop #drive .fileActions .btn{width:auto!important;min-width:78px!important}
   body.ui-desktop .officialPermitList{grid-template-columns:repeat(2,minmax(0,1fr))!important;column-gap:22px!important}
   body.ui-desktop .officialPermit{padding:12px 4px!important}
-  body.ui-desktop .budgetSheetHost{left:0!important;top:var(--pc-top)!important;bottom:0!important;background:var(--pc-bg)!important}
+  body.ui-desktop .budgetSheetHost{left:0!important;top:calc(var(--pc-top) + var(--pc-menu))!important;bottom:0!important;background:var(--pc-bg)!important}
   body.ui-desktop .budgetSheetFrame{background:var(--pc-bg)!important}
 
-  body.ui-desktop .desktopHomeButton{display:flex!important;align-items:center;justify-content:center;gap:7px;position:absolute;left:56%;top:50%;transform:translate(-50%,-50%);min-width:112px;height:38px;padding:0 16px;border:1px solid #b8d2e5;border-radius:8px;background:#fff;color:var(--pc-navy);font-size:13px;font-weight:850;box-shadow:0 2px 8px rgba(0,0,0,.11);cursor:pointer}
-  body.ui-desktop .desktopHomeButton:hover{background:#edf7ff;border-color:#75b6e2}
-  body.ui-desktop .desktopMenuToggle{display:flex!important;position:fixed;left:0;top:62%;z-index:68;width:42px;min-height:112px;border:0;border-radius:0 10px 10px 0;background:var(--pc-navy);color:#fff;box-shadow:3px 3px 14px rgba(13,45,68,.25);align-items:center;justify-content:center;flex-direction:column;gap:7px;cursor:pointer;transition:opacity .15s,transform .15s}
-  body.ui-desktop .desktopMenuToggle span{font-size:20px;line-height:1}
-  body.ui-desktop .desktopMenuToggle b{font-size:12px;line-height:1.15;writing-mode:vertical-rl;letter-spacing:.08em}
-  body.ui-desktop.pc-menu-open .desktopMenuToggle{opacity:0;pointer-events:none;transform:translateX(-100%)}
-  body.ui-desktop .desktopMenuClose{display:block!important;width:100%;min-height:38px;margin:0 0 8px;border:1px solid rgba(255,255,255,.22);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:800;cursor:pointer}
-  body.ui-desktop .desktopMenuBackdrop{display:block!important;position:fixed;inset:var(--pc-top) 0 0 0;z-index:70;border:0;background:rgba(10,32,49,.26);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .22s,visibility .22s}
-  body.ui-desktop.pc-menu-open .desktopMenuBackdrop{opacity:1;visibility:visible;pointer-events:auto}
 }
 
-@media(max-width:900px){.pcOnlyNav,.desktopHomeButton,.desktopMenuToggle,.desktopMenuClose,.desktopMenuBackdrop{display:none!important}}
+@media(max-width:900px){.pcOnlyNav{display:none!important}}
 
 @media(min-width:901px){
   body.ui-desktop #home{max-width:1420px!important}
