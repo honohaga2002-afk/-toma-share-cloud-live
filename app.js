@@ -4562,36 +4562,26 @@ function driveR(){
           folderFileKind(file)===kind
       );
 
-    const isOpen=
-      openFolderCategory===kind;
-
     return `
-      <div class="item" style="margin-top:10px">
-        <button
-          type="button"
+      <details class="item folderCategory" data-folder-category="${kind}" style="margin-top:10px">
+        <summary
           class="btn light"
-          data-folder-category="${kind}"
-          aria-expanded="${isOpen?'true':'false'}"
-          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;white-space:normal"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;white-space:normal;box-sizing:border-box;cursor:pointer;list-style:none"
         >
           <span class="title">${icon} ${title}</span>
           <span style="display:flex;align-items:center;gap:8px;white-space:nowrap">
             <span class="pill">${sectionFiles.length}件</span>
-            <span aria-hidden="true">${isOpen?'▲':'▼'}</span>
+            <span class="folderCategoryArrow" aria-hidden="true">▼</span>
           </span>
-        </button>
-        ${
-          isOpen
-            ?`<div style="margin-top:8px">
-                ${
-                  sectionFiles.length
-                    ?sectionFiles.map(fileRow).join('')
-                    :'<div class="empty">ファイルはありません</div>'
-                }
-              </div>`
-            :''
-        }
-      </div>
+        </summary>
+        <div style="margin-top:8px">
+          ${
+            sectionFiles.length
+              ?sectionFiles.map(fileRow).join('')
+              :'<div class="empty">ファイルはありません</div>'
+          }
+        </div>
+      </details>
     `;
   };
 
@@ -4802,24 +4792,6 @@ function driveR(){
           openFolderId;
 
         openFolderCategory='';
-        driveR();
-      };
-    });
-
-  document
-    .querySelectorAll(
-      '[data-folder-category]'
-    )
-    .forEach(button=>{
-      button.onclick=()=>{
-        const category=
-          button.dataset.folderCategory;
-
-        openFolderCategory=
-          openFolderCategory===category
-            ?''
-            :category;
-
         driveR();
       };
     });
