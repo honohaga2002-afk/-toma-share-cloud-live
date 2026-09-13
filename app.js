@@ -1310,7 +1310,11 @@ async function doLogin(){
       );
 
     go(
-      ['home','drive','chat','cal','more']
+      [
+        'home','drive','events','chat','cal',
+        'tasks','budgetNative','permit','more',
+        'minute','review','search','trash','activity'
+      ]
         .includes(requestedPage)
           ?requestedPage
           :'home'
