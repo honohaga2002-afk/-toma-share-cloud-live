@@ -1963,6 +1963,53 @@ function googleViewUrl(f){
 }
 
 
+function showSpreadsheetViewer(f,url){
+
+  document.getElementById(
+    'tomaSpreadsheetViewer'
+  )?.remove();
+
+  const viewer=
+    document.createElement('div');
+
+  viewer.id='tomaSpreadsheetViewer';
+  viewer.setAttribute('role','dialog');
+  viewer.setAttribute('aria-modal','true');
+  viewer.innerHTML=`
+    <div class="sheetViewerBar">
+      <div class="sheetViewerTitle">${esc(f?.name||'Excel')}</div>
+      <div class="sheetViewerActions">
+        <button class="btn light" type="button" data-sheet-external>Googleで開く</button>
+        <button class="btn" type="button" data-sheet-close>閉じる</button>
+      </div>
+    </div>
+    <div class="sheetViewerLoading">Excelを読み込んでいます…</div>
+    <iframe
+      class="sheetViewerFrame"
+      title="${esc(f?.name||'Excel')}"
+      src="${esc(url)}"
+      allow="clipboard-read; clipboard-write"
+    ></iframe>
+  `;
+
+  viewer.querySelector('[data-sheet-close]')
+    .onclick=()=>viewer.remove();
+
+  viewer.querySelector('[data-sheet-external]')
+    .onclick=()=>openExternal(
+      googleEditUrl(f)||url
+    );
+
+  const frame=viewer.querySelector('iframe');
+  frame.addEventListener('load',()=>{
+    viewer.querySelector('.sheetViewerLoading')
+      ?.classList.add('hidden');
+  });
+
+  document.body.appendChild(viewer);
+}
+
+
 function googleEditUrl(f){
 
   if(!f)return null;
@@ -2449,8 +2496,7 @@ async function openFile(f){
           googleViewUrl(f);
 
         if(viewUrl){
-          openExternal(viewUrl);
-          say('閲覧画面を開きました');
+          showSpreadsheetViewer(f,viewUrl);
           return;
         }
 
