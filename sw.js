@@ -25,7 +25,7 @@ self.addEventListener('push',event=>{
             client.visibilityState==='visible'
         );
 
-      if(visible){
+      if(visible&&data.eventType!=='test'){
         visible.postMessage({
           type:'workspace-notification',
           title:data.title||'TOMA SHARE',
