@@ -1338,20 +1338,6 @@ async function doLogin(){
 
     await announceLogin();
 
-    api(
-      'POST',
-      {
-        action:'drive_share_all',
-        by:N
-      }
-    )
-    .catch(
-      e=>console.error(
-        'Drive link sharing failed:',
-        e
-      )
-    );
-
     say(
       'ログインしました'
     );
@@ -5030,9 +5016,7 @@ function driveR(){
               '共同編集を開始しました'
             );
 
-            /* 編集開始時点のDrive更新日時を記録 */
-            syncDriveChanges(false)
-              .catch(e=>console.error(e));
+            /* Drive同期は明示的な「更新」操作でのみ実行する */
           };
       }
     );
@@ -7724,7 +7708,6 @@ function init(){
       )return;
 
       try{
-        await syncDriveChanges(false);
         await load();
         go('drive');
       }catch(e){
