@@ -41,6 +41,7 @@ let driveType='all';
 let driveSort='updated';
 let openFolderId='';
 let openFolderCategory='';
+let driveFileCounts={total:0,selected:0};
 
 let selectedYear=
   Number.isInteger(storedYear)&&
@@ -545,6 +546,18 @@ async function load(){
 
   const d=
     await api();
+
+  const allDriveFiles=
+    (d.items||[]).filter(
+      item=>item.item_type==='file'
+    );
+
+  driveFileCounts={
+    total:allDriveFiles.length,
+    selected:allDriveFiles.filter(
+      item=>Number(item.fiscal_year||2026)===selectedYear
+    ).length
+  };
 
   state={
     years:
@@ -4125,7 +4138,7 @@ function homeR(){
       >
         <div class="ico">📁</div>
         <div class="ct">共有ドライブ</div>
-        <div class="meta">${state.items.filter(x=>x.item_type==='file').length}資料</div>
+        <div class="meta">全年度 ${driveFileCounts.total}資料（${selectedYear}年度：${driveFileCounts.selected}資料）</div>
       </button>
 
       <button
@@ -4659,6 +4672,10 @@ function driveR(){
 
         <div class="title">
           📁 共有ドライブ
+        </div>
+
+        <div class="meta" style="flex:1;min-width:180px">
+          全年度 ${driveFileCounts.total}資料｜${selectedYear}年度 ${driveFileCounts.selected}資料
         </div>
 
         <button
