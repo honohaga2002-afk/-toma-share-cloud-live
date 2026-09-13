@@ -427,6 +427,16 @@ async function api(
   body=null,
   silent=false
 ){
+  const controller=
+    typeof AbortController==='function'
+      ?new AbortController()
+      :null;
+
+  const timeoutId=setTimeout(
+    ()=>controller?.abort(),
+    20000
+  );
+
   const headers={
     'Content-Type':
       'application/json',
@@ -457,7 +467,8 @@ async function api(
     method,
     headers,
     cache:'no-store',
-    credentials:'same-origin'
+    credentials:'same-origin',
+    ...(controller?{signal:controller.signal}:{})
   };
 
   if(body){
@@ -525,9 +536,12 @@ async function api(
       e
     );
 
-    if(
-      e instanceof TypeError
-    ){
+    if(e?.name==='AbortError'){
+      setSyncState('error');
+      throw new Error('通信が混み合っています。もう一度押してください');
+    }
+
+    if(e instanceof TypeError){
 
       throw new Error(
         'サーバーへ接続できませんでした'
@@ -537,6 +551,7 @@ async function api(
     setSyncState('error');
     throw e;
   }finally{
+    clearTimeout(timeoutId);
     if(showBusy)setBusy(false);
   }
 }
@@ -4868,9 +4883,15 @@ function driveR(){
   if($('proDriveSync')){
     $('proDriveSync').onclick=
       async()=>{
-        await syncDriveChanges(true);
-        await load();
-        go('drive');
+        try{
+          await syncDriveChanges(true);
+          await load();
+        }catch(e){
+          console.error(e);
+          say(e.message||'更新できませんでした');
+        }finally{
+          go('drive');
+        }
       };
   }
 
@@ -4883,10 +4904,15 @@ function driveR(){
         button.textContent='確認中…';
       }
 
-      await syncDriveChanges(true);
-      await load();
-
-      go('drive');
+      try{
+        await syncDriveChanges(true);
+        await load();
+      }catch(e){
+        console.error(e);
+        say(e.message||'更新できませんでした');
+      }finally{
+        go('drive');
+      }
     };
 
   $('up').onclick=
@@ -7508,7 +7534,14 @@ function bindPermanentNavigation(){
   document.addEventListener(
     'click',
     event=>{
-      const folderButton=event.target.closest(
+      const target=
+        event.target instanceof Element
+          ?event.target
+          :event.target?.parentElement;
+
+      if(!target)return;
+
+      const folderButton=target.closest(
         '[data-folder-open]'
       );
 
@@ -7522,7 +7555,7 @@ function bindPermanentNavigation(){
         return;
       }
 
-      const button=event.target.closest(
+      const button=target.closest(
         '.nav[data-p], [data-go]'
       );
 
