@@ -320,6 +320,15 @@ function openExternal(url){
 
   if(!url)return false;
 
+  if(isIOS()){
+    try{
+      localStorage.setItem('tomaLastPage',cur);
+    }catch(e){}
+
+    window.location.assign(url);
+    return true;
+  }
+
   const a=
     document.createElement(
       'a'
@@ -1959,11 +1968,57 @@ function googleEditUrl(f){
     }
   }
 
-  const url=content?.googleEditLink;
+  const candidates=[
+    content?.googleEditLink,
+    content?.originalWebViewLink,
+    f?.googleEditLink,
+    f?.webViewLink
+  ];
 
-  return typeof url==='string' && /^https?:\/\//i.test(url)
-    ?url
-    :null;
+  const url=candidates.find(
+    value=>
+      typeof value==='string'&&
+      /^https:\/\/(?:docs|drive)\.google\.com\//i.test(value)
+  );
+
+  if(url)return url;
+
+  const driveFileId=String(
+    content?.driveFileId||
+    f?.driveFileId||
+    ''
+  ).trim();
+
+  if(!driveFileId)return null;
+
+  const googleMimeType=String(
+    content?.googleMimeType||
+    f?.googleMimeType||
+    ''
+  );
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.spreadsheet'
+  ){
+    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(driveFileId)}/edit`;
+  }
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.document'
+  ){
+    return `https://docs.google.com/document/d/${encodeURIComponent(driveFileId)}/edit`;
+  }
+
+  if(
+    googleMimeType===
+    'application/vnd.google-apps.presentation'
+  ){
+    return `https://docs.google.com/presentation/d/${encodeURIComponent(driveFileId)}/edit`;
+  }
+
+  return `https://drive.google.com/open?id=${encodeURIComponent(driveFileId)}`;
 }
 
 
