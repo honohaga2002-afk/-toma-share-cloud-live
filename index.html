@@ -20,7 +20,7 @@
     @media(min-width:700px){.fileActions{grid-template-columns:repeat(4,minmax(120px,auto));justify-content:end}.officialPermitList{grid-template-columns:1fr 1fr;column-gap:20px}}
     #tomaSpreadsheetViewer{position:fixed;inset:0;z-index:10000;background:#fff;display:flex;flex-direction:column}.sheetViewerBar{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:#0b568f;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18)}.sheetViewerTitle{font-size:16px;font-weight:900;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sheetViewerActions{display:flex;gap:8px;flex:0 0 auto}.sheetViewerActions .btn{width:auto;margin:0;padding:9px 12px;font-size:14px}.sheetViewerFrame{position:relative;z-index:1;width:100%;flex:1;border:0;background:#fff}.sheetViewerLoading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 18px;border-radius:12px;background:#eef7fd;color:#17445f;font-weight:800;z-index:0}@media(max-width:520px){.sheetViewerBar{align-items:flex-start}.sheetViewerTitle{padding-top:9px}.sheetViewerActions [data-sheet-external]{display:none}}
     .folderCategory>summary::-webkit-details-marker{display:none}.folderCategory[open] .folderCategoryArrow{transform:rotate(180deg)}.folderCategoryArrow{display:inline-block;transition:transform .15s ease}.folderCategory>summary{touch-action:manipulation;-webkit-tap-highlight-color:rgba(11,118,209,.12)}
-    .bottom a.nav{text-decoration:none;box-sizing:border-box;-webkit-tap-highlight-color:rgba(11,118,209,.14);touch-action:manipulation}.globalBusy{pointer-events:none!important}
+    .bottom .nav{text-decoration:none;box-sizing:border-box;-webkit-tap-highlight-color:rgba(11,118,209,.14);touch-action:manipulation}.globalBusy{pointer-events:none!important}
   </style>
 </head>
 <body>
@@ -39,20 +39,20 @@
     <section id="home" class="hidden"></section><section id="drive" class="hidden"></section><section id="chat" class="hidden"></section><section id="cal" class="hidden"></section><section id="more" class="hidden"></section><section id="minute" class="hidden"></section><section id="review" class="hidden"></section><section id="permit" class="hidden"></section><section id="events" class="hidden"></section><section id="tasks" class="hidden"></section><section id="search" class="hidden"></section><section id="trash" class="hidden"></section><section id="activity" class="hidden"></section>
   </main>
   <nav class="bottom hidden" id="nav">
-    <a class="nav on" data-p="home" href="/?open=home"><span>🏠</span>ホーム</a>
-    <a class="nav" data-p="drive" href="/?open=drive"><span>📁</span>ファイル共有</a>
-    <a class="nav pcOnlyNav" data-p="events" href="/?open=events"><span>📅</span>イベント一覧</a>
-    <a class="nav" data-p="chat" href="/?open=chat"><span>💬</span>連絡</a>
-    <a class="nav mobileCalNav" data-p="cal" href="/?open=cal"><span>📅</span>予定</a>
-    <a class="nav" data-p="tasks" href="/?open=tasks"><span>☑️</span>やること</a>
-    <a class="nav" data-p="budgetNative" data-budget-nav href="/?open=budgetNative"><span>💰</span>予算管理</a>
-    <a class="nav pcOnlyNav" data-p="permit" href="/?open=permit"><span>📄</span>申請・申し込み</a>
-    <a class="nav" data-p="more" href="/?open=more"><span>⚙️</span>設定</a>
+    <button type="button" class="nav on" data-p="home"><span>🏠</span>ホーム</button>
+    <button type="button" class="nav" data-p="drive"><span>📁</span>ファイル共有</button>
+    <button type="button" class="nav pcOnlyNav" data-p="events"><span>📅</span>イベント一覧</button>
+    <button type="button" class="nav" data-p="chat"><span>💬</span>連絡</button>
+    <button type="button" class="nav mobileCalNav" data-p="cal"><span>📅</span>予定</button>
+    <button type="button" class="nav" data-p="tasks"><span>☑️</span>やること</button>
+    <button type="button" class="nav" data-p="budgetNative" data-budget-nav><span>💰</span>予算管理</button>
+    <button type="button" class="nav pcOnlyNav" data-p="permit"><span>📄</span>申請・申し込み</button>
+    <button type="button" class="nav" data-p="more"><span>⚙️</span>設定</button>
   </nav>
   <div id="toast" class="toast hidden"></div>
   <script>try{localStorage.setItem('tomaCode','TOMA-2026');}catch(e){}</script>
   <script src="/responsive-layout.js?v=20260911-ui9"></script>
-  <script src="/app.js?v=20260914-nav5"></script>
+  <script src="/app.js?v=20260914-nav6"></script>
   <script src="/session-restore-fix.js?v=20260914-excel2"></script>
   <script src="/mobile-chat-scroll-fix.js?v=20260911-ui9"></script>
   <script src="/drive-50mb-upload.js?v=20260911-ui9"></script>

@@ -7674,9 +7674,10 @@ function init(){
       n=>{
 
         n.onclick=
-          ()=>go(
-            n.dataset.p
-          );
+          event=>{
+            event.preventDefault();
+            go(n.dataset.p);
+          };
       }
     );
 
