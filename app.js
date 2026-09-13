@@ -7509,11 +7509,45 @@ function go(p){
 }
 
 
+let permanentNavigationBound=false;
+
+function bindPermanentNavigation(){
+
+  if(permanentNavigationBound)return;
+
+  permanentNavigationBound=true;
+
+  document.addEventListener(
+    'click',
+    event=>{
+      const button=event.target.closest(
+        '.nav[data-p], [data-go]'
+      );
+
+      if(!button||button.disabled)return;
+
+      const page=
+        button.dataset.p||
+        button.dataset.go;
+
+      if(!page||!$(page))return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      go(page);
+    },
+    true
+  );
+}
+
+
 /* =========================================================
    起動
 ========================================================= */
 
 function init(){
+
+  bindPermanentNavigation();
 
   window.TOMA_SELECTED_YEAR=
     selectedYear;
