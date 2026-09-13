@@ -4748,6 +4748,15 @@ function driveR(){
         Googleスプレッドシート共同編集
       </button>
 
+      <button
+        class="btn light"
+        id="reconnectDrive"
+        type="button"
+        style="width:100%;margin-top:8px"
+      >
+        Google Driveを再接続
+      </button>
+
       <div class="meta">
         Excel・CSVは「編集」から直接編集できます。1ファイル2.5MBまで。
       </div>
@@ -4946,6 +4955,12 @@ function driveR(){
     ()=>openExternal(
       SHEET_URL
     );
+
+  $('reconnectDrive').onclick=
+    ()=>{
+      localStorage.setItem('tomaLastPage','drive');
+      location.href='/api/google-auth';
+    };
 
   if(
     $('folderSelect')

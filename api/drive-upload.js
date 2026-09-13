@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const { google } = require('googleapis');
+const {getGoogleRefreshToken}=require('./google-drive-token');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -38,12 +39,12 @@ function automaticFileCategory(name='',mime=''){
   return null;
 }
 
-function authClient(){
+async function authClient(){
   const auth=new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET
   );
-  const refreshToken=String(process.env.GOOGLE_REFRESH_TOKEN||'').replace(/\s+/g,'');
+  const refreshToken=await getGoogleRefreshToken();
   if(!refreshToken)throw new Error('GOOGLE_REFRESH_TOKEN が未設定です');
   auth.setCredentials({refresh_token:refreshToken});
   return auth;
@@ -111,7 +112,7 @@ module.exports=async(req,res)=>{
 
       const parentId=b.parent_id||null;
       const driveFolderId=await resolveDriveFolder(ws.id,parentId,name,mime);
-      const auth=authClient();
+      const auth=await authClient();
       const tokenResult=await auth.getAccessToken();
       const token=typeof tokenResult==='string'?tokenResult:tokenResult?.token;
       if(!token)throw new Error('Google Drive認証トークンを取得できません');
@@ -157,7 +158,7 @@ module.exports=async(req,res)=>{
       if(!fileId||!name)return send(res,400,{error:'保存情報が不足しています'});
       if(size>MAX_SIZE)return send(res,413,{error:'ファイルは50MB以下にしてください'});
 
-      const auth=authClient();
+      const auth=await authClient();
       const drive=google.drive({version:'v3',auth});
       const result=await drive.files.get({
         fileId,

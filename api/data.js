@@ -2,6 +2,7 @@ const { Pool } = require('pg');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 const webpush = require('web-push');
+const {getGoogleRefreshToken}=require('./google-drive-token');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -95,7 +96,7 @@ function readCookie(req,name){
    Google Drive
 ============================== */
 
-function driveClient(){
+async function driveClient(){
 
   const auth =
     new google.auth.OAuth2(
@@ -103,14 +104,7 @@ function driveClient(){
       process.env.GOOGLE_CLIENT_SECRET
     );
 
-  const refreshToken =
-    String(
-      process.env.GOOGLE_REFRESH_TOKEN ||
-      ''
-    ).replace(
-      /\s+/g,
-      ''
-    );
+  const refreshToken=await getGoogleRefreshToken();
 
   if(!refreshToken){
 
@@ -592,7 +586,7 @@ async function getMinuteLive(workspaceId,fiscalYear){
 
 async function allowAnyoneToEdit(fileId){
   if(!fileId)return false;
-  const drive=driveClient();
+  const drive=await driveClient();
   const result=await drive.permissions.list({
     fileId,
     fields:'permissions(id,type,role)'
@@ -785,7 +779,7 @@ async function createDriveFolder(
 ){
 
   const drive =
-    driveClient();
+    await driveClient();
 
   const result =
     await drive.files.create({
@@ -1106,7 +1100,7 @@ async function uploadToDrive(
 
 
   const drive =
-    driveClient();
+    await driveClient();
 
 
   const requestBody = {
@@ -1182,7 +1176,7 @@ async function syncDriveVersions(workspaceId,by){
     [workspaceId]
   );
 
-  const drive=driveClient();
+  const drive=await driveClient();
   let updated=0;
 
   for(const item of q.rows){
@@ -1317,7 +1311,7 @@ async function streamFile(
 
 
   const drive =
-    driveClient();
+    await driveClient();
 
 
   /*
@@ -1852,7 +1846,7 @@ async function saveCloudBackup(
     'utf8'
   );
 
-  const drive=driveClient();
+  const drive=await driveClient();
   const fileName=
     'TOMA_SHARE_クラウドバックアップ.json';
 
