@@ -7524,6 +7524,20 @@ function bindPermanentNavigation(){
   document.addEventListener(
     'click',
     event=>{
+      const folderButton=event.target.closest(
+        '[data-folder-open]'
+      );
+
+      if(folderButton&&!folderButton.disabled){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openFolderId=folderButton.dataset.folderOpen||'';
+        selectedFolderId=openFolderId;
+        openFolderCategory='';
+        driveR();
+        return;
+      }
+
       const button=event.target.closest(
         '.nav[data-p], [data-go]'
       );
