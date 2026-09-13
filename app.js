@@ -18,6 +18,7 @@ let driveSyncing=false;
 let lastLoginEventId=0;
 let loginAnnounced=false;
 let busyCount=0;
+let syncState='offline';
 let taskFilter='all';
 let openMinuteId='';
 let minuteEditingOpen=false;
@@ -392,6 +393,16 @@ function setBusy(active){
     'hidden',
     busyCount===0
   );
+  setSyncState(active?'saving':(syncState==='saving'?'saved':syncState));
+}
+
+function setSyncState(value){
+  syncState=value;
+  const el=$('syncStatus');
+  if(!el)return;
+  const labels={offline:'● 未接続',connecting:'● 接続中…',saved:'● 保存済み',saving:'● 保存中…',error:'● 同期エラー'};
+  el.textContent=labels[value]||labels.offline;
+  el.dataset.state=value;
 }
 
 
@@ -400,6 +411,7 @@ async function api(
   body=null,
   silent=false
 ){
+  if(method==='GET')setSyncState('connecting');
 
   const headers={
     'Content-Type':
@@ -481,6 +493,7 @@ async function api(
       );
     }
 
+    setSyncState('saved');
     return j;
 
   }catch(e){
@@ -499,6 +512,7 @@ async function api(
       );
     }
 
+    setSyncState('error');
     throw e;
   }finally{
     if(showBusy)setBusy(false);
@@ -3843,6 +3857,15 @@ function homeR(){
       </button>
     </div>
 
+    <div class="panel" style="margin-bottom:12px">
+      <div class="panelHeading">📌 すぐ使う</div>
+      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <button class="btn light" data-go="cal" type="button">予定を追加</button>
+        <button class="btn light" data-go="tasks" type="button">やることを追加</button>
+        <button class="btn light" data-go="chat" type="button">メッセージ</button>
+      </div>
+    </div>
+
     <div class="grid">
 
       <button
@@ -3896,6 +3919,12 @@ function homeR(){
         <div class="meta">${state.reviews.length}件</div>
       </button>
 
+      <button class="card" data-go="activity">
+        <div class="ico">🕘</div>
+        <div class="ct">更新履歴</div>
+        <div class="meta">${(state.activities||[]).length}件・誰がいつ変更したか</div>
+      </button>
+
       <button class="card" data-go="permit">
         <div class="ico">✅</div>
         <div class="ct">許可・申請</div>
@@ -3914,6 +3943,11 @@ function homeR(){
         <div class="meta">オンライン ${online.length}人</div>
       </button>
 
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="panelHeading">🕒 最近の更新</div>
+      ${(state.activities||[]).slice(-3).reverse().map(a=>`<div class="item" style="padding:10px 0"><div class="title">${esc(a.detail||a.action||'更新')}</div><div class="meta">${esc(a.member_name||'メンバー')}｜${a.created_at?esc(new Date(a.created_at).toLocaleString('ja-JP')):''}</div></div>`).join('')||'<div class="empty">最近の更新はありません</div>'}
     </div>
   `;
 
