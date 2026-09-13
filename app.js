@@ -899,6 +899,113 @@ async function preparePushNotifications(){
 }
 
 
+function notificationDeviceStatus(){
+  if(!supportsPushNotifications()){
+    return isIOS()
+      ?'ホーム画面に追加したTOMA SHAREから設定してください'
+      :'この端末はプッシュ通知に対応していません';
+  }
+
+  if(isIOS()&&!isStandaloneApp()){
+    return 'Safari表示中です。ホーム画面版から設定してください';
+  }
+
+  if(Notification.permission==='denied'){
+    return '端末の通知設定で拒否されています';
+  }
+
+  if(Notification.permission==='granted'){
+    return '通知は許可済みです。端末登録を確認できます';
+  }
+
+  return '通知はまだ許可されていません';
+}
+
+
+async function inspectPushNotificationStatus(){
+  const output=$('pushDiagnosticStatus');
+  const button=$('checkPushStatus');
+  if(button)button.disabled=true;
+
+  try{
+    if(!supportsPushNotifications()){
+      if(output)output.textContent=`状態：${notificationDeviceStatus()}`;
+      return;
+    }
+
+    const registration=await registerNotificationWorker();
+    const subscription=await registration.pushManager.getSubscription();
+    const mode=isStandaloneApp()?'ホーム画面版':'ブラウザ版';
+    const permission=Notification.permission==='granted'
+      ?'許可済み'
+      :Notification.permission==='denied'
+        ?'拒否'
+        :'未設定';
+
+    if(output){
+      output.textContent=
+        `状態：${mode}／通知${permission}／端末${subscription?'登録済み':'未登録'}`;
+    }
+  }catch(e){
+    if(output)output.textContent=`状態確認エラー：${e.message}`;
+  }finally{
+    if(button)button.disabled=false;
+  }
+}
+
+
+async function sendTestPushNotification(){
+  const button=$('sendTestPush');
+  if(button){
+    button.disabled=true;
+    button.textContent='送信中…';
+  }
+
+  try{
+    if(!supportsPushNotifications()){
+      throw new Error(notificationDeviceStatus());
+    }
+
+    if(isIOS()&&!isStandaloneApp()){
+      throw new Error('iPhoneではホーム画面に追加したTOMA SHAREから実行してください');
+    }
+
+    if(Notification.permission!=='granted'){
+      await enablePushNotifications();
+      return;
+    }
+
+    await savePushSubscription();
+
+    const registration=await registerNotificationWorker();
+    const subscription=await registration.pushManager.getSubscription();
+    if(!subscription){
+      throw new Error('この端末を通知先に登録できませんでした');
+    }
+
+    const result=await api('POST',{
+      action:'push_test',
+      endpoint:subscription.endpoint,
+      by:N
+    });
+
+    if(!result.sent){
+      throw new Error('通知サービスへ送信できませんでした');
+    }
+
+    say('テスト通知を送信しました');
+    await inspectPushNotificationStatus();
+  }catch(e){
+    alert(`テスト通知に失敗しました：${e.message}`);
+  }finally{
+    if(button){
+      button.disabled=false;
+      button.textContent='テスト通知を送る';
+    }
+  }
+}
+
+
 async function enablePushNotifications(){
 
   if(!supportsPushNotifications()){
@@ -5375,12 +5482,60 @@ function chatR(){
    スケジュール
 ========================================================= */
 
+function scheduleDraftKey(){
+  return `tomaScheduleDraftV1-${selectedYear}`;
+}
+
+function readScheduleDraft(){
+  try{
+    return JSON.parse(
+      localStorage.getItem(scheduleDraftKey())||'{}'
+    )||{};
+  }catch(e){
+    return {};
+  }
+}
+
+function saveScheduleDraft(){
+  const draft={
+    date:$('sdate')?.value||'',
+    time:$('stime')?.value||'09:00',
+    title:$('ttl')?.value||'',
+    place:$('splace')?.value||'',
+    memo:$('smemo')?.value||''
+  };
+
+  try{
+    localStorage.setItem(
+      scheduleDraftKey(),
+      JSON.stringify(draft)
+    );
+  }catch(e){}
+}
+
+function clearScheduleDraft(){
+  try{
+    localStorage.removeItem(scheduleDraftKey());
+  }catch(e){}
+}
+
+function bindScheduleDraft(){
+  ['sdate','stime','ttl','splace','smemo'].forEach(id=>{
+    const field=$(id);
+    if(!field)return;
+    field.addEventListener('input',saveScheduleDraft);
+    field.addEventListener('change',saveScheduleDraft);
+  });
+}
+
 function calR(){
 
   const el=
     $('cal');
 
   if(!el)return;
+
+  const draft=readScheduleDraft();
 
   const list=
     state.schedules
@@ -5423,28 +5578,39 @@ function calR(){
     <div class="panel">
       <div class="panelHeading">＋予定を追加</div>
 
+      <div class="meta" style="margin-bottom:10px">入力途中の内容は、この端末に自動保存されます。</div>
+
       <label class="meta" for="sdate">開催日</label>
-      <input id="sdate" type="date">
+      <input id="sdate" type="date" value="${esc(draft.date||'')}">
 
       <label class="meta" for="stime">開始時間</label>
-      <input id="stime" type="time" value="09:00">
+      <input id="stime" type="time" value="${esc(draft.time||'09:00')}">
 
       <label class="meta" for="ttl">予定名</label>
-      <input id="ttl" placeholder="例：出店者会議">
+      <input id="ttl" value="${esc(draft.title||'')}" placeholder="例：出店者会議">
 
       <label class="meta" for="splace">場所</label>
-      <input id="splace" placeholder="場所（任意）">
+      <input id="splace" value="${esc(draft.place||'')}" placeholder="場所（任意）">
 
       <label class="meta" for="smemo">メモ</label>
-      <textarea id="smemo" placeholder="持ち物・連絡事項（任意）"></textarea>
+      <textarea id="smemo" placeholder="持ち物・連絡事項（任意）">${esc(draft.memo||'')}</textarea>
 
       <button
         class="btn wide"
         id="addS"
         type="button"
       >予定を追加</button>
+      <button class="btn light wide" id="clearScheduleDraft" type="button" style="margin-top:8px">入力内容を消去</button>
     </div>
   `;
+
+  bindScheduleDraft();
+
+  $('clearScheduleDraft').onclick=()=>{
+    if(!confirm('入力途中の内容を消去しますか？'))return;
+    clearScheduleDraft();
+    calR();
+  };
 
   $('addS').onclick=
     async()=>{
@@ -5500,6 +5666,8 @@ function calR(){
             by:N
           }
         );
+
+        clearScheduleDraft();
 
         await load();
 
@@ -7013,6 +7181,16 @@ function bindNotificationSettings(){
 
   $('saveNotificationSettings').onclick=
     saveNotificationSettings;
+
+  if($('checkPushStatus')){
+    $('checkPushStatus').onclick=
+      inspectPushNotificationStatus;
+  }
+
+  if($('sendTestPush')){
+    $('sendTestPush').onclick=
+      sendTestPushNotification;
+  }
 }
 
 
@@ -7097,6 +7275,11 @@ function moreR(){
         ].join('');
       })()}
       <button class="btn wide" id="saveNotificationSettings" type="button" style="margin-top:12px">通知設定を保存</button>
+      <div id="pushDiagnosticStatus" class="meta" style="margin-top:14px">状態：${notificationDeviceStatus()}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+        <button class="btn light" id="checkPushStatus" type="button">状態を確認</button>
+        <button class="btn light" id="sendTestPush" type="button">テスト通知を送る</button>
+      </div>
     </div>
 
     <div class="panel installHelp">

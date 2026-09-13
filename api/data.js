@@ -2837,6 +2837,65 @@ async(req,res)=>{
       }
 
 
+      case 'push_test':{
+
+        const endpoint=String(b.endpoint||'');
+        if(!endpoint){
+          return send(res,400,{error:'通知先が指定されていません'});
+        }
+
+        await ensureNotificationTables();
+
+        const subscription=await pool.query(
+          `select subscription
+           from workspace_push_subscriptions
+           where workspace_id=$1 and endpoint=$2
+           limit 1`,
+          [ws.id,endpoint]
+        );
+
+        if(!subscription.rows[0]){
+          return send(res,404,{error:'この端末は通知先に登録されていません'});
+        }
+
+        const keys=await notificationKeys(ws.id);
+        webpush.setVapidDetails(
+          'https://toma-share-cloud-live.vercel.app',
+          keys.public_key,
+          keys.private_key
+        );
+
+        try{
+          await webpush.sendNotification(
+            subscription.rows[0].subscription,
+            JSON.stringify({
+              title:'🔔 TOMA SHARE テスト通知',
+              body:`${by}さん、この端末への通知は正常です`,
+              url:'/?open=home',
+              eventType:'test',
+              tag:'toma-test'
+            })
+          );
+        }catch(error){
+          if(error?.statusCode===404||error?.statusCode===410){
+            await pool.query(
+              `delete from workspace_push_subscriptions
+               where workspace_id=$1 and endpoint=$2`,
+              [ws.id,endpoint]
+            );
+          }
+
+          return send(
+            res,
+            502,
+            {error:'通知サービスへの送信に失敗しました'}
+          );
+        }
+
+        return send(res,200,{ok:true,sent:1});
+      }
+
+
       case 'login_notify':{
 
         await ensureNotificationTables();
