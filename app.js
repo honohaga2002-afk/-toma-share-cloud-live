@@ -320,14 +320,20 @@ function openExternal(url){
 
   if(!url)return false;
 
-  if(isIOS()){
-    try{
-      localStorage.setItem('tomaLastPage',cur);
-    }catch(e){}
+  try{
+    localStorage.setItem('tomaLastPage',cur);
+    localStorage.setItem(
+      'tomaCode',
+      C||$('code')?.value||'TOMA-2026'
+    );
 
-    window.location.assign(url);
-    return true;
-  }
+    const memberName=
+      N||$('memberName')?.value?.trim()||'';
+
+    if(memberName){
+      localStorage.setItem('tomaName',memberName);
+    }
+  }catch(e){}
 
   const a=
     document.createElement(
@@ -1285,7 +1291,10 @@ async function doLogin(){
     const requestedPage=
       new URLSearchParams(
         location.search
-      ).get('open');
+      ).get('open')||
+      localStorage.getItem(
+        'tomaLastPage'
+      );
 
     go(
       ['home','drive','chat','cal','more']

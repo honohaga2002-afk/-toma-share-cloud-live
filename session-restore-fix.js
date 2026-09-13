@@ -15,13 +15,18 @@ function restore(){
   if(nameEl&&!nameEl.value)nameEl.value=name;
   if(codeEl)codeEl.value=code;
 
-  // Re-enter automatically when returning from an external Google editor.
-  // This keeps the user from being dropped back at the login screen.
+  // Restore the signed-in view immediately before the network refresh finishes.
+  // This prevents iOS from showing the login screen when returning from Google.
+  login.classList.add('hidden');
+  document.getElementById('nav')?.classList.remove('hidden');
+
   setTimeout(()=>{
-    if(!login.classList.contains('hidden')){
-      try{enter.click();}catch(e){}
+    try{
+      enter.click();
+    }catch(e){
+      login.classList.remove('hidden');
     }
-  },120);
+  },0);
 }
 
 if(document.readyState==='loading'){
