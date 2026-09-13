@@ -400,7 +400,7 @@ function setSyncState(value){
   syncState=value;
   const el=$('syncStatus');
   if(!el)return;
-  const labels={offline:'● 未接続',connecting:'● 接続中…',saved:'● 保存済み',saving:'● 保存中…',error:'● 同期エラー'};
+  const labels={offline:'● 未接続',connecting:'● 接続中…',connected:'● 接続済み',saved:'● 保存済み',saving:'● 保存中…',error:'● 同期エラー'};
   el.textContent=labels[value]||labels.offline;
   el.dataset.state=value;
 }
@@ -411,8 +411,6 @@ async function api(
   body=null,
   silent=false
 ){
-  if(method==='GET')setSyncState('connecting');
-
   const headers={
     'Content-Type':
       'application/json',
@@ -455,7 +453,11 @@ async function api(
   const showBusy=
     !silent&&method!=='GET';
 
+  const showConnecting=
+    method==='GET'&&syncState==='offline';
+
   if(showBusy)setBusy(true);
+  if(showConnecting)setSyncState('connecting');
 
   try{
 
@@ -493,7 +495,11 @@ async function api(
       );
     }
 
-    setSyncState('saved');
+    if(showBusy){
+      setSyncState('saved');
+    }else if(showConnecting||syncState==='error'){
+      setSyncState('connected');
+    }
     return j;
 
   }catch(e){
@@ -1332,9 +1338,16 @@ function startPresence(){
 
         try{
 
+          const before=
+            pageRefreshSignature();
+
           await load();
 
-          render();
+          if(
+            pageRefreshSignature()!==before
+          ){
+            render();
+          }
 
         }catch(e){
 
@@ -1344,6 +1357,27 @@ function startPresence(){
       },
       30000
     );
+}
+
+
+function pageRefreshSignature(){
+
+  return JSON.stringify({
+    year:selectedYear,
+    online:(state.onlineMembers||[])
+      .map(item=>item.member_name||'')
+      .filter(Boolean)
+      .sort(),
+    schedules:state.schedules||[],
+    messages:state.messages||[],
+    items:state.items||[],
+    minutes:state.minutes||[],
+    reviews:state.reviews||[],
+    permits:state.permits||[],
+    tasks:state.tasks||[],
+    trash:state.trash||[],
+    activities:state.activities||[]
+  });
 }
 
 

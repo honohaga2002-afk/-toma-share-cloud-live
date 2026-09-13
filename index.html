@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/responsive-layout.css?v=20260911-ui9">
   <link rel="stylesheet" href="/pc-rebuild.css?v=20260913-nav3">
   <style>
-    .syncStatus{font-size:12px;font-weight:800;color:rgba(255,255,255,.9);margin-top:3px}.syncStatus[data-state="saved"]{color:#c9f7d6}.syncStatus[data-state="saving"],.syncStatus[data-state="connecting"]{color:#fff0b3}.syncStatus[data-state="error"]{color:#ffd0d0}
+    .syncStatus{font-size:12px;font-weight:800;color:rgba(255,255,255,.9);margin-top:3px;min-width:88px}.syncStatus[data-state="connected"],.syncStatus[data-state="saved"]{color:#c9f7d6}.syncStatus[data-state="saving"],.syncStatus[data-state="connecting"]{color:#fff0b3}.syncStatus[data-state="error"]{color:#ffd0d0}
     .fileItem{padding:16px 0}.fileInfo{width:100%;min-width:0;margin-bottom:12px}.fileInfo .title{font-size:17px;line-height:1.45;word-break:break-word}.fileInfo .meta{margin-top:4px}.fileActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}.fileActions .btn{width:100%;padding-left:8px;padding-right:8px;white-space:nowrap}.fileActions [data-edit]{display:none!important}.permitNotice{background:#f0f9ff;border-radius:10px;padding:10px;margin-bottom:6px}.officialPermitList{display:grid}.officialPermit{display:flex;align-items:center;gap:11px;padding:14px 2px;border-bottom:1px solid #e3edf2;color:#17364d;text-decoration:none}.officialPermit:last-child{border-bottom:0}.officialPermit:active{background:#f0f9ff}.officialPermitIcon{font-size:25px;flex:0 0 32px;text-align:center}.officialPermitBody{flex:1;min-width:0}.officialPermitBody .meta{margin-top:5px}.officialPermitBody .pill{margin-bottom:3px}.officialPermitArrow{font-size:30px;color:#78a2ba;line-height:1}
     @media(max-width:620px){body.ui-mobile{overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}body.ui-mobile main{overflow:visible!important;min-height:100dvh!important;padding-top:14px!important;padding-bottom:calc(124px + env(safe-area-inset-bottom))!important}body.ui-mobile #chat{overflow:visible!important;max-height:none!important;min-height:calc(100dvh - 180px)!important;padding-top:2px!important;padding-bottom:24px!important}body.ui-mobile #chat .panel,body.ui-mobile #chat .item,body.ui-mobile #chat .recordItem{overflow:visible!important;max-height:none!important}body.ui-mobile #chat [data-message-delete]{position:relative!important;z-index:2!important;flex:0 0 auto!important;min-width:76px!important}body.ui-mobile #chat .recordItem{align-items:flex-start!important}}
     @media(max-width:520px){.officialPermit{padding:14px 0}.officialPermitBody .title{font-size:16px}.officialPermitBody .meta{font-size:12px}}
@@ -49,7 +49,7 @@
   <div id="toast" class="toast hidden"></div>
   <script>try{localStorage.setItem('tomaCode','TOMA-2026');}catch(e){}</script>
   <script src="/responsive-layout.js?v=20260911-ui9"></script>
-  <script src="/app.js?v=20260914-home1"></script>
+  <script src="/app.js?v=20260914-home2"></script>
   <script src="/session-restore-fix.js?v=20260911-ui9"></script>
   <script src="/mobile-chat-scroll-fix.js?v=20260911-ui9"></script>
   <script src="/drive-50mb-upload.js?v=20260911-ui9"></script>
