@@ -1281,19 +1281,6 @@ async function doLogin(){
   }
 
   try{
-
-    await load();
-
-    lastLoginEventId=
-      Math.max(
-        0,
-        ...(
-          state.loginEvents||[]
-        ).map(
-          event=>Number(event.id)||0
-        )
-      );
-
     localStorage.setItem(
       'tomaCode',
       C
@@ -1334,7 +1321,7 @@ async function doLogin(){
       openFolderCategory='';
     }
 
-    go(
+    const loginPage=
       [
         'home','drive','events','chat','cal',
         'tasks','budgetNative','permit','more',
@@ -1342,8 +1329,25 @@ async function doLogin(){
       ]
         .includes(requestedPage)
           ?requestedPage
-          :'home'
-    );
+          :'home';
+
+    // Open the signed-in screen immediately. Data refresh can take several
+    // seconds after a server cold start and must not hold the login screen.
+    go(loginPage);
+
+    await load();
+
+    lastLoginEventId=
+      Math.max(
+        0,
+        ...(
+          state.loginEvents||[]
+        ).map(
+          event=>Number(event.id)||0
+        )
+      );
+
+    go(loginPage);
 
     await prepareSharedFile();
 
@@ -1359,9 +1363,11 @@ async function doLogin(){
 
     loginAnnounced=true;
 
-    await preparePushNotifications();
+    preparePushNotifications()
+      .catch(error=>console.error('Push setup failed:',error));
 
-    await announceLogin();
+    announceLogin()
+      .catch(error=>console.error('Login notice failed:',error));
 
     say(
       'ログインしました'
@@ -1371,21 +1377,11 @@ async function doLogin(){
 
     console.error(e);
 
+    say('データを読み込めません。更新を押してください');
+
     if(status){
-
-      status.className=
-        'err';
-
-      status.textContent=
-        'ログインできません：'+
-        e.message;
-
-    }else{
-
-      alert(
-        'ログインできません：'+
-        e.message
-      );
+      status.className='err';
+      status.textContent='接続に時間がかかっています。画面の更新を押してください。';
     }
 
   }finally{
