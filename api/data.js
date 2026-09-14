@@ -420,8 +420,6 @@ async function touchPresence(
     return;
   }
 
-  await ensurePresenceTable();
-
   await pool.query(
     `
     insert into workspace_presence
@@ -460,9 +458,6 @@ async function touchPresence(
 async function getOnlineMembers(
   workspaceId
 ){
-
-  await ensurePresenceTable();
-
   const q =
     await pool.query(
       `
@@ -1964,11 +1959,17 @@ async(req,res)=>{
       );
     }
 
-    await ensureTasksTable();
-    await ensureActivityTable();
-    await ensureFiscalYearColumns();
-    await ensureWorkspaceYears(ws.id);
-    await ensureEditingSessions();
+    // Schema checks are only needed for writes. Running DDL before every
+    // normal GET made login wait for many database round trips.
+    if(req.method !== 'GET'){
+      await Promise.all([
+        ensureTasksTable(),
+        ensureActivityTable(),
+        ensureFiscalYearColumns(),
+        ensureWorkspaceYears(ws.id),
+        ensureEditingSessions()
+      ]);
+    }
 
 
     /*
@@ -2043,27 +2044,6 @@ async(req,res)=>{
       'GET'
     ){
 
-      const yearsResult=
-        await pool.query(
-          `select year
-           from workspace_years
-           where workspace_id=$1
-           order by year`,
-          [ws.id]
-        );
-
-
-      const editorsResult=
-        await pool.query(
-          `select file_id,member_name,fiscal_year,last_seen
-           from workspace_editing_sessions
-           where workspace_id=$1
-             and last_seen>now()-interval '2 minutes'
-           order by last_seen desc`,
-          [ws.id]
-        );
-
-
       const memberName =
         decodeHeader(
           req.headers[
@@ -2071,20 +2051,27 @@ async(req,res)=>{
           ]
         );
 
-
-      if(memberName){
-
-        await touchPresence(
-          ws.id,
+      const [yearsResult,editorsResult]=
+        await Promise.all([
+          pool.query(
+          `select year
+           from workspace_years
+           where workspace_id=$1
+           order by year`,
+          [ws.id]
+          ),
+          pool.query(
+          `select file_id,member_name,fiscal_year,last_seen
+           from workspace_editing_sessions
+           where workspace_id=$1
+             and last_seen>now()-interval '2 minutes'
+           order by last_seen desc`,
+          [ws.id]
+          ),
           memberName
-        );
-      }
-
-      await ensureNotificationTables();
-
-      await ensureTasksTable();
-      await ensureActivityTable();
-
+            ?touchPresence(ws.id,memberName)
+            :Promise.resolve()
+        ]);
 
       const [
 
