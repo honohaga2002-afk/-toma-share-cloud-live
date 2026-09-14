@@ -1324,6 +1324,16 @@ async function doLogin(){
         'tomaLastPage'
       );
 
+    const requestedFolder=
+      new URLSearchParams(location.search)
+        .get('folder');
+
+    if(requestedPage==='drive'&&requestedFolder){
+      openFolderId=requestedFolder;
+      selectedFolderId=requestedFolder;
+      openFolderCategory='';
+    }
+
     go(
       [
         'home','drive','events','chat','cal',
@@ -4639,15 +4649,15 @@ function driveR(){
           return `
             <div class="item">
               <div class="row">
-                <button
-                  type="button"
+                <a
                   class="btn light"
                   data-folder-open="${esc(folder.id)}"
-                  style="flex:1;text-align:left;white-space:normal"
+                  href="/?open=drive&amp;folder=${encodeURIComponent(folder.id)}"
+                  style="flex:1;text-align:left;white-space:normal;text-decoration:none"
                 >
                   <span class="title">📂 ${esc(folder.name)}</span>
                   <span class="meta" style="display:block;margin-top:3px">${count}ファイル</span>
-                </button>
+                </a>
                 <button
                   class="btn danger"
                   data-del="${esc(folder.id)}"
