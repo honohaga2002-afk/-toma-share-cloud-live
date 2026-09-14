@@ -4582,10 +4582,11 @@ function driveR(){
   const folderSection=(
     icon,
     title,
-    kind
+    kind,
+    sourceFiles=selectedFolderFiles
   )=>{
     const sectionFiles=
-      selectedFolderFiles.filter(
+      sourceFiles.filter(
         file=>
           folderFileKind(file)===kind
       );
@@ -4638,35 +4639,40 @@ function driveR(){
     regularFolders.length
       ?regularFolders
         .map(folder=>{
-          const count=
+          const folderFiles=
             allFiles.filter(
               file=>sameId(
                 file.parent_id,
                 folder.id
               )
-            ).length;
+            );
 
           return `
-            <div class="item">
-              <div class="row">
-                <a
-                  class="btn light"
-                  data-folder-open="${esc(folder.id)}"
-                  href="/?open=drive&amp;folder=${encodeURIComponent(folder.id)}"
-                  style="flex:1;text-align:left;white-space:normal;text-decoration:none"
-                >
-                  <span class="title">📂 ${esc(folder.name)}</span>
-                  <span class="meta" style="display:block;margin-top:3px">${count}ファイル</span>
-                </a>
+            <details class="item driveFolder" data-folder-id="${esc(folder.id)}">
+              <summary class="driveFolderSummary">
+                <span style="flex:1;min-width:0">
+                  <span class="title" style="display:block">📂 ${esc(folder.name)}</span>
+                  <span class="meta" style="display:block;margin-top:3px">${folderFiles.length}ファイル</span>
+                </span>
+                <span class="driveFolderArrow" aria-hidden="true">▼</span>
                 <button
                   class="btn danger"
                   data-del="${esc(folder.id)}"
                   type="button"
+                  onclick="event.preventDefault();event.stopPropagation()"
                 >
                   削除
                 </button>
+              </summary>
+              <div class="driveFolderContents">
+                ${folderSection('📗','Excel','excel',folderFiles)}
+                ${folderSection('📘','Word','word',folderFiles)}
+                ${folderSection('📕','PDF','pdf',folderFiles)}
+                ${folderSection('📊','PowerPoint','powerpoint',folderFiles)}
+                ${folderSection('🖼️','画像データ','media',folderFiles)}
+                ${folderSection('📄','その他','other',folderFiles)}
               </div>
-            </div>
+            </details>
           `;
         })
         .join('')
@@ -4819,26 +4825,6 @@ function driveR(){
       driveR();
     };
   }
-
-  document
-    .querySelectorAll(
-      '[data-folder-open]'
-    )
-    .forEach(button=>{
-      button.onclick=()=>{
-        openFolderId=
-          button.dataset.folderOpen;
-
-        selectedFolderId=
-          openFolderId;
-
-        openFolderCategory='';
-        driveR();
-        requestAnimationFrame(
-          ()=>$('folderDetailPanel')?.scrollIntoView({block:'start'})
-        );
-      };
-    });
 
   if($('openImageFolder')){
     $('openImageFolder').onclick=
