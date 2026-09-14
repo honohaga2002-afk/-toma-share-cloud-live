@@ -4606,7 +4606,7 @@ function driveR(){
   const folderDetailHtml=
     selectedFolder
       ?`
-        <div class="panel">
+        <div class="panel" id="folderDetailPanel">
           <div class="sectionTitle">
             <button class="btn light" id="closeFolder" type="button">← 戻る</button>
             <div style="flex:1;min-width:0">
@@ -4671,7 +4671,7 @@ function driveR(){
 
   el.innerHTML=`
 
-    <div class="panel">
+    <div class="panel" ${selectedFolder?'style="display:none"':''}>
 
       <div class="sectionTitle">
 
@@ -4775,7 +4775,7 @@ function driveR(){
 
 
 
-    <div class="panel">
+    <div class="panel" ${selectedFolder?'style="display:none"':''}>
 
       <div class="title">
         📁 フォルダ
@@ -4785,7 +4785,7 @@ function driveR(){
 
     </div>
 
-    <div class="panel">
+    <div class="panel" ${selectedFolder?'style="display:none"':''}>
 
       <div class="title">
         📄 共有ドライブ直下
@@ -4824,6 +4824,9 @@ function driveR(){
 
         openFolderCategory='';
         driveR();
+        requestAnimationFrame(
+          ()=>$('folderDetailPanel')?.scrollIntoView({block:'start'})
+        );
       };
     });
 
@@ -7567,6 +7570,9 @@ function bindPermanentNavigation(){
         selectedFolderId=openFolderId;
         openFolderCategory='';
         driveR();
+        requestAnimationFrame(
+          ()=>$('folderDetailPanel')?.scrollIntoView({block:'start'})
+        );
         return;
       }
 
