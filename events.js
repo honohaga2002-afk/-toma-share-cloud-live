@@ -24,6 +24,7 @@ const EVENTS=[
 {date:'9/27(日)',time:'8:00〜12:00',title:'令和8年度 とまこまい青果市場感謝祭',place:'苫小牧市公設地方卸売市場 青果棟（港町2丁目2番2号）',tag:'地域・食・体験',url:'https://www.city.tomakomai.hokkaido.jp/kanko/nosui/nogyo/ichiba/seika.html'},
 {date:'9/30(水)',time:'10:00〜',title:'ベビープラネタリウム',place:'苫小牧市科学センター',tag:'親子・無料',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/R0809.html'},
 {date:'10/3(土)',time:'10:00〜12:00',title:'科学ふれあい教室「回転の科学！フシギなコマを作ろう」',place:'苫小牧市科学センター',tag:'科学・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kagaku/event/school/r8list_m.html'},
+{date:'10/3(土)',time:'10:00〜15:00（入館開始10:30頃予定）',title:'JFEカエルみらい館オープニングイベント「2026エコるDAY」',place:'JFEカエルみらい館（苫小牧市字沼ノ端2番地の25）',tag:'環境・体験・無料',url:'https://www.city.tomakomai.hokkaido.jp/kurashi/gomi/event/ecoruday.html'},
 {date:'10/3(土)',time:'13:30〜16:50',title:'市民交流将棋大会',place:'苫小牧市民文化ホール ART CUBES ルーム5',tag:'文化・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/eventannai/siminbunkasai.html'},
 {date:'10/3(土)〜10/4(日)',time:'時間は公式ページ確認',title:'市民文化祭 総合展示発表',place:'苫小牧市民文化ホール ART CUBES',tag:'市民文化祭',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/eventannai/siminbunkasai.html'},
 {date:'10/5(月)',time:'9:00〜15:00',title:'勇払地区文化祭',place:'勇払公民館',tag:'地域・小規模',url:'https://www.city.tomakomai.hokkaido.jp/kyoiku/shogaigakushu/bunka/eventannai/siminbunkasai.html'},
